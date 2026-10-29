@@ -5,9 +5,10 @@
 ;
 platform {
     ; gap buffer memory ends here (1 byte past the last usable byte).
-    ; BASIC ROM stays banked in at $a000-$bfff, so reads there return ROM,
-    ; not the RAM underneath: the buffer must end below it.
-    const pointer RAMTOP = $a000
+    ; this relies on Prog8's system init banking out the BASIC ROM, which it
+    ; does unless %option no_sysinit is used or floats are imported
+    ; (then reads at $a000-$bfff return the ROM, so use $a000 instead).
+    const pointer RAMTOP = $d000
 
     sub init() {
        main.SCREEN_WIDTH    = txt.DEFAULT_WIDTH

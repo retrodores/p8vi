@@ -2,7 +2,6 @@
 %import strings
 %import textio
 %zeropage basicsafe
-%option no_sysinit
 
 %import gapbuffer
 %import platform
