@@ -88,6 +88,10 @@ emu-c64:	build/mainc64.prg disk
 emu-cx16:	build/maincx16.prg
 	x16emu -debug -scale 2 -rtc -fsroot samples/ -run -prg build/maincx16.prg
 
+EMUVIC=xvic -default -keymap 1 -model ntsc -memory all -8 build/testgap.d64 -drive8type 1542 -monitorfont "JetBrains Mono 16"
+emu-vic20:	build/mainvic20.prg disk
+	$(EMUVIC) -autostartprgmode 1 build/mainvic20.prg
+
 # self checking gap buffer tests on the virtual target
 test-gap:	build
 	$(PCC) -quiet $(PCCARGSVM) -emu src/gaptest.p8 | grep -v INFO | diff -u tests/expected/virtual_gaptest.txt -
