@@ -36,6 +36,7 @@ main {
         test_bytes()
         test_segments()
         test_gap_ptr()
+        test_modified()
 
         txt.nl()
         if failures == 0 {
@@ -340,6 +341,27 @@ main {
         expect("abcd")
         check_uw("mark at gap", gapbuffer.get_mark(0), 1)
         check_uw("mark after", gapbuffer.get_mark(1), 4)
+    }
+
+    sub test_modified() {
+        txt.print("modified\n")
+        gapbuffer.clear()
+        check_bool("clear", gapbuffer.modified, false)
+        void gapbuffer.insert("abc", 0)
+        check_bool("insert", gapbuffer.modified, true)
+        gapbuffer.modified = false
+        gap_to(1)
+        void gapbuffer.copy_out(0, 3, linebuf)
+        check_bool("move and read", gapbuffer.modified, false)
+        void gapbuffer.delete_nchar(1, 3)
+        check_bool("delete past end", gapbuffer.modified, false)
+        void gapbuffer.delete_char(0)
+        check_bool("delete", gapbuffer.modified, true)
+        gapbuffer.modified = false
+        void gapbuffer.set(0, 'x')
+        check_bool("set", gapbuffer.modified, true)
+        void gapbuffer.loaded(0)
+        check_bool("loaded", gapbuffer.modified, false)
     }
 
     sub check_str(str name, str got, str wanted) {

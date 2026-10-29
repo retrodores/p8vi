@@ -44,6 +44,10 @@ gapbuffer {
     ; line ending character used by the line routines
     ubyte eol = $0d
 
+    ; set by every change to the text, cleared by loaded() / clear().
+    ; the editor clears it after saving.
+    bool modified
+
     uword[NUM_MARKS] marks
 
     ; use the memory from start up to (not including) top and empty the buffer
@@ -72,6 +76,7 @@ gapbuffer {
         gapsize = (ramtop - gapstart) as uword
         for i in 0 to NUM_MARKS - 1
             marks[i] = 0
+        modified = false
         return true
     }
 
@@ -99,6 +104,7 @@ gapbuffer {
         if offset >= bufend
             return false
         @(buffer2ram(offset)) = value
+        modified = true
         return true
     }
 
@@ -245,6 +251,8 @@ gapbuffer {
         marks_inserted(gappos, count)
         gappos += count
         bufend += count
+        if count != 0
+            modified = true
     }
 
     ;
@@ -269,6 +277,7 @@ gapbuffer {
         gapsize += count
         bufend -= count
         marks_deleted(position, count)
+        modified = true
         return count
     }
 

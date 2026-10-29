@@ -1,3 +1,5 @@
+%import diskio
+%import strings
 %import textio
 
 ;
@@ -18,6 +20,18 @@ platform {
        main.MIN_ROW         = 0
        main.MAX_ROW         = main.SCREEN_HEIGHT - main.STATUS_HEIGHT - 1
        main.STATUS_LINE     = main.SCREEN_HEIGHT - 1
+    }
+
+    ; open a file for writing with diskio.f_write as a SEQ file.
+    ; the CBM diskio.f_open_w doesn't add the type, so do that here.
+    ; the drive status can't be checked until the file is closed: reading
+    ; it opens and closes channel 15, and closing channel 15 closes every
+    ; file on the drive.  the file must not exist yet.
+    str write_name = " " * 40
+    sub open_write(str name) -> bool {
+        void strings.copy(name, write_name)
+        void strings.append(write_name, ",s,w")
+        return diskio.f_open_w(write_name)
     }
 }
 

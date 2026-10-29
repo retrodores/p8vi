@@ -1,3 +1,5 @@
+%import diskio
+%import strings
 %import textio
 
 ;
@@ -17,6 +19,13 @@ platform {
        main.MIN_ROW         = 0
        main.MAX_ROW         = main.SCREEN_HEIGHT - main.STATUS_HEIGHT - 1
        main.STATUS_LINE     = main.SCREEN_HEIGHT - 1
+    }
+
+    ; open a file for writing with diskio.f_write as a SEQ file.
+    ; the cx16 diskio.f_open_w adds ",s,w" and checks the drive status itself.
+    ; the file must not exist yet.
+    sub open_write(str name) -> bool {
+        return diskio.f_open_w(name)
     }
 }
 

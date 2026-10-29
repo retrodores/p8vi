@@ -1,3 +1,4 @@
+%import conv
 %import diskio
 %import strings
 %import textio
@@ -22,8 +23,12 @@ main {
     const ubyte KEY_DEL         = $14
     const ubyte KEY_CONTROL_G   = 7
     const ubyte KEY_DOLLAR      = '$'
+    const ubyte KEY_COLON       = ':'
 
-    str filename = "sampsmall.txt"
+    str filename = " " * 40     ; name of the file being edited, empty if none
+    str cmdline = " " * 40      ; text typed after ':'
+    ubyte cmdlen
+    bool cut_short              ; the file did not fit, so saving it over itself loses text
 
     ubyte mode
     ubyte key
@@ -37,7 +42,6 @@ main {
     sub start() {
         init()
         view.refresh(true)
-        status_bytes(filename, gapbuffer.length())
         cursor_on()
         repeat {
             key = cbm.GETIN2()
@@ -55,6 +59,11 @@ main {
             }
             last_key = key
             view.refresh(false)
+            if mode == MODE_CMD {
+                ; the cursor is on the command line
+                view.column = min(1 + cmdlen, SCREEN_WIDTH - 2)
+                view.row = STATUS_LINE
+            }
             void blink_timer()
             cursor_on()
         }
@@ -92,9 +101,44 @@ main {
     ; key handling per mode
     ;
 
+    ; typing a ':' command on the status line
     sub key_mode_cmd () {
         when key {
             KEY_ESCAPE -> handle_escape()
+            KEY_RETURN -> {
+                handle_escape()
+                execute()
+            }
+            KEY_DEL -> {
+                if cmdlen == 0 {
+                    handle_escape()
+                } else {
+                    cmdlen--
+                    cmdline[cmdlen] = 0
+                }
+            }
+            else -> {
+                ; stop short of the last column so the screen does not scroll
+                if ((key >= 32 and key < 128) or key >= 160) and
+                        cmdlen < len(cmdline) - 1 and cmdlen < SCREEN_WIDTH - 2 {
+                    cmdline[cmdlen] = key
+                    cmdlen++
+                    cmdline[cmdlen] = 0
+                }
+            }
+        }
+        if mode == MODE_CMD
+            draw_cmdline()
+    }
+
+    sub draw_cmdline() {
+        ubyte used
+        txt.plot(0, STATUS_LINE)
+        txt.chrout(':')
+        used = 1 + view.print_max(cmdline, SCREEN_WIDTH - 2)
+        while used < SCREEN_WIDTH - 1 {
+            txt.spc()
+            used++
         }
     }
 
@@ -158,6 +202,12 @@ main {
             }
             KEY_CONTROL_L -> view.refresh(true)
             KEY_CONTROL_G -> show_info()
+            KEY_COLON -> {
+                mode = MODE_CMD
+                cmdlen = 0
+                cmdline[0] = 0
+                draw_cmdline()
+            }
             KEY_ESCAPE -> handle_escape()
             KEY_SHIFT_G -> nav_go()
             KEY_H -> repeat count nav_left()
@@ -176,7 +226,9 @@ main {
             KEY_L -> repeat count nav_right()
             KEY_X -> delete_chars(count)
             KEY_SHIFT_Z -> {
-                if last_key == 'Z' sys.exit(0)
+                ; ZZ is :x, write if modified and quit
+                if last_key == 'Z' and (not gapbuffer.modified or write_cmd("", false))
+                    quit(true)
             }
         }
         numbers = 0
@@ -363,77 +415,263 @@ main {
     ;
 
     sub init() {
-        uword count
         txt.lowercase()
         platform.init()
         gapbuffer.init(sys.progend(), platform.ramtop)
-        count = read_file(filename, gapbuffer.ramstart, gapbuffer.free())
-        ; the text is at ramstart, put the gap after it
-        void gapbuffer.loaded(count)
+        mode = MODE_NAV
+        txt.cls()
+        void strings.copy("sampsmall.txt", filename)
+        void load_file(filename, false)
+    }
+
+    ;
+    ; ':' commands
+    ;
+    ;   :w[!] [name]    write the file (or to name)
+    ;   :q[!]           quit, ! discards changes
+    ;   :wq[!] [name]   write and quit
+    ;   :x[!] [name]    write if modified and quit (also ZZ)
+    ;   (writing a file that was cut short when read over itself needs !)
+    ;   :e[!] name  edit another file, ! discards changes; :e! reloads
+    ;   :r [name]   read a file in below the cursor line
+    ;   :n          go to line n
+    ;
+
+    str cmdword = " " * 4
+
+    sub execute() {
+        ubyte i = 0
+        ubyte n = 0
+        bool force = false
+        uword line
+        pointer arg
+
+        while cmdline[i] == ' '
+            i++
+        if cmdline[i] == 0
+            return
+
+        ; :n goes to line n
+        if cmdline[i] >= '0' and cmdline[i] <= '9' {
+            line = conv.str2uword(&cmdline + i)
+            numbers = max(line, 1)
+            nav_go()
+            numbers = 0
+            return
+        }
+
+        ; command letters, an optional '!', then the argument
+        while cmdline[i] >= 'a' and cmdline[i] <= 'z' and n < len(cmdword) - 1 {
+            cmdword[n] = cmdline[i]
+            n++
+            i++
+        }
+        cmdword[n] = 0
+        if cmdline[i] == '!' {
+            force = true
+            i++
+        }
+        while cmdline[i] == ' '
+            i++
+        arg = &cmdline + i
+
+        if strings.compare(cmdword, "w") == 0
+            void write_cmd(arg, force)
+        else if strings.compare(cmdword, "q") == 0
+            quit(force)
+        else if strings.compare(cmdword, "wq") == 0 {
+            if write_cmd(arg, force)
+                quit(true)
+        }
+        else if strings.compare(cmdword, "x") == 0 {
+            if not gapbuffer.modified or write_cmd(arg, force)
+                quit(true)
+        }
+        else if strings.compare(cmdword, "e") == 0
+            edit_cmd(arg, force)
+        else if strings.compare(cmdword, "r") == 0
+            read_cmd(arg)
+        else
+            status("unknown cmd")
+    }
+
+    ; returns arg, or the current file name if arg is empty
+    sub name_or_current(str arg) -> str {
+        if arg[0] != 0
+            return arg
+        return filename
+    }
+
+    ; :w - returns true if the file was written
+    sub write_cmd(str arg, bool force) -> bool {
+        pointer name = name_or_current(arg)
+        bool same
+        if name[0] == 0 {
+            status("no file name")
+            return false
+        }
+        if filename[0] == 0
+            void strings.copy(name, filename)
+        same = strings.compare(name, filename) == 0
+        if same and cut_short and not force {
+            status("file cut (!)")
+            return false
+        }
+        if not save_file(name)
+            return false
+        ; writing a copy elsewhere still leaves this file unsaved
+        if same {
+            gapbuffer.modified = false
+            cut_short = false
+        }
+        return true
+    }
+
+    sub quit(bool force) {
+        if gapbuffer.modified and not force {
+            status("unsaved (!)")
+            return
+        }
+        txt.cls()
+        sys.exit(0)
+    }
+
+    ; :e - replace the text with another file
+    sub edit_cmd(str arg, bool force) {
+        pointer name = name_or_current(arg)
+        if gapbuffer.modified and not force {
+            status("unsaved (!)")
+            return
+        }
+        if name[0] == 0 {
+            status("no file name")
+            return
+        }
+        if load_file(name, false) {
+            void strings.copy(name, filename)
+        } else if disk_code == 62 and arg[0] != 0 {
+            ; like vi, a file that does not exist yet starts out empty
+            void strings.copy(name, filename)
+            gapbuffer.clear()
+            new_text()
+            cut_short = false
+            status("new file")
+        }
+    }
+
+    ; :r - insert a file below the cursor line
+    sub read_cmd(str arg) {
+        pointer name = name_or_current(arg)
+        if name[0] == 0 {
+            status("no file name")
+            return
+        }
+        void load_file(name, true)
+    }
+
+    ;
+    ; files
+    ;
+
+    ; read a file, replacing the text or inserting it below the cursor line.
+    ; shows the result on the status line, returns false if it can't be opened
+    ; (the text is not changed then).
+    sub load_file(str name, bool insert) -> bool {
+        uword count
+        uword position
+        ubyte extra
+        bool truncated = false
+
+        if not diskio.f_open(name) {
+            disk_error()
+            return false
+        }
+        if insert {
+            position = gapbuffer.next_line(cursor())
+            if position == gapbuffer.NONE {
+                ; the cursor is on the last line: start a new line after it
+                position = gapbuffer.length()
+                if position != 0 and gapbuffer.get(position - 1) != gapbuffer.eol {
+                    void gapbuffer.insert_char(gapbuffer.eol, position)
+                    position++
+                }
+            }
+            ; read straight into the gap
+            gapbuffer.move_gap(position)
+            count = diskio.f_read(gapbuffer.gap_ptr(), gapbuffer.free())
+            gapbuffer.inserted(count)
+            set_cursor(position)
+            cur_line = gapbuffer.line_number(position)
+            goal_col = 0
+        } else {
+            count = diskio.f_read(gapbuffer.ramstart, (gapbuffer.ramtop - gapbuffer.ramstart) as uword)
+            void gapbuffer.loaded(count)
+            new_text()
+        }
+        ; a full buffer may mean the file did not fit
+        if gapbuffer.free() == 0 and diskio.f_read(&extra, 1) == 1
+            truncated = true
+        diskio.f_close()
+        view.dirty = true
+        if not insert
+            cut_short = truncated
+        if truncated
+            status("too big, cut")
+        else
+            status_bytes(name, count)
+        return true
+    }
+
+    ; reset the editor for new text in the buffer
+    sub new_text() {
+        uword length = gapbuffer.length()
         ; files from other systems use LF line endings
-        if gapbuffer.find_next($0d, 0, count) == count and gapbuffer.find_next($0a, 0, count) != count
+        gapbuffer.eol = $0d
+        if gapbuffer.find_next($0d, 0, length) == length and gapbuffer.find_next($0a, 0, length) != length
             gapbuffer.eol = $0a
         cur_line = 0
         goal_col = 0
-        mode = MODE_NAV
-        txt.cls()
+        view.dirty = true
     }
 
-    ; reads user provided file into buffer, at most readsize bytes.
-    ; returns the number of bytes read.
-    ; returns zero if f_open or f_read fails.
-    sub read_file(pointer name, pointer buffer, uword readsize) -> uword {
-        uword count = 0
-        txt.nl()
-        txt.print("reading: ")
-        txt.print(name)
-        if diskio.f_open(name) {
-            ; need to add error checking here
-            count = diskio.f_read(buffer, readsize)
-            txt.print(" (")
-            txt.print_uw(count)
-            txt.print(" bytes)")
-            txt.nl()
-        } else {
-            txt.nl()
-            txt.print("\nERROR: failed to open file.\n")
-            txt.nl()
+    ; write the whole text to a file, replacing it if it exists.
+    ; returns false (and shows the drive status) if that fails.
+    sub save_file(str name) -> bool {
+        pointer p1
+        pointer p2
+        uword n1
+        uword n2
+        bool ok
+        ; CBM DOS can't open an existing file for writing
+        if diskio.exists(name)
+            diskio.delete(name)
+        if not platform.open_write(name) {
+            disk_error()
+            return false
         }
-        diskio.f_close()
-        return count
-    }
-
-    ; write buffer to output filename.
-    ; XXX: needs better handling of errors.
-    sub file_write(pointer name, pointer buffer, uword size) -> uword {
-        ;uword count = 0
-        txt.nl()
-        txt.print("Writing: ")
-        txt.print(name)
-        txt.nl()
-        txt.print("Expecting ")
-        txt.print_uw(size)
-        txt.print(" bytes")
-        txt.nl()
-        if diskio.f_open_w(name) {
-            ; check status() here first...
-            if diskio.f_write(buffer, size) {
-                diskio.f_close_w()
-                txt.print("Done (")
-                txt.print_uw(size)
-                txt.print(" bytes)")
-                txt.nl()
-            } else {
-                ; should check status() here also.
-                txt.print("\nwrite error\n")
-            }
-        } else {
-            txt.print("\nERROR: failed to open file.\n")
-        }
-        ; file is left in an inconsistent state and
-        ; zero length if we don't close it properly
+        p1, n1, p2, n2 = gapbuffer.segments()
+        ok = diskio.f_write(p1, n1) and diskio.f_write(p2, n2)
         diskio.f_close_w()
-        return 0
+        if not ok or diskio.status_code() != 0 {
+            disk_error()
+            return false
+        }
+        status_bytes(name, gapbuffer.length())
+        return true
+    }
+
+    ; drive status code from the last disk_error()
+    ubyte disk_code
+
+    ; show the drive status message and remember its code.
+    ; reading the status clears it, so check disk_code afterwards, not
+    ; diskio.status_code().
+    sub disk_error() {
+        pointer msg = diskio.status()
+        disk_code = 255
+        if msg[0] >= '0' and msg[0] <= '9' and msg[1] >= '0' and msg[1] <= '9'
+            disk_code = (msg[0] - '0') * 10 + (msg[1] - '0')
+        status(msg)
     }
 }
 
@@ -488,7 +726,8 @@ view {
             dirty = false
             drawn_top = gapbuffer.get_mark(main.MARK_TOP)
         }
-        main.status_position()
+        if main.mode != main.MODE_CMD
+            main.status_position()
     }
 
     ; returns the start of the screen row (part of a wrapped line) containing position

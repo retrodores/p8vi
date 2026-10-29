@@ -14,5 +14,6 @@ copy
 insert_bytes
 segments
 gap_ptr
+modified
 
 all tests passed
