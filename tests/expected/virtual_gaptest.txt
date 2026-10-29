@@ -1,0 +1,11 @@
+empty
+insert
+insert middle
+insert start/end
+delete
+delete_nchar
+move_cursor
+full
+loaded
+
+all tests passed

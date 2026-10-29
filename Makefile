@@ -1,114 +1,93 @@
 #
 # Simple Makefile for a Prog8 program.
 #
-# This Makefile requires basic Windows or Unix shell tools
-# and the Prog8 compiler as `prog8c`.  The `PCC` variable
-# can be overridden to use the compiler as a JAR file but
-# the JAR file would need to be downloaded or located.
-# `java -jar prog8c-12.2-all.jar` would be equivalent to
-# running `prog8c` for example.
-#
-# The 64tass (or Tass64) assembler is needed by the compiler.
-# The C64 emulation requires VICE.
-# The X16 emulation requires x16emu.
-#
-# Make targets and explanations:
-# all:
-#     default target if you just run `make` which ensures
-#     the `build/` directory exists and tries to compile
-#     whatever targets are in the PROGS variable
-#
-# build:
-#     creates the `build/` directory
-#
-# clean:
-#     removes everything in `build/`
-#
-# build/mainc64.prg:
-#     builds the program for the C64 target
-#
-# build/maincx16.prg:
-#     builds the program for the CX16 target
-#
-# build/main.p8ir:
-#     builds the program for the virtual target
-#
-# run:
-#     depends on the `all` target and then runs in the virtual emulator target
-#
-# c64:
-#     depends on $(SRCS), builds the C64 binary and launches it in VICE.
-#
-# cx16:
-#     depends on $(SRCS), builds the CX16 binary and launches it in x16emu.
-#
-# check:
-#     runs a compiler syntax check without attempting to compile.
-#     use it for quickly finding syntax errors in the source code.
-#
-# test:
-#     compiles and runs on the virtual target and compares the output
-#     to expected output.  use to validate correct source code changes
-#     (presumably the expected results will change as features are written)
 
-# Cross-platform removal command
+# Cross-platform commands
 ifeq ($(OS),Windows_NT)
-    CLEAN = del /S /Q build\*
+    CLEAN = del /Q build\*
     CP = copy
     RM = del /Q
     MD = mkdir
-    MV = cmd -c "move"
+    SEP = \\
 else
-    CLEAN = rm -fr build/*
+    CLEAN = rm -f build/*
     CP = cp -p
     RM = rm -f
     MD = mkdir -p
-    MV = mv
+    SEP = /
 endif
 
+# disk image settings
+DISKTYPE=d64
+DISKNAME=testgap
+DISK=build/$(DISKNAME).$(DISKTYPE)
+
+# Emulator settings
+EMU_CMD=x64sc
+EMU_BASE=-default -keymap 1 -model ntsc
+EMU_DISK08=-8 $(DISK) -drive8type 1542
+#EMU_DISK10=-fs10 build -device10 1 -iecdevice10 -virtualdev10
+EMU_DISK10=
+EMU_CART=
+EMU_DISK=$(EMU_DISK08) $(EMU_DISK10)
+EMU_DOS=
+EMU_KERNAL=
+EMU_REUSIZE=512
+EMU_REU=-reu -reusize $(EMU_REUSIZE)
+EMU=$(EMU_CMD) $(EMU_BASE) $(EMU_KERNAL) $(EMU_DISK) $(EMU_DOS) $(EMU_REU)
+
 PCC=prog8c
-PCCARGSC64=-srcdirs src:src/c64 -plaintext -asmlist -target c64 -out build/
-PCCARGSCX16=-srcdirs src:src/cx16 -plaintext -asmlist -target cx16 -out build/
-PCCARGSVM=-srcdirs src:src/virtual -plaintext -asmlist -target virtual -out build/
+PCCARGSC64=-srcdirs src:src/c64 -asmlist -target c64 -out build
+PCCARGSCX16=-srcdirs src:src/cx16 -asmlist -target cx16 -out build
+PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 
-PROGS	= build/mainc64.prg build/maincx16.prg build/main.p8ir
-SRCS	= src/main.p8
-
-.PHONY:	all check test clean run emu
+#PROGS	= build/mainc64.prg build/maincx16.prg
+PROGS	= build/maincx16.prg
+SRCS	= src/main.p8 src/gapbuffer.p8 src/*/platform.p8
 
 all: build $(PROGS)
 
 build:
-	$(MD) build/
+	$(MD) build
 
 build/mainc64.prg: $(SRCS)
 	$(PCC) $(PCCARGSC64) $<
-	$(MV) build/main.prg $@
+	$(CP) build/main.prg $@
+	$(RM) build/main.prg
 
 build/maincx16.prg: $(SRCS)
 	$(PCC) $(PCCARGSCX16) $<
-	$(MV) build/main.prg $@
+	$(CP) build/main.prg $@
+	$(RM) build/main.prg
 
-build/main.p8ir: $(SRCS)
-	$(PCC) $(PCCARGSVM) $<
-
-check:
-	$(PCC) -check -quiet $(PCCARGSVM) $(SRCS)
+build/testcx16.prg: src/test.p8 src/gapbuffer.p8
+	$(PCC) $(PCCARGSCX16) $<
+	$(CP) build/test.prg $@
+	$(RM) build/test.prg
 
 clean:
-	$(CLEAN)
+	$(RM) build$(SEP)*
 
-run:	all
-	$(PCC) -vm build/main.p8ir
+disk:
+	c1541 -format $(DISKNAME),52 $(DISKTYPE) $(DISK)
+	c1541 -attach $(DISK) -write build/mainc64.prg main,p
+	c1541 -attach $(DISK) -write samples/sampbig.txt sampbig.txt,s
+	c1541 -attach $(DISK) -write samples/sampmax.txt sampmax.txt,s
+	c1541 -attach $(DISK) -write samples/sampsmall.txt sampsmall.txt,s
+	c1541 -attach $(DISK) -write samples/sample.txt sample.txt,s
 
-c64:	$(SRCS)
-	$(PCC) $(PCCARGSC64) $< -emu
+emu-c64:	build/mainc64.prg disk
+	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/mainc64.prg
 
-cx16:	$(SRCS)
-	$(PCC) $(PCCARGSCX16) $< -emu
+emu-cx16:	build/maincx16.prg
+	x16emu -debug -scale 2 -rtc -fsroot samples/ -run -prg build/maincx16.prg
 
-test:	all
-	$(PCC) -quiet $(PCCARGSVM) -emu $(SRCS) | diff -u tests/expected/virtual_main.txt -
+# self checking gap buffer tests on the virtual target
+test-gap:	build
+	$(PCC) -quiet $(PCCARGSVM) -emu src/gaptest.p8 | grep -v INFO | diff -u tests/expected/virtual_gaptest.txt -
+
+test:	build/testcx16.prg
+	x16emu -gif output.gif -debug -scale 2 -rtc -run -prg build/testcx16.prg
 
 #
 # end-of-file

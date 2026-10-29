@@ -12,3 +12,7 @@ tags
 prog8lib-*/
 # agent related
 .claude/settings.local.json
+# temp stuff
+save/
+*.gif
+*.d64
