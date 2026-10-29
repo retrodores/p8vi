@@ -39,6 +39,7 @@ EMU=$(EMU_CMD) $(EMU_BASE) $(EMU_KERNAL) $(EMU_DISK) $(EMU_DOS) $(EMU_REU)
 PCC=prog8c-llvm
 PCCARGSC64=-srcdirs src:src/c64 -asmlist -target c64 -out build
 PCCARGSCX16=-srcdirs src:src/cx16 -asmlist -target cx16 -out build
+PCCARGSVIC20=-srcdirs src:src/vic20 -asmlist -target config/vic20plus8.properties -out build
 PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 
 #PROGS	= build/mainc64.prg build/maincx16.prg
@@ -57,6 +58,11 @@ build/mainc64.prg: $(SRCS)
 
 build/maincx16.prg: $(SRCS)
 	$(PCC) $(PCCARGSCX16) $<
+	$(CP) build/main.prg $@
+	$(RM) build/main.prg
+
+build/mainvic20.prg: $(SRCS)
+	$(PCC) $(PCCARGSVIC20) $<
 	$(CP) build/main.prg $@
 	$(RM) build/main.prg
 
