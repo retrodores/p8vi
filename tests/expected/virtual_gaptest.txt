@@ -4,8 +4,15 @@ insert middle
 insert start/end
 delete
 delete_nchar
-move_cursor
+move_gap
 full
 loaded
+set
+marks
+lines
+copy
+insert_bytes
+segments
+gap_ptr
 
 all tests passed
