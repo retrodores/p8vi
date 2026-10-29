@@ -4,11 +4,12 @@
 ; platform specific -- could merge to main
 ;
 platform {
-    ; gap buffer memory ends here (1 byte past the last usable byte)
-    ; memtop of the vic20plus8 target (VIC-20 with an 8K expansion at $2000)
-    const pointer RAMTOP = $4000
+    ; gap buffer memory ends here (1 byte past the last usable byte), set by init()
+    pointer ramtop
 
     sub init() {
+       ; memtop of the vic20plus8 target (VIC-20 with an 8K expansion at $2000)
+       ramtop = $4000
        main.SCREEN_WIDTH    = txt.DEFAULT_WIDTH
        main.SCREEN_HEIGHT   = txt.DEFAULT_HEIGHT
        main.STATUS_HEIGHT   = 1    ; only 23 rows, so no spare row above the status line

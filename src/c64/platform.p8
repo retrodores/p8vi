@@ -4,13 +4,20 @@
 ; platform specific -- could merge to main
 ;
 platform {
-    ; gap buffer memory ends here (1 byte past the last usable byte).
-    ; this relies on Prog8's system init banking out the BASIC ROM, which it
-    ; does unless %option no_sysinit is used or floats are imported
-    ; (then reads at $a000-$bfff return the ROM, so use $a000 instead).
-    const pointer RAMTOP = $d000
+    ; gap buffer memory ends here (1 byte past the last usable byte), set by init()
+    pointer ramtop
 
     sub init() {
+       ; Prog8's system init banks out the BASIC ROM, unless floats are used
+       ; (they need it) or %option no_sysinit is set.  while BASIC is banked in,
+       ; reads at $a000-$bfff return the ROM instead of the RAM underneath,
+       ; so the buffer must end there.  BASIC is visible when the LORAM and
+       ; HIRAM bits (0 and 1) of the processor port are both set.
+       if (@($01) & %00000011) == %00000011
+           ramtop = $a000
+       else
+           ramtop = $d000      ; I/O or character ROM starts here
+
        main.SCREEN_WIDTH    = txt.DEFAULT_WIDTH
        main.SCREEN_HEIGHT   = txt.DEFAULT_HEIGHT
        main.STATUS_HEIGHT   = 2

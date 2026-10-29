@@ -4,10 +4,11 @@
 ; platform specific -- could merge to main
 ;
 platform {
-    ; gap buffer memory ends here (1 byte past the last usable byte)
-    const pointer RAMTOP = $9f00
+    ; gap buffer memory ends here (1 byte past the last usable byte), set by init()
+    pointer ramtop
 
     sub init() {
+       ramtop = $9f00
        main.SCREEN_WIDTH    = txt.DEFAULT_WIDTH
        main.SCREEN_HEIGHT   = txt.DEFAULT_HEIGHT
        main.STATUS_HEIGHT   = 2

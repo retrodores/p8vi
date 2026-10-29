@@ -366,7 +366,7 @@ main {
         uword count
         txt.lowercase()
         platform.init()
-        gapbuffer.init(sys.progend(), platform.RAMTOP)
+        gapbuffer.init(sys.progend(), platform.ramtop)
         count = read_file(filename, gapbuffer.ramstart, gapbuffer.free())
         ; the text is at ramstart, put the gap after it
         void gapbuffer.loaded(count)
