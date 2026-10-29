@@ -4,6 +4,9 @@
 ; platform specific -- could merge to main
 ;
 platform {
+    ; gap buffer memory ends here (1 byte past the last usable byte)
+    const pointer RAMTOP = $9f00
+
     sub init() {
        main.SCREEN_WIDTH    = txt.DEFAULT_WIDTH
        main.SCREEN_HEIGHT   = txt.DEFAULT_HEIGHT
@@ -13,12 +16,6 @@ platform {
        main.MIN_ROW         = 0
        main.MAX_ROW         = main.SCREEN_HEIGHT - main.STATUS_HEIGHT - 1
        main.STATUS_LINE     = main.SCREEN_HEIGHT - 1
-
-       ; buffer setup
-       ; Address of next byte after end!
-       gapbuffer.ramtop = $9f00
-       ; address of last byte in buffer
-       gapbuffer.lastbyte = gapbuffer.ramtop - 1
     }
 }
 

@@ -16,8 +16,8 @@ main {
         ; clear with marker byte
         sys.memset(sys.progend(), $9f00-sys.progend(), $55)
 
-        platform.init()
-        gapbuffer.init()
+        ; our test buffer is 49 bytes
+        gapbuffer.init(sys.progend(), sys.progend() + 49)
 
         txt.cls()
 
@@ -30,26 +30,26 @@ main {
         repeat 20 {
         void gapbuffer.insert_char(' ', gapbuffer.bufend)
         }
-        void gapbuffer.insert("abcde", gapbuffer.point)
-;        gapbuffer.insert_char('a', gapbuffer.point)
-;        gapbuffer.insert_char('b', gapbuffer.point)
-;        gapbuffer.insert_char('c', gapbuffer.point)
-;        gapbuffer.insert_char('d', gapbuffer.point)
-;        gapbuffer.insert_char('e', gapbuffer.point)
+        void gapbuffer.insert("abcde", gapbuffer.gappos)
+;        gapbuffer.insert_char('a', gapbuffer.gappos)
+;        gapbuffer.insert_char('b', gapbuffer.gappos)
+;        gapbuffer.insert_char('c', gapbuffer.gappos)
+;        gapbuffer.insert_char('d', gapbuffer.gappos)
+;        gapbuffer.insert_char('e', gapbuffer.gappos)
         txt.print("after insert\n")
         dump_pointers()
         dump_ram()
         dump_buffer()
 ;        repeat {}
 
-        void gapbuffer.insert("fghij", gapbuffer.point)
+        void gapbuffer.insert("fghij", gapbuffer.gappos)
         dump_pointers()
         dump_ram()
         dump_buffer()
 
 ;        repeat {}
-        gapbuffer.point = 23
-        void gapbuffer.insert("klmno", gapbuffer.point)
+        gapbuffer.move_gap(23)
+        void gapbuffer.insert("klmno", gapbuffer.gappos)
 
         ; move_cursor should move to the spot to the right
         ; of point on delete as gapstart will move 1 byte left
@@ -58,15 +58,15 @@ main {
         ; the inserted character goes at gapstart?
         ; meaning the point is between the existing character and
         ; the spot for the new one.
-        gapbuffer.point = 2
+        gapbuffer.move_gap(2)
         repeat 20 {
-            void gapbuffer.delete_char(gapbuffer.point)
+            void gapbuffer.delete_char(gapbuffer.gappos)
         }
         dump_pointers()
         dump_ram()
         dump_buffer()
-        gapbuffer.point = 40
-        void gapbuffer.insert("Prog8", gapbuffer.point)
+        gapbuffer.move_gap(40)
+        void gapbuffer.insert("Prog8", gapbuffer.gappos)
         dump_pointers()
         dump_ram()
         dump_buffer()
@@ -89,17 +89,11 @@ main {
         txt.print("gapsize: ")
         txt.print_uwhex(gapbuffer.gapsize, true)
         txt.nl()
-        txt.print("bufstart: ")
-        txt.print_uwhex(gapbuffer.bufstart, true)
-        txt.nl()
         txt.print("bufend: ")
         txt.print_uwhex(gapbuffer.bufend, true)
         txt.nl()
-        txt.print("bufsize: ")
-        txt.print_uwhex(gapbuffer.bufsize, true)
-        txt.nl()
-        txt.print("point: ")
-        txt.print_uwhex(gapbuffer.point, true)
+        txt.print("gappos: ")
+        txt.print_uwhex(gapbuffer.gappos, true)
         txt.nl()
         txt.print("free(): ")
         txt.print_uwhex(gapbuffer.free(), true)
@@ -158,20 +152,6 @@ main {
 
 
 } ; end of main block
-
-;
-; platform specific -- could merge to main
-;
-platform {
-    sub init() {
-
-       ; buffer setup
-       ; our test buffer is ~128 bytes
-       gapbuffer.ramtop = sys.progend() + 49
-       ; address of last byte in buffer
-       gapbuffer.lastbyte = gapbuffer.ramtop - 1
-    }
-}
 
 ;
 ; Lets try merging this straight into main for now
