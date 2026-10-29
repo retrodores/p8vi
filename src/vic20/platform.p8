@@ -10,8 +10,15 @@ platform {
     pointer ramtop
 
     sub init() {
-       ; memtop of the vic20plus8 target (VIC-20 with an 8K expansion at $2000)
+       ; the vic20plus8 target needs the 8K expansion at $2000 (block 1).
+       ; blocks 2 and 3 ($4000-$7fff) are optional: extend the buffer into
+       ; them when present.  $8000 is the character ROM.
        ramtop = $4000
+       if ram_at($4000) {
+           ramtop = $6000
+           if ram_at($6000)
+               ramtop = $8000
+       }
        main.SCREEN_WIDTH    = txt.DEFAULT_WIDTH
        main.SCREEN_HEIGHT   = txt.DEFAULT_HEIGHT
        main.STATUS_HEIGHT   = 1    ; only 23 rows, so no spare row above the status line
@@ -20,6 +27,20 @@ platform {
        main.MIN_ROW         = 0
        main.MAX_ROW         = main.SCREEN_HEIGHT - main.STATUS_HEIGHT - 1
        main.STATUS_LINE     = main.SCREEN_HEIGHT - 1
+    }
+
+    ; true if there is RAM in the 8K block at addr (checked at both ends).
+    ; without an expansion the reads don't return what was written.
+    sub ram_at(pointer addr) -> bool {
+        return ram_byte(addr) and ram_byte(addr + $1fff)
+    }
+
+    sub ram_byte(pointer addr) -> bool {
+        @(addr) = $55
+        if @(addr) != $55
+            return false
+        @(addr) = $aa
+        return @(addr) == $aa
     }
 
     ; open a file for writing with diskio.f_write as a SEQ file.
