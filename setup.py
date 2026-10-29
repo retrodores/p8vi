@@ -5,12 +5,12 @@ import sys
 import shutil
 
 # --- CONFIGURATION ---
-TARGET_REPO = "https://github.com/irmen/prog8.git"
+TARGET_REPO = "https://github.com/gillham/prog8.git"
 # Only used for snapshot builds, which are matched by commit on this branch.
 # Release builds are matched by their version tag instead.
-TARGET_BRANCH = "master"
+TARGET_BRANCH = "llvm"
 # Compiler executable to match, e.g. "prog8c-beta" or "prog8c-llvm"
-PROG8C = "prog8c"
+PROG8C = "prog8c-llvm"
 REF_DIR = ".prog8-reference"
 VERSION_FILE = "VERSION"
 # Each upstream skill is linked here so Claude Code loads it automatically

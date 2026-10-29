@@ -253,7 +253,7 @@ main {
     ; reads user provided file into ptextbuf
     ; returns the number of bytes read.
     ; returns zero if f_open or f_read_all fails.
-    sub read_file(uword filename, uword buffer, uword readsize) -> uword {
+    sub read_file(pointer filename, pointer buffer, uword readsize) -> uword {
         uword count = 0
         txt.nl()
         txt.print("reading: ")
@@ -277,7 +277,7 @@ main {
 
     ; write buffer to output filename.
     ; XXX: needs better handling of errors.
-    sub file_write(uword filename, uword buffer, uword size) -> uword {
+    sub file_write(pointer filename, pointer buffer, uword size) -> uword {
         ;uword count = 0
         txt.nl()
         txt.print("Writing: ")
@@ -382,9 +382,9 @@ view {
     ; TODO: make configurable line endings.  CR, LF, CRLF, etc?
     ; this is not necessarily a line on screen, but a line in the buffer anywhere.
     ; the caller will use this address as a starting point to render the screen.
-    sub line_addr(uword number) -> uword {
+    sub line_addr(uword number) -> pointer {
         uword count
-        uword ptr
+        pointer ptr
 
         ptr = gapbuffer.ramstart    ; ram addr not buffer offset
         ; very beginning of the buffer is considered line 1.

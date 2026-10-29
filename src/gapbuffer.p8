@@ -20,9 +20,9 @@
 ; 0..bufend.
 gapbuffer {
     ; ram address based coordinates
-    uword ramstart  ; start of buffer ram (at end of program code to IO generally)
-    uword ramtop    ; never moves, basically MEMTOP (aka 1 byte past last usable)
-    uword lastbyte  ; last usable byte (top-1)
+    pointer ramstart  ; start of buffer ram (at end of program code to IO generally)
+    pointer ramtop    ; never moves, basically MEMTOP (aka 1 byte past last usable)
+    pointer lastbyte  ; last usable byte (top-1)
 
     ; zero relative buffer coordinates
     uword bufstart  ; always 0, start of the text
@@ -33,8 +33,8 @@ gapbuffer {
     uword point     ; linear cursor / insertion point, does not include gap buffer
 
     ; gap buffer coordinates are ram addresses
-    uword gapstart  ; first byte of the gap, moves
-    uword gapend    ; last byte of the gap (inclusive), moves
+    pointer gapstart  ; first byte of the gap, moves
+    pointer gapend    ; last byte of the gap (inclusive), moves
     uword gapsize   ; current size of the gap, also the free memory
 
     ; set ramstart to the end of the program and empty the buffer.
@@ -52,7 +52,7 @@ gapbuffer {
         point = 0
         gapstart = ramstart
         gapend = ramtop - 1
-        gapsize = ramtop - ramstart
+        gapsize = (ramtop - ramstart) as uword
     }
 
     ; call after placing count bytes of text at ramstart (e.g. a file load).
@@ -65,7 +65,7 @@ gapbuffer {
         point = count
         gapstart = ramstart + count
         gapend = ramtop - 1
-        gapsize = ramtop - gapstart
+        gapsize = (ramtop - gapstart) as uword
         return true
     }
 
@@ -91,7 +91,7 @@ gapbuffer {
     ; text between target and gapstart moves to just after the gap.
     ; copies in chunks no larger than the gap so they never overlap.
     sub left(uword position) {
-        uword target = point2ram(position)
+        pointer target = point2ram(position)
         uword n
         if gapsize == 0 {
             ; no gap: ram and buffer coordinates are the same
@@ -100,7 +100,7 @@ gapbuffer {
             return
         }
         while gapstart > target {
-            n = min(gapstart - target, gapsize)
+            n = min((gapstart - target) as uword, gapsize)
             gapstart -= n
             gapend -= n
             sys.memcopy(gapstart, gapend + 1, n)
@@ -110,7 +110,7 @@ gapbuffer {
     ; move the gap right so it starts at ram address target
     ; text between the gap and target moves to just before the gap.
     sub right(uword position) {
-        uword target = point2ram(position)
+        pointer target = point2ram(position)
         uword n
         if gapsize == 0 {
             gapstart = target
@@ -118,7 +118,7 @@ gapbuffer {
             return
         }
         while gapstart < target {
-            n = min(target - gapstart, gapsize)
+            n = min((target - gapstart) as uword, gapsize)
             sys.memcopy(gapend + 1, gapstart, n)
             gapstart += n
             gapend += n
@@ -198,8 +198,8 @@ gapbuffer {
 
     ; returns the *ram* address of the character at buffer offset bufaddr
     ; skipping over the gap if needed.
-    sub buffer2ram(uword bufaddr) -> uword {
-        uword temp = ramstart + bufaddr
+    sub buffer2ram(uword bufaddr) -> pointer {
+        pointer temp = ramstart + bufaddr
         if temp < gapstart
             return temp
         return temp + gapsize
@@ -207,13 +207,13 @@ gapbuffer {
 
     ; returns the ram address gapstart has when the gap is at position.
     ; text before the gap is not shifted, so no adjustment is needed.
-    sub point2ram(uword position) -> uword {
+    sub point2ram(uword position) -> pointer {
         return ramstart + position
     }
 
     ; returns the ram address one past the last byte of text, which
     ; is always ramtop since the text after the gap is kept against it.
-    sub ramend() -> uword {
+    sub ramend() -> pointer {
         return ramstart + bufend + gapsize
     }
 
