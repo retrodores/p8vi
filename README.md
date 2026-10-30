@@ -32,11 +32,17 @@ later.
 | Build | Toplevel file | Target |
 |-------|---------------|--------|
 | `build/p8vi-c64.prg` | `src/p8vi.p8` | C64 |
+| `build/p8vi-c64reu.prg` | `src/p8vi.p8` | C64 with the page store, for text in an REU |
 | `build/p8vi-cx16.prg` | `src/p8vi.p8` | Commander X16 |
 | `build/p8vi-vic20.prg` | `src/p8vi_vic20.p8` | VIC-20 with 24K or more |
 
-The editor itself is `src/editor.p8` (with `gapbuffer.p8`, `charset.p8`
-and `src/<target>/platform.p8`).  Each toplevel file has a `features` block
+The editor itself is `src/editor.p8` (with `charset.p8`,
+`src/<target>/platform.p8` and a text store, `buffer.p8` plus
+`gapbuffer.p8` or `pagestore.p8`, chosen by `src/<target>/store_platform.p8`).
+The two C64 builds differ only in the store: `p8vi-c64reu` is compiled
+with `src/c64reu` before `src/c64`.  It keeps the text in pages, which
+costs about 5 KB of room in main RAM; the REU support it is for is being
+built (`docs/XMEM-DESIGN.md`).  Each toplevel file has a `features` block
 of `const bool` switches for optional features; the code of a feature that
 is off is left out of the program.  The VIC-20 program has to end below
 `$8000`, so its version leaves out features when room runs out: new
@@ -102,8 +108,10 @@ The useful `make` targets are:
 | `make check` | Fast syntax check without compiling                       |
 | `make run`   | Compile for the virtual target and run it                 |
 | `make test`  | Run on the virtual target and compare with `tests/expected/` |
-| `make test-gap` | Gap buffer tests on the virtual target                 |
+| `make test-gap` | Text store tests (gap buffer and page store) on the virtual target |
 | `make test-c64` | Editor command tests on a C64 in VICE (`tests/vice/edtest.py`, ~10 s) |
+| `make test-c64reu` | The same on the C64 REU build (the page store) |
+| `make test-reu` | REU detection and reset tests in VICE (`tests/reu/`) |
 | `make test-c64-screen` | Check partial redraws against full redraws in VICE (~30 s) |
 | `make size` | Memory map and room left below memtop for each build (`tools/listsize.py`) |
 | `make c64`   | Compile for the C64 and run it in VICE                    |

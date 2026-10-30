@@ -38,13 +38,17 @@ EMU=$(EMU_CMD) $(EMU_BASE) $(EMU_KERNAL) $(EMU_DISK) $(EMU_DOS) $(EMU_REU)
 
 PCC=prog8c-llvm
 PCCARGSC64=-srcdirs src:src/c64 -asmlist -target c64 -out build
+# the C64 REU build: src/c64reu (its store_platform) comes before src/c64
+PCCARGSC64REU=-srcdirs src:src/c64reu:src/c64 -asmlist -target c64 -out build
 PCCARGSCX16=-srcdirs src:src/cx16 -asmlist -target cx16 -out build
 PCCARGSVIC20=-srcdirs src:src/vic20 -asmlist -target config/vic20plus24.properties -out build
 PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 
 # p8vi.p8 is the full editor (c64, cx16), p8vi_vic20.p8 the VIC-20's
-# smaller one; both import editor.p8
-PROGS	= build/p8vi-c64.prg build/p8vi-cx16.prg build/p8vi-vic20.prg
+# smaller one; both import editor.p8.  The C64 has two builds: p8vi-c64
+# with the gap buffer (the most room for text in main RAM) and p8vi-c64reu
+# with the page store (for text in an REU, docs/XMEM-DESIGN.md)
+PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-vic20.prg
 SRCS	= src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/pagestore.p8 src/charset.p8 src/*/platform.p8 src/*/store_platform.p8
 
 all: build $(PROGS)
@@ -57,6 +61,13 @@ build/p8vi-c64.prg: src/p8vi.p8 $(SRCS)
 	$(CP) build/p8vi.prg $@
 	$(CP) build/p8vi.list build/p8vi-c64.list
 	$(CP) build/p8vi.asm build/p8vi-c64.asm
+	$(RM) build/p8vi.prg
+
+build/p8vi-c64reu.prg: src/p8vi.p8 $(SRCS)
+	$(PCC) $(PCCARGSC64REU) $<
+	$(CP) build/p8vi.prg $@
+	$(CP) build/p8vi.list build/p8vi-c64reu.list
+	$(CP) build/p8vi.asm build/p8vi-c64reu.asm
 	$(RM) build/p8vi.prg
 
 build/p8vi-cx16.prg: src/p8vi.p8 $(SRCS)
@@ -81,9 +92,10 @@ build/testcx16.prg: src/test.p8 src/buffer.p8 src/gapbuffer.p8
 clean:
 	$(RM) build$(SEP)*
 
-disk:
+disk:	build/p8vi-c64.prg build/p8vi-c64reu.prg
 	c1541 -format $(DISKNAME),52 $(DISKTYPE) $(DISK)
 	c1541 -attach $(DISK) -write build/p8vi-c64.prg p8vi,p
+	c1541 -attach $(DISK) -write build/p8vi-c64reu.prg p8vi-reu,p
 	c1541 -attach $(DISK) -write samples/sampbig.txt sampbig.txt,s
 	c1541 -attach $(DISK) -write samples/sampmax.txt sampmax.txt,s
 	c1541 -attach $(DISK) -write samples/sampsmall.txt sampsmall.txt,s
@@ -91,6 +103,9 @@ disk:
 
 emu-c64:	build/p8vi-c64.prg disk
 	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/p8vi-c64.prg
+
+emu-c64reu:	build/p8vi-c64reu.prg disk
+	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/p8vi-c64reu.prg
 
 emu-cx16:	build/p8vi-cx16.prg
 	x16emu -debug -scale 2 -rtc -fsroot samples/ -run -prg build/p8vi-cx16.prg
@@ -108,14 +123,19 @@ test-gap:	build
 # memory map of each build and the room left below memtop
 # (tools/listsize.py LIST for where the bytes go, A.list B.list to compare)
 VIC20_MIN_FREE=64
-size:	build/p8vi-c64.prg build/p8vi-cx16.prg build/p8vi-vic20.prg
+size:	$(PROGS)
 	python3 tools/listsize.py build/p8vi-c64.list --map
+	python3 tools/listsize.py build/p8vi-c64reu.list --map
 	python3 tools/listsize.py build/p8vi-cx16.list --map
 	python3 tools/listsize.py build/p8vi-vic20.list --map --min-free $(VIC20_MIN_FREE)
 
 # editor tests on a C64 in VICE (x64sc and c1541 in the PATH)
 test-c64:	build/p8vi-c64.prg
 	python3 tests/vice/edtest.py files --prg build/p8vi-c64.prg
+
+# the same tests on the C64 REU build (the page store)
+test-c64reu:	build/p8vi-c64reu.prg
+	python3 tests/vice/edtest.py files --prg build/p8vi-c64reu.prg
 
 # partial redraws must leave the same screen as a full redraw
 test-c64-screen:	build/p8vi-c64.prg

@@ -210,7 +210,7 @@ Tested (`make test-reu`, `tests/x16/bankreset.p8`):
    *Done:* every build got smaller (VIC-20 76 to 105 bytes free).
 3. **The page store, main RAM only**, with the gap buffer's tests and new
    ones for splits and merges, on the virtual target, and the load loop.
-   C64 and X16 builds use it.  Measure its code size and the text room
+   C64 (REU build) and X16 builds use it.  Measure its code size and the text room
    lost to half-full pages and the table.  *Done,* see "Step 3: what the
    page store costs" below.
 4. **`pagemem` for the X16 and the REU.**  Key buffers to main RAM.
@@ -264,11 +264,11 @@ then.
 - `PAGE_SIZE`: 1 KB is a guess.  Smaller pages make inserts faster and
   waste less on half-full pages; bigger ones make the table smaller and
   cross fewer page boundaries.  Measure with real files.
-- A C64 without an REU: the page store in main RAM, or the gap buffer as
-  now?  Measured in step 3: the page store leaves 12 KB of text instead of
-  17 KB (below).  Choices: accept it; make the page store smaller (parts
-  in assembler); or two C64 builds, the gap buffer one without REU
-  support.
+- A C64 without an REU: decided after step 3, two C64 builds for now.
+  `p8vi-c64` keeps the gap buffer (17 KB of text); `p8vi-c64reu` has the
+  page store (`src/c64reu/store_platform.p8`, compiled with `src/c64reu`
+  before `src/c64`), and gets the REU in step 4.  Without an REU it has
+  12 KB.
 - Recovery: just a status message and `:recover`, or a question at
   startup?
 - How often to `sync()`, and whether a sync while typing is noticeable on
