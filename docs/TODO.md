@@ -13,6 +13,23 @@ aren't.
   to date as text changes (`NUM_MARKS` = 4, the editor uses 2), so there
   is room for a few.
 
+## Disk
+
+- **Show the disk directory** of the current drive (`diskio.drivenumber`),
+  for when you don't remember a file's exact name.  Only shown on the
+  screen, not read into the text; any key goes back to the text.
+  `diskio.directory()` prints it on all CBM targets.  Off on the VIC-20
+  (a feature switch).
+  - Command name still to decide: `:$` (like `LOAD"$",8`), or `:@$` (like
+    the `@$` of the C64 DOS wedge and JiffyDOS).  `:@$` keeps `:$` for
+    its vi meaning, the last line, which goes with `:n` (go to line n)
+    and with the planned line ranges (`:.,$d`, `:10,$s/a/b/`).
+- **Read the directory into the text:** `:r $`, since `$` is the
+  directory's file name on a CBM drive.  The drive sends the listing as a
+  BASIC program (block counts as line numbers), so it needs turning into
+  lines of text, or `diskio.lf_start_list()` / `lf_next_entry()` can
+  give just the file names.  Off on the VIC-20.
+
 ## Known problems
 
 - **Keys typed ahead during a failed load are lost.**  For example after
