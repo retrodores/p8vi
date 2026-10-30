@@ -24,6 +24,7 @@ main {
     const ubyte KEY_CONTROL_F   = 6
     const ubyte KEY_CONTROL_G   = 7
     const ubyte KEY_RETURN      = $0d
+    const ubyte KEY_CONTROL_R   = $12
     const ubyte KEY_DOWN        = $11
     const ubyte KEY_HOME        = $13
     const ubyte KEY_DEL         = $14
@@ -280,6 +281,9 @@ main {
             numbers = 0
             return
         }
+        ; a new command: its changes are what u undoes
+        if pending_op == 0
+            gapbuffer.undo_mark()
         ; a count before a command, '0' on its own is a command
         if (key >= '1' and key <= '9') or (key == '0' and numbers != 0) {
             numbers = numbers * 10 + (key - '0')
@@ -358,7 +362,14 @@ main {
                 char_count = count
             }
             ':', '/', '?' -> start_cmdline(key)
-            'u' -> status("no undo yet")
+            'u' -> undo()
+            KEY_CONTROL_R -> {
+                ; redo: only when the last u undid something
+                if gapbuffer.undo_reversed
+                    undo()
+                else
+                    status("nothing to redo")
+            }
             KEY_CONTROL_F -> page(count * (page_lines() - 2), true)
             KEY_CONTROL_B -> page(count * (page_lines() - 2), false)
             KEY_CONTROL_D -> page(page_lines() / 2, true)
@@ -366,6 +377,24 @@ main {
             KEY_CONTROL_L -> view.refresh(true)
             KEY_CONTROL_G -> show_info()
         }
+    }
+
+    ; u: undo the last change, or redo it if it was just undone
+    sub undo() {
+        uword position = gapbuffer.undo()
+        if position == gapbuffer.NONE {
+            if gapbuffer.undo_lost
+                status("too big to undo")
+            else
+                status("nothing to undo")
+            return
+        }
+        ; the change can be anywhere, so find the line number from scratch
+        gapbuffer.set_mark(MARK_CURSOR, position)
+        cur_line = gapbuffer.line_number(cursor())
+        set_cursor(min(cursor(), last_char(cursor())))
+        goal_col = column()
+        view.dirty = true
     }
 
     ; the character after r f F t T Z
@@ -1124,22 +1153,34 @@ main {
     sub init() {
         txt.lowercase()
         platform.init()
-        ; the yank buffer goes in the platform's spare memory if it fits,
-        ; otherwise at the top of the text memory, with the gap buffer below it
+        ; the yank buffer and undo log go in the platform's spare memory if
+        ; they fit, otherwise at the top of the text memory, with the gap
+        ; buffer below them
+        uword undo_size = 2048
         yank_size = 1024
-        if platform.texttop - platform.textstart < 4096
+        if platform.texttop - platform.textstart < 4096 {
             yank_size = 256
-        if platform.sparetop - platform.sparestart >= yank_size {
-            yank_buf = platform.sparestart
-        } else {
-            yank_buf = platform.texttop - yank_size
-            platform.texttop = yank_buf
+            undo_size = 512
         }
+        yank_buf = take_memory(yank_size)
+        pointer undo_buf = take_memory(undo_size)
         gapbuffer.init(platform.textstart, platform.texttop)
+        gapbuffer.undo_init(undo_buf, undo_size)
         mode = MODE_NAV
         txt.cls()
         void strings.copy("sampsmall.txt", filename)
         void load_file(filename, false)
+    }
+
+    ; returns size bytes of the platform's spare memory if there is room,
+    ; otherwise takes them off the top of the text memory
+    sub take_memory(uword size) -> pointer {
+        if platform.sparetop - platform.sparestart >= size {
+            platform.sparestart += size
+            return platform.sparestart - size
+        }
+        platform.texttop -= size
+        return platform.texttop
     }
 
     ;

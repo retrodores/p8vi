@@ -103,8 +103,8 @@ Keys in insert and replace mode:
 | `gJ` | join lines without a space | ⬜ |
 | `>>` `<<`, `>`motion `<`motion | indent / unindent lines | ⬜ |
 | `.` | repeat the last change | ⬜ |
-| `u` | undo | ⬜ |
-| `Ctrl-R` | redo | ⬜ |
+| `u` | undo the last change (one level; `u` again redoes it, like vi) | ✅ |
+| `Ctrl-R` | redo the change `u` just undid | ✅ |
 | `U` | undo all changes on the line | ❌ |
 | `Ctrl-A` `Ctrl-X` | add to / subtract from the number under the cursor | ⬜ |
 | `g~` `gu` `gU` motion | switch / lower / upper case | ⬜ |
@@ -126,6 +126,10 @@ either part (`2d3w`).  `j` `k` `G` `H` `M` `L` `+` `-` work on whole lines.
 
 The yank buffer is 1 KB (256 bytes when memory is short); bigger yanks are
 refused with "too big to yank" (a delete still happens, with "not yanked").
+
+The undo log holds one change (a whole insert session counts as one).
+It is 2 KB (512 bytes when memory is short): a change that doesn't fit
+can't be undone ("too big to undo").  Loading a file empties it.
 
 ## Searching
 

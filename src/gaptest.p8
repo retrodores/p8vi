@@ -38,6 +38,7 @@ main {
         test_gap_ptr()
         test_modified()
         test_find_bytes()
+        test_undo()
 
         txt.nl()
         if failures == 0 {
@@ -387,6 +388,76 @@ main {
         check_bool("no match", gapbuffer.match_at("hat", 3, 13), false)
         check_bool("past end", gapbuffer.match_at("th!", 3, 16), false)
         expect("the cat the hat th")
+    }
+
+    sub test_undo() {
+        const uword NONE = gapbuffer.NONE
+        txt.print("undo\n")
+        gapbuffer.undo_init(memory("undo", 64, 0), 64)
+        gapbuffer.clear()
+        check_bool("empty", gapbuffer.can_undo(), false)
+        void gapbuffer.insert("one two", 0)
+        ; insert, undo, redo
+        gapbuffer.undo_mark()
+        void gapbuffer.insert(" three", 7)
+        expect("one two three")
+        check_uw("undo insert", gapbuffer.undo(), 7)
+        expect("one two")
+        check_uw("redo insert", gapbuffer.undo(), 7)
+        expect("one two three")
+        ; delete
+        gapbuffer.undo_mark()
+        void gapbuffer.delete_range(3, 7)
+        expect("one three")
+        check_uw("undo delete", gapbuffer.undo(), 3)
+        expect("one two three")
+        ; several changes in one command, across the gap
+        gapbuffer.undo_mark()
+        void gapbuffer.delete_char(0)
+        void gapbuffer.set(0, 'N')
+        void gapbuffer.insert("!", 12)
+        gap_to(5)
+        void gapbuffer.insert("-", 5)
+        expect("Ne tw-o three!")
+        check_uw("undo several", gapbuffer.undo(), 0)
+        expect("one two three")
+        check_uw("redo several", gapbuffer.undo(), 0)
+        expect("Ne tw-o three!")
+        check_uw("undo again", gapbuffer.undo(), 0)
+        expect("one two three")
+        ; typing extends one record, deleting typed text shrinks it
+        gapbuffer.undo_mark()
+        void gapbuffer.insert_char('a', 3)
+        void gapbuffer.insert_char('b', 4)
+        void gapbuffer.insert_char('c', 5)
+        void gapbuffer.delete_char(5)
+        check_uw("one record", gapbuffer.undo_len, 2 + 7)
+        expect("oneab two three")
+        check_uw("undo typing", gapbuffer.undo(), 3)
+        expect("one two three")
+        ; moving the gap or the marks starts no new log
+        gapbuffer.undo_mark()
+        gap_to(0)
+        check_bool("still there", gapbuffer.can_undo(), true)
+        ; a change too big for the log can't be undone (24 byte log here)
+        gapbuffer.undo_init(memory("undo", 64, 0), 24)
+        gapbuffer.undo_mark()
+        void gapbuffer.delete_range(0, 13)
+        check_bool("small change", gapbuffer.can_undo(), true)
+        void gapbuffer.insert("abcdefghij", 0)
+        check_bool("too big", gapbuffer.can_undo(), false)
+        check_uw("no undo", gapbuffer.undo(), NONE)
+        expect("abcdefghij")
+        ; a new log after it works again
+        gapbuffer.undo_mark()
+        void gapbuffer.delete_range(2, 10)
+        expect("ab")
+        check_uw("after lost", gapbuffer.undo(), 2)
+        expect("abcdefghij")
+        ; loading empties the log
+        void gapbuffer.loaded(0)
+        check_bool("loaded", gapbuffer.can_undo(), false)
+        gapbuffer.undo_init(0, 0)
     }
 
     sub check_str(str name, str got, str wanted) {

@@ -16,5 +16,6 @@ segments
 gap_ptr
 modified
 find_bytes
+undo
 
 all tests passed
