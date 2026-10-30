@@ -3,7 +3,7 @@
 The C64 and the Commander X16 can both show 8 KB "RAM banks" at
 `$a000-$bfff`: the X16 in hardware, the C64 with an REU and the modules
 below.  p8vi doesn't use them yet; they are the base for a bigger text
-buffer.
+buffer, designed in `docs/XMEM-DESIGN.md`.
 
 ## Files
 
@@ -111,8 +111,10 @@ To carry back to the original project:
   the previous REU bank after the call (the C64 one does), and `bank()` may
   use zero page that overlaps `$02-$08`, where the KERNAL's JSRFAR keeps
   its arguments.  It also needs `reu.p8`, which is in `src/c64/`.
-- `detect()` writes into every REU bank; a non-destructive version (the
-  TODO in the code) would read the 9 bytes first and put them back.
+- `detect()` writes into every REU bank.  It has to stop doing that
+  before p8vi keeps text in the REU, so that text can be recovered after
+  a crash or a reset: see "REU detection without writing" in
+  `docs/XMEM-DESIGN.md`.
 - The asm in `reucompat` uses the compiler's internal names
   (`p8b_reu.p8s_bank`, `p8b_reu.p8v_current_bank`), which can change
   between compiler versions.

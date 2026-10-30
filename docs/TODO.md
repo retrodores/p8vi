@@ -40,8 +40,9 @@ aren't.
   4.7 KB is unused.  Choosing the undo size at run time costs the VIC-20
   bytes, so it may need a feature switch (see `docs/FEATURE-SWITCHES.md`).
   Left for later, after some of the other items.
-- **More of the cx16's banked RAM,** for example for the text itself, so
-  files bigger than about 12 KB fit.
+- **Text in extended memory** (the cx16's banked RAM, a C64 REU), so
+  files up to 64 KB fit, with recovery after a crash.  Designed in
+  `docs/XMEM-DESIGN.md`.
 - **More text on the VIC-20.**  With RAM in block 5 the text is at
   `$a000-$bfff` (8 KB).  The main RAM after the program was the idea for a
   second text area (a gap buffer split across two memory areas), but the
