@@ -21,6 +21,14 @@ aren't.
   screen, not read into the text; any key goes back to the text.
   `diskio.directory()` prints it on all CBM targets.  Off on the VIC-20
   (a feature switch).
+- **`:@` sends a CBM DOS command** to the current drive, as the DOS wedge
+  and fast loaders do with `@`: `:@s:file.txt` scratches (deletes)
+  `file.txt`, `:@r:new=old` renames, `:@i` initializes the disk.  The
+  drive's reply shows on the status line.  `:@` alone shows the drive
+  status, like `@` in the wedge.  `:@$` above is then the one `@` command
+  that the editor handles itself.  The editor already reads the drive status
+  on channel 15 (`read_disk_status`), so sending a command there is little
+  extra code; it might fit on the VIC-20.
 - **`:$` goes to the last line,** as in vi, with `:n` (go to line n).  `$`
   is also the last line in the planned line ranges (`:.,$d`,
   `:10,$s/a/b/`), which is why the directory is `:@$` and not `:$`.
