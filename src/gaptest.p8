@@ -364,6 +364,17 @@ main {
         check_bool("set", gapbuffer.modified, true)
         void gapbuffer.loaded(0)
         check_bool("loaded", gapbuffer.modified, false)
+        ; the change counter only moves on changes
+        uword before = gapbuffer.changes
+        void gapbuffer.insert("abc", 0)
+        check_uw("insert counted", gapbuffer.changes - before, 1)
+        gap_to(1)
+        void gapbuffer.copy_out(0, 3, linebuf)
+        void gapbuffer.delete_nchar(1, 3)
+        check_uw("no change", gapbuffer.changes - before, 1)
+        void gapbuffer.set(0, 'x')
+        void gapbuffer.delete_char(0)
+        check_uw("set and delete", gapbuffer.changes - before, 3)
     }
 
     sub test_find_bytes() {

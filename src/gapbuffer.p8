@@ -47,6 +47,9 @@ gapbuffer {
     ; set by every change to the text, cleared by loaded() / clear().
     ; the editor clears it after saving.
     bool modified
+    ; counts every change to the text (it wraps around): compare two
+    ; readings to see whether anything changed in between
+    uword changes
 
     uword[NUM_MARKS] marks
 
@@ -119,6 +122,7 @@ gapbuffer {
         log_change('s', offset, p, 1)
         @(p) = value
         modified = true
+        changes++
         return true
     }
 
@@ -267,8 +271,10 @@ gapbuffer {
         marks_inserted(gappos, count)
         gappos += count
         bufend += count
-        if count != 0
+        if count != 0 {
             modified = true
+            changes++
+        }
     }
 
     ;
@@ -295,6 +301,7 @@ gapbuffer {
         bufend -= count
         marks_deleted(position, count)
         modified = true
+        changes++
         return count
     }
 

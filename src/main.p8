@@ -44,7 +44,6 @@ main {
     ubyte key
     ubyte char_save
     uword numbers       ; count typed before a command
-    ubyte last_key
     bool cursor_active
     uword cur_line      ; line number of the cursor (zero relative)
     uword goal_col      ; column j and k try to keep
@@ -62,13 +61,11 @@ main {
             cursor_off()
             if key == KEY_STOP
                 key = KEY_ESCAPE
-            when mode {
-                MODE_CMD -> key_mode_cmd()
-                MODE_INSERT -> key_mode_insert()
-                MODE_NAV -> key_mode_nav()
-                MODE_REPLACE -> key_mode_replace()
-            }
-            last_key = key
+            record_before()
+            handle_key()
+            record_after()
+            if repeat_requested
+                replay()
             view.refresh(false)
             if mode == MODE_CMD {
                 ; the cursor is on the command line, after the typed text.
@@ -82,6 +79,128 @@ main {
             void blink_timer()
             cursor_on()
         }
+    }
+
+    sub handle_key() {
+        when mode {
+            MODE_CMD -> key_mode_cmd()
+            MODE_INSERT -> key_mode_insert()
+            MODE_NAV -> key_mode_nav()
+            MODE_REPLACE -> key_mode_replace()
+        }
+    }
+
+    ;
+    ; . repeats the last change by replaying its keys
+    ;
+
+    const ubyte REPEAT_SIZE = 128
+
+    ; the keys of the command being typed
+    ubyte[REPEAT_SIZE] rec_keys
+    ubyte rec_len
+    bool recording
+    bool rec_overflow
+    uword rec_count         ; count typed before the command, 0 if none
+    uword rec_motion_count  ; count typed after an operator (d3w), 0 if none
+    uword rec_changes       ; gapbuffer.changes when the command started
+
+    ; the last change, what . replays
+    ubyte[REPEAT_SIZE] dot_keys
+    ubyte dot_len
+    uword dot_count         ; 0 if it had no count
+    bool dot_valid
+    bool dot_too_long
+
+    bool replaying
+    bool repeat_requested
+    uword repeat_count      ; count typed before ., 0 if none
+
+    ; a count digit in nav mode (a '0' on its own is a command)
+    sub count_digit() -> bool {
+        return (key >= '1' and key <= '9') or (key == '0' and numbers != 0)
+    }
+
+    sub record_before() {
+        if replaying
+            return
+        if not recording {
+            ; a new command starts with its first key after the count
+            if mode != MODE_NAV or pending_op != 0 or pending_char != 0 or count_digit() or key == '.'
+                return
+            recording = true
+            rec_len = 0
+            rec_overflow = false
+            rec_count = numbers
+            rec_motion_count = 0
+            rec_changes = gapbuffer.changes
+        } else if mode == MODE_NAV and pending_op != 0 and pending_char == 0 and count_digit() {
+            ; the count between an operator and its motion goes into the
+            ; command's count, so a count typed before . can replace it
+            rec_motion_count = rec_motion_count * 10 + (key - '0')
+            return
+        } else if (mode == MODE_INSERT or mode == MODE_REPLACE) and
+                (key == KEY_LEFT or key == KEY_RIGHT or key == KEY_UP or key == KEY_DOWN) {
+            ; like vim, moving in insert mode starts the repeatable insert over
+            rec_keys[0] = 'i'
+            if mode == MODE_REPLACE
+                rec_keys[0] = 'R'
+            rec_len = 1
+            rec_count = 0
+            rec_motion_count = 0
+            return
+        }
+        if rec_len == REPEAT_SIZE {
+            rec_overflow = true
+            return
+        }
+        rec_keys[rec_len] = key
+        rec_len++
+    }
+
+    sub record_after() {
+        ubyte first = rec_keys[0]
+        if replaying or not recording
+            return
+        ; the command is complete when nav mode waits for a new one
+        if mode != MODE_NAV or pending_op != 0 or pending_char != 0
+            return
+        recording = false
+        ; only changes are repeated: not yanks, motions, :, u or Ctrl-R
+        if gapbuffer.changes == rec_changes or first == ':' or first == 'u' or first == KEY_CONTROL_R
+            return
+        dot_too_long = rec_overflow
+        dot_valid = not rec_overflow
+        if dot_valid {
+            dot_len = rec_len
+            sys.memcopy(&rec_keys, &dot_keys, rec_len)
+            dot_count = 0
+            if rec_count != 0 or rec_motion_count != 0
+                dot_count = max(rec_count, 1) * max(rec_motion_count, 1)
+        }
+    }
+
+    ; replay the last change, with the count typed before . if there was one
+    sub replay() {
+        ubyte i
+        repeat_requested = false
+        if not dot_valid {
+            if dot_too_long
+                status("too long to repeat")
+            else
+                status("nothing to repeat")
+            return
+        }
+        replaying = true
+        ; like vim, a count given to . is also used by the next .
+        if repeat_count != 0
+            dot_count = repeat_count
+        numbers = dot_count
+        for i in 0 to dot_len - 1 {
+            key = dot_keys[i]
+            handle_key()
+        }
+        replaying = false
     }
 
     ;
@@ -362,6 +481,12 @@ main {
                 char_count = count
             }
             ':', '/', '?' -> start_cmdline(key)
+            '.' -> {
+                repeat_requested = true
+                repeat_count = 0
+                if count_given
+                    repeat_count = count
+            }
             'u' -> undo()
             KEY_CONTROL_R -> {
                 ; redo: only when the last u undid something

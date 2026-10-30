@@ -102,7 +102,7 @@ Keys in insert and replace mode:
 | `J` | join lines with one space | ✅ |
 | `gJ` | join lines without a space | ⬜ |
 | `>>` `<<`, `>`motion `<`motion | indent / unindent lines | ⬜ |
-| `.` | repeat the last change | ⬜ |
+| `.`, `n.` | repeat the last change (a count replaces its count) | ✅ |
 | `u` | undo the last change (one level; `u` again redoes it, like vi) | ✅ |
 | `Ctrl-R` | redo the change `u` just undid | ✅ |
 | `U` | undo all changes on the line | ❌ |
@@ -126,6 +126,14 @@ either part (`2d3w`).  `j` `k` `G` `H` `M` `L` `+` `-` work on whole lines.
 
 The yank buffer is 1 KB (256 bytes when memory is short); bigger yanks are
 refused with "too big to yank" (a delete still happens, with "not yanked").
+
+`.` replays the keys of the last change, typed text included, so
+`cwfoo<Esc>` then `.` changes the word under the cursor to `foo`.  As in
+vim: a count before `.` replaces the change's count (`3dw` then `2.`
+does `2dw`) and sticks for later `.`; yanks, motions, `:` commands, `u`
+and `Ctrl-R` are not repeated; moving with the cursor keys in insert mode
+starts the repeated text over from there.  A change of more than 128 keys
+can't be repeated ("too long to repeat").
 
 The undo log holds one change (a whole insert session counts as one).
 It is 2 KB (512 bytes when memory is short): a change that doesn't fit
