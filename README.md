@@ -83,6 +83,7 @@ The useful `make` targets are:
 | `make test-gap` | Gap buffer tests on the virtual target                 |
 | `make test-c64` | Editor command tests on a C64 in VICE (`tests/vice/edtest.py`, ~10 s) |
 | `make test-c64-screen` | Check partial redraws against full redraws in VICE (~30 s) |
+| `make size` | Memory map and room left below memtop for each build (`tools/listsize.py`) |
 | `make c64`   | Compile for the C64 and run it in VICE                    |
 | `make cx16`  | Compile for the Commander X16 and run it in x16emu        |
 | `make clean` | Remove everything in `build/`                             |

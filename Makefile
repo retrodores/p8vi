@@ -54,16 +54,22 @@ build:
 build/mainc64.prg: $(SRCS)
 	$(PCC) $(PCCARGSC64) $<
 	$(CP) build/main.prg $@
+	$(CP) build/main.list build/mainc64.list
+	$(CP) build/main.asm build/mainc64.asm
 	$(RM) build/main.prg
 
 build/maincx16.prg: $(SRCS)
 	$(PCC) $(PCCARGSCX16) $<
 	$(CP) build/main.prg $@
+	$(CP) build/main.list build/maincx16.list
+	$(CP) build/main.asm build/maincx16.asm
 	$(RM) build/main.prg
 
 build/mainvic20.prg: $(SRCS)
 	$(PCC) $(PCCARGSVIC20) $<
 	$(CP) build/main.prg $@
+	$(CP) build/main.list build/mainvic20.list
+	$(CP) build/main.asm build/mainvic20.asm
 	$(RM) build/main.prg
 
 build/testcx16.prg: src/test.p8 src/gapbuffer.p8
@@ -95,6 +101,14 @@ emu-vic20:	build/mainvic20.prg disk
 # self checking gap buffer tests on the virtual target
 test-gap:	build
 	$(PCC) -quiet $(PCCARGSVM) -emu src/gaptest.p8 | grep -v INFO | diff -u tests/expected/virtual_gaptest.txt -
+
+# memory map of each build and the room left below memtop
+# (tools/listsize.py LIST for where the bytes go, A.list B.list to compare)
+VIC20_MIN_FREE=64
+size:	build/mainc64.prg build/maincx16.prg build/mainvic20.prg
+	python3 tools/listsize.py build/mainc64.list --map
+	python3 tools/listsize.py build/maincx16.list --map
+	python3 tools/listsize.py build/mainvic20.list --map --min-free $(VIC20_MIN_FREE)
 
 # editor tests on a C64 in VICE (x64sc and c1541 in the PATH)
 test-c64:	build/mainc64.prg
