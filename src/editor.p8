@@ -2004,7 +2004,7 @@ view {
     bool splash     ; show the start screen, until the first command
 
     str[] splash_lines = [
-        "Prog8 VI",
+        "Prog8 VI (p8vi)",
         "v0.1 20261030",
         "",
         "by Andrew Gillham",
