@@ -41,6 +41,8 @@ is off is left out of the program.  The VIC-20 program has to end below
 `$8000`, so its version leaves out features when room runs out: new
 features that don't fit start out off there.  `make size` shows the room
 left on each target.
+`docs/FEATURE-SWITCHES.md` explains how the switches are written so the
+compiler leaves the code out.
 
 # Prerequisites
 
