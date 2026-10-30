@@ -44,8 +44,9 @@ PCCARGSCX16=-srcdirs src:src/cx16 -asmlist -target cx16 -out build
 PCCARGSVIC20=-srcdirs src:src/vic20 -asmlist -target config/vic20plus24.properties -out build
 PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 
-# p8vi.p8 is the full editor (c64, cx16), p8vi_vic20.p8 the VIC-20's
-# smaller one; both import editor.p8.  The C64 has two builds: p8vi-c64
+# p8vi.p8 is the full editor (c64), p8vi_cx16.p8 the X16's and
+# p8vi_vic20.p8 the VIC-20's (each can leave out features); all import
+# editor.p8.  The C64 has two builds: p8vi-c64
 # with the gap buffer (the most room for text in main RAM) and p8vi-c64reu
 # with the page store (for text in an REU, docs/XMEM-DESIGN.md)
 PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-vic20.prg
@@ -71,12 +72,12 @@ build/p8vi-c64reu.prg: src/p8vi.p8 $(SRCS)
 	$(CP) build/p8vi.asm build/p8vi-c64reu.asm
 	$(RM) build/p8vi.prg
 
-build/p8vi-cx16.prg: src/p8vi.p8 $(SRCS)
+build/p8vi-cx16.prg: src/p8vi_cx16.p8 $(SRCS)
 	$(PCC) $(PCCARGSCX16) $<
-	$(CP) build/p8vi.prg $@
-	$(CP) build/p8vi.list build/p8vi-cx16.list
-	$(CP) build/p8vi.asm build/p8vi-cx16.asm
-	$(RM) build/p8vi.prg
+	$(CP) build/p8vi_cx16.prg $@
+	$(CP) build/p8vi_cx16.list build/p8vi-cx16.list
+	$(CP) build/p8vi_cx16.asm build/p8vi-cx16.asm
+	$(RM) build/p8vi_cx16.prg
 
 build/p8vi-vic20.prg: src/p8vi_vic20.p8 $(SRCS)
 	$(PCC) $(PCCARGSVIC20) $<

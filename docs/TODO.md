@@ -43,12 +43,12 @@ aren't.
 - **Text in extended memory** (the cx16's banked RAM, a C64 REU): files
   up to 64 KB fit, with yank and undo as big, and `:recover` after a crash
   (done, `docs/XMEM-DESIGN.md`).
-- **The X16's main RAM is full** (21 bytes left; the key buffers are in
-  golden RAM, after the page store's buffers): the page store's code is
-  big.  Parts in assembler, or feature switches for the X16, before
-  adding anything there.
-- **The VIC-20 start screen** is off (`features.SPLASH`): its room went to
-  the safe save.
+- **The X16's main RAM is nearly full** (318 bytes left; the key buffers
+  are in golden RAM, after the page store's buffers): the page store's
+  code is big.  Parts in assembler, or more feature switches
+  (`src/p8vi_cx16.p8`), before adding much there.
+- **The start screen** is off on the VIC-20 (its room went to the safe
+  save) and on the X16 (`features.SPLASH`).
 - **More text on the VIC-20.**  With RAM in block 5 the text is at
   `$a000-$bfff` (8 KB).  The main RAM after the program was the idea for a
   second text area (a gap buffer split across two memory areas), but the

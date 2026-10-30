@@ -1,6 +1,7 @@
 ; p8vi - a vi for 8-bit computers, written in Prog8.
-; the full editor, for the C64 and the Commander X16.  The editor itself is
-; in editor.p8; src/p8vi_vic20.p8 builds the VIC-20's smaller version.
+; the full editor, for the C64.  The editor itself is in editor.p8;
+; src/p8vi_cx16.p8 and src/p8vi_vic20.p8 build the X16's and the VIC-20's
+; versions.
 
 %import editor
 %zeropage basicsafe
