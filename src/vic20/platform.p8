@@ -10,13 +10,15 @@ platform {
     pointer ramtop
 
     sub init() {
-       ; the vic20plus8 target needs the 8K expansion at $2000 (block 1).
+       ; the program needs at least the 8K expansion at $2000 (block 1).
        ; blocks 2 and 3 ($4000-$7fff) are optional: extend the buffer into
-       ; them when present.  $8000 is the character ROM.
+       ; them when present.  a block the program itself reaches into must
+       ; be there, and must not be tested (that would overwrite the code).
+       ; $8000 is the character ROM.
        ramtop = $4000
-       if ram_at($4000) {
+       if sys.progend() > $4000 or ram_at($4000) {
            ramtop = $6000
-           if ram_at($6000)
+           if sys.progend() > $6000 or ram_at($6000)
                ramtop = $8000
        }
        main.SCREEN_WIDTH    = txt.DEFAULT_WIDTH
