@@ -2,8 +2,9 @@
 
 The C64 and the Commander X16 can both show 8 KB "RAM banks" at
 `$a000-$bfff`: the X16 in hardware, the C64 with an REU and the modules
-below.  p8vi doesn't use them yet; they are the base for a bigger text
-buffer, designed in `docs/XMEM-DESIGN.md`.
+below.  p8vi's page store keeps its text in them (`docs/XMEM-DESIGN.md`):
+on the X16 through `xmem`, on the C64 with `reu.detect()` and `reu.cmd()`
+only (1 KB pages copied to and from cache slots, not the 8 KB window).
 
 ## Files
 

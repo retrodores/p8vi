@@ -237,6 +237,33 @@ FILE_SUITES = [
     ], b'abcabcabc'),
 ]
 
+# an 8 KB file: more pages than the REU build's 4 cache slots, so pages go
+# to the REU and back (and still fits without an REU).  p1 round trip, p2
+# line 150 deleted, p3 that undone
+PAGES_LINES = [b'PAGE LINE %03d ' % i + b'0123456789' * (i % 4) for i in range(300)]
+PAGES = b'\n'.join(PAGES_LINES) + b'\n'
+FILE_SUITES.append(
+    ('pages', r':w p1\n150Gdd:w p2\nu:w p3\n', [
+        ('p1', PAGES),
+        ('p2', b'\n'.join(PAGES_LINES[:149] + PAGES_LINES[150:]) + b'\n'),
+        ('p3', PAGES),
+    ], PAGES))
+
+# with an REU only (--reu): a 30 KB file, more than main RAM holds, read
+# in again after its first line (60 KB), and once more, which is cut short
+# where the text reaches 65534 bytes, the most there can be.  (only the
+# end result is saved: a 1541 disk holds 168 KB)
+HUGE_LINES = [b'HUGE LINE %05d ' % i + b'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[:i % 27] for i in range(1000)]
+HUGE = b'\n'.join(HUGE_LINES) + b'\n'
+HUGE2 = b'\n'.join(HUGE_LINES[:1] + HUGE_LINES + HUGE_LINES[1:]) + b'\n'
+FIRST = len(HUGE_LINES[0]) + 1
+HUGE3 = HUGE2[:FIRST] + HUGE[:65534 - len(HUGE2)] + HUGE2[FIRST:]
+REU_SUITES = [
+    ('huge', r'1G:r t.txt\n1G:r t.txt\n:w h3\n', [
+        ('h3', HUGE3),
+    ], HUGE),
+]
+
 # (name, text, keys)
 SCREEN_SUITES = [
     ('x', SHORT, r'x'),
@@ -425,7 +452,10 @@ def main():
     ap.add_argument('--port', type=int, default=6600, help='first remote monitor port')
     ap.add_argument('--cycles', type=int, default=150_000_000,
                     help='cycles a screen run gets to finish its keys')
+    ap.add_argument('--reu', type=int, metavar='KB', help='with an REU of this size')
     args = ap.parse_args()
+    if args.reu:
+        EMU.extend(['-reu', '-reusize', str(args.reu)])
     for tool in ('x64sc', 'c1541'):
         if not shutil.which(tool):
             sys.exit(f'{tool} (VICE) not found in PATH')
@@ -434,7 +464,8 @@ def main():
     os.makedirs(args.work, exist_ok=True)
 
     if args.kind == 'files':
-        suites = [s for s in FILE_SUITES if not args.names or s[0] in args.names]
+        suites = [s for s in FILE_SUITES + (REU_SUITES if args.reu else [])
+                  if not args.names or s[0] in args.names]
         work = lambda s: run_files(args, s)
     else:
         suites = list(enumerate(s for s in SCREEN_SUITES if not args.names or s[0] in args.names))

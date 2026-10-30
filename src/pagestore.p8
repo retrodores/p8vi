@@ -1,6 +1,11 @@
 ; The page store: a text store (see buffer.p8) that keeps the text in
-; pages of page_size bytes, so it can later live in extended memory (see
-; docs/XMEM-DESIGN.md).  For now the pages are in main RAM.
+; pages of page_size bytes, so it can live in extended memory (see
+; docs/XMEM-DESIGN.md).  Where the pages are is up to pagemem
+; (src/<target>/pagemem_platform.p8): pagemem.map(id) gives the address of
+; page id, valid until the next map(), and pagemem.changed() must follow
+; every write to it (an REU copy is then written back).  So only one page
+; is used at a time; bytes going from one page to another go through
+; a small buffer in main RAM.
 ;
 ; A page holds 0 to page_size bytes of text.  The page table lists the
 ; pages in text order with their memory, length and number of line
@@ -13,6 +18,7 @@
 ; an empty text (and briefly the page read_room() hands out).
 
 %import buffer
+%import pagemem_platform
 
 buffer {
     ; bytes per page: set it before init() (the tests use small pages)
@@ -20,13 +26,14 @@ buffer {
     ; a page store: read_room() gives one page at a time, so a file is read
     ; in pieces, and a delete over several pages is logged a page at a time
     const bool PAGED = true
-    ; most pages the store can have (in the text and free together)
-    const ubyte MAX_PAGES = 64
+    ; most pages the store can have (in the text and free together); page
+    ; ids are 0 to MAX_PAGES - 1
+    const ubyte MAX_PAGES = 128
 
-    ; the page table: page i of the text is at page_mem[i], holds
+    ; the page table: page i of the text is page page_id[i], holds
     ; page_len[i] bytes of text, page_lines[i] of them lines_eol
     ubyte npages
-    uword[MAX_PAGES] page_mem
+    ubyte[MAX_PAGES] page_id
     uword[MAX_PAGES] page_len
     uword[MAX_PAGES] page_lines
     ; the eol page_lines counts, 0 if they must be counted again (eol
@@ -35,7 +42,11 @@ buffer {
 
     ; pages not in the text
     ubyte nfree
-    uword[MAX_PAGES] free_mem
+    ubyte[MAX_PAGES] free_id
+
+    ; bytes going from one page to another pass through here
+    const ubyte BOUNCE_SIZE = 255
+    ubyte[BOUNCE_SIZE] bounce
 
     ; text that fits in all pages (at most $fffe, positions are uwords)
     uword capacity
@@ -52,21 +63,20 @@ buffer {
     uword read_pos
     uword read_size
 
-    ; use the memory from start up to (not including) top and empty the store
+    ; use the memory from start up to (not including) top, or extended
+    ; memory if there is some (pagemem decides), and empty the store
     sub init(pointer start, pointer top) {
-        uword total = 0
-        uword mem = start as uword
-        nfree = 0
+        ubyte n = lsb(pagemem.init(start as uword, top as uword, page_size, MAX_PAGES))
         npages = 0
-        while top as uword - mem >= page_size and nfree < MAX_PAGES {
-            free_mem[nfree] = mem
+        nfree = 0
+        while nfree != n {
+            ; (the free pages are taken from the end: page 0 first)
+            free_id[nfree] = n - 1 - nfree
             nfree++
-            mem += page_size
-            total += page_size
-            if total > $fffe - page_size
-                break
         }
-        capacity = total
+        capacity = $fffe
+        if n < $fffe / page_size
+            capacity = n * page_size
         clear()
     }
 
@@ -74,11 +84,11 @@ buffer {
     sub clear() {
         while npages != 0 {
             npages--
-            free_mem[nfree] = page_mem[npages]
+            free_id[nfree] = page_id[npages]
             nfree++
         }
         nfree--
-        page_mem[0] = free_mem[nfree]
+        page_id[0] = free_id[nfree]
         page_len[0] = 0
         page_lines[0] = 0
         npages = 1
@@ -143,10 +153,11 @@ buffer {
         cur_start = 0
     }
 
-    ; the address of position in its page (which becomes cur)
+    ; the address of position in its page (which becomes cur), until the
+    ; next pagemem.map()
     private sub page_at(uword position) -> uword {
         find_page(position)
-        return page_mem[cur] + position - cur_start
+        return pagemem.map(page_id[cur]) + position - cur_start
     }
 
     ; page k got count more bytes, lines more of them line endings (both
@@ -224,20 +235,20 @@ buffer {
             return
         lines_eol = eol
         for i in 0 to npages - 1
-            page_lines[i] = count_eol(page_mem[i], page_len[i])
+            page_lines[i] = count_eol(pagemem.map(page_id[i]), page_len[i])
     }
 
     ; put a free page into the text as page k, empty
     private sub new_page(ubyte k) {
         ubyte i = npages
         while i != k {
-            page_mem[i] = page_mem[i - 1]
+            page_id[i] = page_id[i - 1]
             page_len[i] = page_len[i - 1]
             page_lines[i] = page_lines[i - 1]
             i--
         }
         nfree--
-        page_mem[k] = free_mem[nfree]
+        page_id[k] = free_id[nfree]
         page_len[k] = 0
         page_lines[k] = 0
         npages++
@@ -246,11 +257,11 @@ buffer {
 
     ; take page k out of the text (it should be empty)
     private sub drop_page(ubyte k) {
-        free_mem[nfree] = page_mem[k]
+        free_id[nfree] = page_id[k]
         nfree++
         npages--
         while k != npages {
-            page_mem[k] = page_mem[k + 1]
+            page_id[k] = page_id[k + 1]
             page_len[k] = page_len[k + 1]
             page_lines[k] = page_lines[k + 1]
             k++
@@ -260,20 +271,41 @@ buffer {
 
     ; move count bytes from page k to the page next to it, j: the last
     ; bytes to the start of the page after, or the first bytes to the end
-    ; of the page before
+    ; of the page before.  through bounce, a piece at a time.
     private sub move_over(ubyte k, ubyte j, uword count) {
-        uword src = page_mem[k]
-        uword dest = page_mem[j]
-        uword lines
+        uword src = 0
+        uword dest = page_len[j]
+        uword lines = 0
+        uword p
+        uword n
         if j > k {
-            src += page_len[k] - count
-            move_bytes(dest, dest + count, page_len[j])
-        } else
-            dest += page_len[j]
-        lines = count_eol(src, count)
-        sys.memcopy(src, dest, count)
-        if j < k
-            move_bytes(src + count, src, page_len[k] - count)
+            ; room at the start of page j
+            src = page_len[k] - count
+            dest = 0
+            p = pagemem.map(page_id[j])
+            move_bytes(p, p + count, page_len[j])
+            pagemem.changed()
+        }
+        n = count
+        while n != 0 {
+            if n > BOUNCE_SIZE
+                n = BOUNCE_SIZE
+            sys.memcopy(pagemem.map(page_id[k]) + src, bounce, n)
+            lines += count_eol(bounce, n)
+            sys.memcopy(bounce, pagemem.map(page_id[j]) + dest, n)
+            pagemem.changed()
+            src += n
+            dest += n
+            n = count - src
+            if j > k
+                n = page_len[k] - src
+        }
+        if j < k {
+            ; close the start of page k
+            p = pagemem.map(page_id[k])
+            move_bytes(p + count, p, page_len[k] - count)
+            pagemem.changed()
+        }
         grow(k, 0 - count, 0 - lines)
         grow(j, count, lines)
         forget_page()
@@ -295,7 +327,7 @@ buffer {
             }
             make_room(position)
         }
-        return page_mem[cur] + position - cur_start
+        return pagemem.map(page_id[cur]) + position - cur_start
     }
 
     ; page cur, which holds position, is full: make room in it, or in
@@ -384,6 +416,7 @@ buffer {
         if value == lines_eol
             page_lines[cur]++
         @(p) = value
+        pagemem.changed()
         modified = true
         changes++
         note_change(offset, 1, 1)
@@ -417,6 +450,7 @@ buffer {
                 n = count
             move_bytes(p, p + n, page_len[cur] - (position - cur_start))
             sys.memcopy(src, p, n)
+            pagemem.changed()
             grow(cur, n, count_eol(p, n))
             bufend += n
             log_change('i', position, p, n)
@@ -472,8 +506,12 @@ buffer {
         read_page = k
         read_off = offset
         read_size = page_size - page_len[k]
-        p = page_mem[k] + offset
+        ; (no more than the text can grow: positions are uwords)
+        if read_size > capacity - bufend
+            read_size = capacity - bufend
+        p = pagemem.map(page_id[k]) + offset
         move_bytes(p, p + read_size, page_len[k] - offset)
+        pagemem.changed()
         return p, read_size
     }
 
@@ -485,8 +523,9 @@ buffer {
         if count > read_size
             count = read_size
         ; close the room: the rest of the page moves back
-        p = page_mem[read_page] + read_off
+        p = pagemem.map(page_id[read_page]) + read_off
         move_bytes(p + read_size, p + count, page_len[read_page] - read_off)
+        pagemem.changed()
         read_size = 0
         if count != 0 {
             log_change('i', read_pos, p, count)
@@ -522,6 +561,7 @@ buffer {
                 n = left
             log_change('d', position, p, n)
             move_bytes(p + n, p, page_len[cur] - (position - cur_start) - n)
+            pagemem.changed()
             grow(cur, 0 - n, 0 - count_eol(p, n))
             bufend -= n
             left -= n
@@ -568,15 +608,18 @@ buffer {
     ; the text in pieces, to go through all of it in order without
     ; moving it (saving, translating): chunk(0) to chunk(chunks() - 1)
     ; return the ram address and length of each piece, one per page.  the
-    ; bytes may be changed in place, but not their number.
+    ; bytes may be changed in place, but not their number, and a piece is
+    ; only there until the store is used again.
     sub chunks() -> ubyte {
         return npages
     }
 
     sub chunk(ubyte n) -> pointer, uword {
-        ; (the caller may change line endings)
+        uword p = pagemem.map(page_id[n])
+        ; (the caller may change the bytes, line endings too)
+        pagemem.changed()
         lines_eol = 0
-        return page_mem[n], page_len[n]
+        return p, page_len[n]
     }
 
     ;
@@ -639,12 +682,12 @@ buffer {
         for k in 0 to npages - 1 {
             if line <= page_lines[k] {
                 ; the line-th eol in this page ends the line before
-                p = page_mem[k]
+                p = pagemem.map(page_id[k])
                 repeat {
                     if @(p) == eol {
                         line--
                         if line == 0
-                            return start + (p - page_mem[k]) + 1
+                            return start + p - pagemem.last_addr + 1
                     }
                     p++
                 }
@@ -668,7 +711,7 @@ buffer {
             start += page_len[k]
             k++
         }
-        return line + count_eol(page_mem[k], position - start)
+        return line + count_eol(pagemem.map(page_id[k]), position - start)
     }
 
 } ; end of buffer block (page store)

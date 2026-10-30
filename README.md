@@ -40,9 +40,10 @@ The editor itself is `src/editor.p8` (with `charset.p8`,
 `src/<target>/platform.p8` and a text store, `buffer.p8` plus
 `gapbuffer.p8` or `pagestore.p8`, chosen by `src/<target>/store_platform.p8`).
 The two C64 builds differ only in the store: `p8vi-c64reu` is compiled
-with `src/c64reu` before `src/c64`.  It keeps the text in pages, which
-costs about 5 KB of room in main RAM; the REU support it is for is being
-built (`docs/XMEM-DESIGN.md`).  Each toplevel file has a `features` block
+with `src/c64reu` before `src/c64`.  It keeps the text in pages in an
+REU, up to 64 KB, or in main RAM without one (about 5 KB less than the
+plain build).  The X16 keeps its pages in banked RAM
+(`docs/XMEM-DESIGN.md`).  Each toplevel file has a `features` block
 of `const bool` switches for optional features; the code of a feature that
 is off is left out of the program.  The VIC-20 program has to end below
 `$8000`, so its version leaves out features when room runs out: new

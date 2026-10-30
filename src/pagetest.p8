@@ -21,7 +21,8 @@ main {
 
     sub start() {
         buffer.page_size = PAGE
-        buffer.init(sys.progend(), sys.progend() + CAPACITY + PAGE - 1)
+        ; (one page more for pagemem's window)
+        buffer.init(sys.progend(), sys.progend() + CAPACITY + 2 * PAGE - 1)
         check_uw("capacity", buffer.capacity, CAPACITY)
         buftests.run()
         test_pages()
@@ -32,7 +33,7 @@ main {
         test_eol_change()
         test_chunks()
         ; a bigger store: 10 pages
-        buffer.init(sys.progend(), sys.progend() + 10 * PAGE)
+        buffer.init(sys.progend(), sys.progend() + 11 * PAGE)
         test_many_pages()
         buftests.report()
     }
@@ -299,22 +300,22 @@ main {
         uword total = 0
         uword i
         uword lines
-        pointer p
         if buffer.npages == 0
             fail("no pages")
         for k in 0 to buffer.npages - 1 {
-            p = buffer.page_mem[k]
             if buffer.page_len[k] > buffer.page_size
                 fail("page too long")
             if buffer.page_len[k] == 0 and buffer.npages != 1
                 fail("empty page")
+            ; (a copy: get() maps other pages)
+            sys.memcopy(pagemem.map(buffer.page_id[k]), pagebuf, buffer.page_len[k])
             lines = 0
             for i in 0 to buffer.page_len[k] - 1 {
                 if buffer.page_len[k] == 0
                     break
-                if p[i] != buffer.get(total + i)
+                if pagebuf[i] != buffer.get(total + i)
                     fail("page bytes")
-                if p[i] == buffer.lines_eol
+                if pagebuf[i] == buffer.lines_eol
                     lines++
             }
             if buffer.lines_eol != 0 and lines != buffer.page_lines[k]
@@ -326,4 +327,6 @@ main {
         if (buffer.npages + buffer.nfree) as uword * buffer.page_size != buffer.capacity
             fail("pages lost")
     }
+
+    ubyte[PAGE] pagebuf
 }

@@ -64,39 +64,37 @@ kept at least half full: a 768 byte table.
 
 ### Where pages live: `pagemem`
 
-A page `id` is turned into an address by a small platform module,
-`pagemem` (`src/<target>/pagemem_platform.p8`):
+A page `id` (0 to 127) is turned into an address by a small platform
+module, `pagemem` (`src/<target>/pagemem_platform.p8`, built in step 4):
 
 ```prog8
 pagemem {
-    sub init() -> uword                 ; number of pages
-    sub map(uword id) -> pointer        ; the page's bytes, until the next map()
-    sub changed()                       ; the last mapped page was written to
+    sub init(uword start, uword top, uword page_size, ubyte max_pages) -> uword
+    sub map(ubyte id) -> uword          ; the page's bytes, until the next map()
+    sub changed()                       ; the page mapped last was written to
     sub sync()                          ; write changed pages back
 }
 ```
 
-- **Main RAM** (virtual target, a C64 without an REU): pages are slots in
-  the text memory; `map()` is arithmetic.
-- **X16:** pages are in banked RAM, 8 to a bank.  `map()` selects the
-  bank and returns `$a000 + (id & 7) * 1024`.  Nothing is copied.
-- **C64 with an REU:** `map()` fetches the page into one of a few
-  **cache slots** in main RAM (8 slots of 1 KB to start with), unless it
-  is there already; the least recently used slot is written back first if
-  it changed.  1 KB of DMA takes about 1 ms.  This doesn't use `reu.bank()`
-  or the `$a000` window: only `reu.cmd()`, with page-sized transfers.  So
-  the 8 KB at `$a000` stay part of main RAM.
-- Free pages are kept in a bitmap: 256 bytes for 2048 pages (2 MB).
-
-Main RAM pages can be used next to extended memory pages (the main RAM
-left after the cache slots and buffers), so an REU adds to main RAM
-rather than replacing it.
-
-**Two pages at once.**  Copying from one page to another (splitting,
-merging, yanking) needs both at once.  The REU cache holds both.  On the
-X16 two pages in different banks can't both be seen at `$a000`, so the
-copy goes through a small buffer in main RAM (256 bytes), in pieces.
-Code must not switch between two banks byte by byte.
+- **Only the page mapped last can be used**, and every write to it is
+  followed by `changed()`.  Bytes going from one page to another (splits,
+  merges, moving bytes along) pass through a 255 byte buffer in main RAM,
+  a piece at a time.
+- **X16** (`src/cx16`): pages are in banked RAM from bank 2 (`xmem`), 8 to
+  a bank, used in place: `map()` selects the bank.
+- **C64 REU build** (`src/c64reu`): `map()` copies the page into one of 4
+  **cache slots** of 1 KB in main RAM, unless it is there already; the
+  least recently used slot is written back first if it changed.  1 KB of
+  DMA takes about 1 ms.  Only `reu.cmd()` is used, not the `$a000`
+  window.
+- **Without extended memory** both use main RAM pages.  With it, all pages
+  are in extended memory (none in main RAM), as crash recovery needs; the
+  first page there is kept free for the recovery header.
+- **Virtual target** (the tests): one window that is written back only
+  after `changed()`, so a page used after mapping another, or written
+  without `changed()`, gives wrong text in the tests.
+- The page table has room for 128 pages; the text is at most 65534 bytes
+  (positions are uwords), and `read_room()` gives no more room than that.
 
 ### What the editor sees
 
@@ -214,6 +212,7 @@ Tested (`make test-reu`, `tests/x16/bankreset.p8`):
    lost to half-full pages and the table.  *Done,* see "Step 3: what the
    page store costs" below.
 4. **`pagemem` for the X16 and the REU.**  Key buffers to main RAM.
+   *Done:* see "Step 4" below.
 5. **Yank and undo in the page store.**
 6. **Recovery:** header, `sync()`, `:recover`.
 7. Later: several files, texts over 64 KB (positions would need more than
@@ -258,6 +257,24 @@ The page store's code is the most of it, about 4 KB of Prog8's code for
 the page table.  With extended memory (step 4) the text leaves main RAM,
 so this matters for a C64 without an REU, and for the X16 only until
 then.
+
+## Step 4: text in extended memory
+
+- The X16 keeps its pages in banked RAM; the yank buffer, undo log and
+  key buffers moved from bank 1 to main RAM.  Files up to the 64 KB limit
+  load: tried by hand in x16emu with 3 KB, 9.8 KB (two banks), 19.7 KB
+  and 39 KB files (load, `dd`, save: right).
+- The C64 REU build keeps its pages in the REU with 4 cache slots.
+- Main RAM free (program end to memtop): C64 REU build 14382 bytes (the
+  page table grew to 128 pages, and the slots come out of it), X16 4801.
+  The text no longer needs it when there is extended memory.
+- Tests: `make test-c64reu` runs the editor suites on the REU build with
+  a 512 KB REU (with two more suites: `pages`, an 8 KB file, more pages
+  than slots; `huge`, a 30 KB file read in twice more, the second time cut
+  short at 65534 bytes) and without one, and the screen checks with the
+  REU.  With the slots never written back the `pages` suite fails.
+- Found on the way: `read_room()` gave a whole page of room even when the
+  text was nearly 64 KB, so the length went past 65535 (the `huge` suite).
 
 ## Open questions
 

@@ -49,7 +49,8 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 # with the gap buffer (the most room for text in main RAM) and p8vi-c64reu
 # with the page store (for text in an REU, docs/XMEM-DESIGN.md)
 PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-vic20.prg
-SRCS	= src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/pagestore.p8 src/charset.p8 src/*/platform.p8 src/*/store_platform.p8
+SRCS	= src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/pagestore.p8 src/charset.p8 src/*/platform.p8 \
+	  src/*/store_platform.p8 src/*/pagemem_platform.p8 src/*/xmem_platform.p8 src/c64/reu.p8
 
 all: build $(PROGS)
 
@@ -133,9 +134,12 @@ size:	$(PROGS)
 test-c64:	build/p8vi-c64.prg
 	python3 tests/vice/edtest.py files --prg build/p8vi-c64.prg
 
-# the same tests on the C64 REU build (the page store)
+# the same tests on the C64 REU build (the page store), with an REU and
+# without one
 test-c64reu:	build/p8vi-c64reu.prg
+	python3 tests/vice/edtest.py files --prg build/p8vi-c64reu.prg --reu 512 --limit 3000000000
 	python3 tests/vice/edtest.py files --prg build/p8vi-c64reu.prg
+	python3 tests/vice/edtest.py screen --prg build/p8vi-c64reu.prg --reu 512
 
 # partial redraws must leave the same screen as a full redraw
 test-c64-screen:	build/p8vi-c64.prg
