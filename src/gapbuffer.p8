@@ -359,6 +359,12 @@ gapbuffer {
         undo_lost = false
     }
 
+    ; forget the logged change (after changing the text behind the buffer's back)
+    sub undo_clear() {
+        undo_len = 0
+        undo_lost = false
+    }
+
     ; the next change starts a new undo log (call before each editor command)
     sub undo_mark() {
         undo_new = true

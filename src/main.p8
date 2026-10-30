@@ -43,6 +43,11 @@ main {
     ubyte cmd_prompt            ; ':', '/' or '?'
     bool cut_short              ; the file did not fit, so saving it over itself loses text
     bool ascii_file             ; the file is ASCII: translated to PETSCII when read, back when written
+    ubyte line_ending           ; the file's ENDING_*; CRLF is CR in memory
+
+    const ubyte ENDING_CR = 0
+    const ubyte ENDING_LF = 1
+    const ubyte ENDING_CRLF = 2
 
     ubyte mode
     ubyte key
@@ -94,7 +99,7 @@ main {
             MODE_CMD -> key_mode_cmd()
             MODE_INSERT -> key_mode_insert()
             MODE_NAV -> key_mode_nav()
-            MODE_REPLACE -> key_mode_replace()
+            MODE_REPLACE -> key_mode_insert()
         }
     }
 
@@ -104,8 +109,8 @@ main {
 
     const ubyte REPEAT_SIZE = 128
 
-    ; the keys of the command being typed
-    ubyte[REPEAT_SIZE] rec_keys
+    ; the keys of the command being typed (REPEAT_SIZE bytes, from take_memory)
+    pointer rec_keys
     ubyte rec_len
     bool recording
     bool rec_overflow
@@ -113,8 +118,8 @@ main {
     uword rec_motion_count  ; count typed after an operator (d3w), 0 if none
     uword rec_changes       ; gapbuffer.changes when the command started
 
-    ; the last change, what . replays
-    ubyte[REPEAT_SIZE] dot_keys
+    ; the last change, what . replays (REPEAT_SIZE bytes, from take_memory)
+    pointer dot_keys
     ubyte dot_len
     uword dot_count         ; 0 if it had no count
     bool dot_valid
@@ -181,7 +186,7 @@ main {
         dot_valid = not rec_overflow
         if dot_valid {
             dot_len = rec_len
-            sys.memcopy(&rec_keys, &dot_keys, rec_len)
+            sys.memcopy(rec_keys, dot_keys, rec_len)
             dot_count = 0
             if rec_count != 0 or rec_motion_count != 0
                 dot_count = max(rec_count, 1) * max(rec_motion_count, 1)
@@ -304,12 +309,20 @@ main {
         draw_cmdline()
     }
 
+    ; insert mode, and replace mode (R), where typed characters replace
+    ; the ones under the cursor
     sub key_mode_insert () {
+        uword c = cursor()
+        bool replace = mode == MODE_REPLACE
         when key {
             KEY_ESCAPE -> leave_insert()
             KEY_RETURN -> insert_key(gapbuffer.eol)
             KEY_DEL -> {
-                if cursor() > 0 {
+                if replace {
+                    ; replace mode just moves left
+                    if c > cursor_line_start()
+                        set_cursor(c - 1)
+                } else if c > 0 {
                     ; the cursor mark moves back by itself, so fix the line here
                     if gapbuffer.get(cursor() - 1) == gapbuffer.eol
                         cur_line--
@@ -330,8 +343,14 @@ main {
             }
             KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN -> insert_move()
             else -> {
-                if printable(key)
-                    insert_key(key)
+                if printable(key) {
+                    if replace and c < cursor_line_end() {
+                        void gapbuffer.set(c, key)
+                        set_cursor(c + 1)
+                    } else {
+                        insert_key(key)
+                    }
+                }
             }
         }
         if insert_start > cursor()
@@ -401,11 +420,13 @@ main {
     }
 
     ; insert the text typed since insert_start insert_count - 1 more times
-    ubyte[128] insert_text
+    ; (INSERT_SIZE bytes, from take_memory)
+    const uword INSERT_SIZE = 128
+    pointer insert_text
     sub repeat_insert() {
         uword length = cursor() - insert_start
-        pointer text = &insert_text + 1
-        if cursor() <= insert_start or length > len(insert_text) - 1
+        pointer text = insert_text + 1
+        if cursor() <= insert_start or length > INSERT_SIZE - 1
             return
         void gapbuffer.copy_out(insert_start, length, text)
         if insert_lines {
@@ -420,30 +441,6 @@ main {
                 break
             }
             set_cursor(cursor() + length)
-        }
-    }
-
-    ; R: typed characters replace the ones under the cursor
-    sub key_mode_replace () {
-        uword c = cursor()
-        when key {
-            KEY_ESCAPE -> leave_insert()
-            KEY_RETURN -> insert_key(gapbuffer.eol)
-            KEY_DEL -> {
-                if c > gapbuffer.line_start(c)
-                    set_cursor(c - 1)
-            }
-            KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN -> insert_move()
-            else -> {
-                if printable(key) {
-                    if c < gapbuffer.line_end(c) {
-                        void gapbuffer.set(c, key)
-                        set_cursor(c + 1)
-                    } else {
-                        insert_key(key)
-                    }
-                }
-            }
         }
     }
 
@@ -1294,6 +1291,8 @@ main {
         uword depth = 1
         ubyte open
         ubyte close
+        ubyte char
+        bool forward
         while p < end {
             open = gapbuffer.get(p)
             if open == '(' or open == ')' or open == '[' or open == ']'
@@ -1308,27 +1307,21 @@ main {
             '[' -> close = ']'
             else -> close = '['
         }
-        if open == '(' or open == '[' {
-            repeat {
+        forward = open == '(' or open == '['
+        repeat {
+            if forward {
                 p++
                 if p >= gapbuffer.length()
                     return gapbuffer.NONE
-                if gapbuffer.get(p) == open
-                    depth++
-                else if gapbuffer.get(p) == close {
-                    depth--
-                    if depth == 0
-                        return p
-                }
+            } else {
+                if p == 0
+                    return gapbuffer.NONE
+                p--
             }
-        }
-        repeat {
-            if p == 0
-                return gapbuffer.NONE
-            p--
-            if gapbuffer.get(p) == open
+            char = gapbuffer.get(p)
+            if char == open
                 depth++
-            else if gapbuffer.get(p) == close {
+            else if char == close {
                 depth--
                 if depth == 0
                     return p
@@ -1375,26 +1368,31 @@ main {
         uword p = c
         uword start = gapbuffer.line_start(c)
         uword end = gapbuffer.line_end(c)
-        repeat count {
-            if cmd == 'f' or cmd == 't' {
-                ; t again right before the character must skip it
-                if cmd == 't' and p == c and p + 1 < end and gapbuffer.get(p + 1) == char
-                    p++
-                p = gapbuffer.find_next(char, p + 1, end)
-                if p >= end
-                    return gapbuffer.NONE
-            } else {
-                if cmd == 'T' and p == c and p > start and gapbuffer.get(p - 1) == char
-                    p--
-                p = gapbuffer.find_prev(char, p)
-                if p == gapbuffer.NONE or p < start
-                    return gapbuffer.NONE
-            }
+        bool forward = cmd == 'f' or cmd == 't'
+        bool before = cmd == 't' or cmd == 'T'
+        ; t (T) again right before (after) the character must skip it.
+        ; (nothing comes before position 0, and stepping back from it would
+        ; make find_prev() search from the end)
+        if before {
+            if forward
+                p++
+            else if p != 0
+                p--
         }
-        if cmd == 't'
-            p--
-        else if cmd == 'T'
-            p++
+        repeat count {
+            if forward
+                p = gapbuffer.find_next(char, p + 1, end)
+            else
+                p = gapbuffer.find_prev(char, p)
+            if p >= end or p < start
+                return gapbuffer.NONE
+        }
+        if before {
+            if forward
+                p--
+            else
+                p++
+        }
         return p
     }
 
@@ -1542,9 +1540,9 @@ main {
     sub init() {
         txt.lowercase()
         platform.init()
-        ; the yank buffer and undo log go in the platform's spare memory if
-        ; they fit, otherwise at the top of the text memory, with the gap
-        ; buffer below them
+        ; the yank buffer, undo log and key buffers go in the platform's
+        ; spare memory if they fit, otherwise at the top of the text memory,
+        ; with the gap buffer below them
         uword undo_size = 2048
         yank_size = 1024
         if platform.texttop - platform.textstart < 4096 {
@@ -1553,6 +1551,9 @@ main {
         }
         yank_buf = take_memory(yank_size)
         pointer undo_buf = take_memory(undo_size)
+        rec_keys = take_memory(REPEAT_SIZE)
+        dot_keys = take_memory(REPEAT_SIZE)
+        insert_text = take_memory(INSERT_SIZE)
         gapbuffer.init(platform.textstart, platform.texttop)
         gapbuffer.undo_init(undo_buf, undo_size)
         mode = MODE_NAV
@@ -1584,7 +1585,7 @@ main {
     ;   :e[!] name  edit another file, ! discards changes; :e! reloads
     ;   :r [name]   read a file in below the cursor line
     ;   :n          go to line n
-    ;   :set ascii, :set petscii    how the file is written (:set shows it)
+    ;   :set ascii, petscii, cr, lf, crlf   how the file is written (:set shows it)
     ;
 
     str cmdword = " " * 4
@@ -1708,28 +1709,53 @@ main {
             new_text()
             cut_short = false
             ascii_file = false
+            line_ending = ENDING_CR
             status("new file")
         }
     }
 
-    ; :set ascii / :set petscii - how the file is written; :set shows it
+    ; :set ascii / petscii / cr / lf / crlf - how the file is written;
+    ; :set shows it
+    str[] set_options = ["petscii", "ascii", "cr", "lf", "crlf"]
+
     sub set_cmd(str arg) {
-        bool ascii = ascii_file
-        if strings.compare(arg, "ascii") == 0
-            ascii = true
-        else if strings.compare(arg, "petscii") == 0
-            ascii = false
-        else if arg[0] != 0 {
-            status("unknown option")
-            return
+        ubyte i = 0
+        if arg[0] != 0 {
+            while strings.compare(arg, set_options[i]) != 0 {
+                i++
+                if i == len(set_options) {
+                    status("unknown option")
+                    return
+                }
+            }
+            if i >= 2 {
+                set_line_ending(i - 2)
+            } else {
+                if ascii_file != (i == 1)
+                    gapbuffer.modified = true
+                ascii_file = i == 1
+            }
         }
-        if ascii != ascii_file
+        void strings.copy(set_options[ascii_file as ubyte], status_text)
+        void strings.append(status_text, " ")
+        void strings.append(status_text, set_options[2 + line_ending])
+        status(status_text)
+    }
+
+    ; change the line endings.  CR and LF swap in the text if the line end
+    ; character changes, which undo can't undo.
+    sub set_line_ending(ubyte ending) {
+        ubyte eol = if ending == ENDING_LF $0a else $0d
+        if ending != line_ending
             gapbuffer.modified = true
-        ascii_file = ascii
-        if ascii_file
-            status("ascii")
-        else
-            status("petscii")
+        line_ending = ending
+        if eol != gapbuffer.eol {
+            translate_text(charset.SWAP_EOL)
+            gapbuffer.eol = eol
+            gapbuffer.undo_clear()
+            cur_line = gapbuffer.line_number(cursor())
+            view.refresh(true)
+        }
     }
 
     ; :r - insert a file below the cursor line
@@ -1752,7 +1778,9 @@ main {
     sub load_file(str name, bool insert) -> bool {
         uword count
         uword position
+        uword room
         ubyte extra
+        bool full
         bool truncated = false
 
         if not file_exists(name) {
@@ -1776,20 +1804,31 @@ main {
             ; read straight into the gap
             gapbuffer.move_gap(position)
             count = diskio.f_read(gapbuffer.gap_ptr(), gapbuffer.free())
+            full = count == gapbuffer.free()
+            if gapbuffer.eol == $0d
+                count = charset.crlf_to_cr(gapbuffer.gap_ptr(), count)
             if ascii_file
                 charset.translate(gapbuffer.gap_ptr(), count, charset.TO_PETSCII)
             gapbuffer.inserted(count)
             set_cursor(position)
             goal_col = 0
         } else {
-            count = diskio.f_read(gapbuffer.ramstart, (gapbuffer.ramtop - gapbuffer.ramstart) as uword)
-            void gapbuffer.loaded(count)
+            room = (gapbuffer.ramtop - gapbuffer.ramstart) as uword
+            count = diskio.f_read(gapbuffer.ramstart, room)
+            full = count == room
+            ; CR LF pairs make a CRLF file, held with CR line endings
+            room = charset.crlf_to_cr(gapbuffer.ramstart, count)
+            void gapbuffer.loaded(room)
             new_text()
-            ascii_file = charset.looks_ascii(gapbuffer.ramstart, count, gapbuffer.eol == $0a)
-            translate_text(charset.TO_PETSCII)
+            line_ending = ENDING_CRLF
+            if room == count
+                line_ending = if gapbuffer.eol == $0a ENDING_LF else ENDING_CR
+            ascii_file = charset.looks_ascii(gapbuffer.ramstart, room, gapbuffer.eol == $0a)
+            if ascii_file
+                translate_text(charset.TO_PETSCII)
         }
         ; a full buffer may mean the file did not fit
-        if gapbuffer.free() == 0 and diskio.f_read(&extra, 1) == 1
+        if full and diskio.f_read(&extra, 1) == 1
             truncated = true
         diskio.f_close()
         if not insert
@@ -1812,17 +1851,34 @@ main {
         goal_col = 0
     }
 
-    ; translate the whole text, if the file is ASCII
-    sub translate_text(ubyte direction) {
+    ; translate the whole text, how is one of charset's modes
+    sub translate_text(ubyte how) {
         pointer p1
         pointer p2
         uword n1
         uword n2
-        if ascii_file {
-            p1, n1, p2, n2 = gapbuffer.segments()
-            charset.translate(p1, n1, direction)
-            charset.translate(p2, n2, direction)
+        p1, n1, p2, n2 = gapbuffer.segments()
+        charset.translate(p1, n1, how)
+        charset.translate(p2, n2, how)
+    }
+
+    ubyte[1] lf_byte = [$0a]
+
+    ; write count bytes at p, with CR LF for each CR in a CRLF file
+    sub write_text(pointer p, uword count) -> bool {
+        pointer end = p + count
+        pointer start = p
+        if line_ending == ENDING_CRLF {
+            while p != end {
+                p++
+                if @(p - 1) == $0d {
+                    if not diskio.f_write(start, p - start) or not diskio.f_write(lf_byte, 1)
+                        return false
+                    start = p
+                }
+            }
         }
+        return diskio.f_write(start, end - start)
     }
 
     ; write the whole text to a file, replacing it if it exists.
@@ -1843,11 +1899,13 @@ main {
             return false
         }
         ; an ASCII file is translated for writing, and back afterwards
-        translate_text(charset.TO_ASCII)
+        if ascii_file
+            translate_text(charset.TO_ASCII)
         p1, n1, p2, n2 = gapbuffer.segments()
-        ok = diskio.f_write(p1, n1) and diskio.f_write(p2, n2)
+        ok = write_text(p1, n1) and write_text(p2, n2)
         diskio.f_close_w()
-        translate_text(charset.TO_PETSCII)
+        if ascii_file
+            translate_text(charset.TO_PETSCII)
         ; (not diskio.status_code(): it only gets the first digit right,
         ; see bugs/side_effect_calls_merged.p8)
         read_disk_status()

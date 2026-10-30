@@ -36,6 +36,11 @@ for them; `{` `}` have no PETSCII form and show as graphics characters.
 The translation is one to one, so bytes that are not text survive a round
 trip unchanged.
 
+Line endings are found when a file is read: CR (Commodore), LF (Unix) or
+CR LF (DOS/Windows, held as CR while editing).  `:set cr`, `:set lf` and
+`:set crlf` change them for writing; switching between CR and LF changes
+every CR and LF in the text, and can't be undone with `u`.
+
 ## Moving
 
 | Keys | Action | Status |
@@ -190,8 +195,10 @@ can't be undone ("too big to undo").  Loading a file empties it.
 | `Ctrl-G` | show line count and free memory | ✅ |
 | `:s/old/new/` | substitute (plain text) | ⬜ |
 | line ranges (`:1,5d`, `:%`) | | ⬜ |
-| `:set ascii`, `:set petscii`, `:set` | write the file as ASCII or PETSCII, show which | ✅ |
-| `:set` options (line endings, tabs) | | ⬜ |
+| `:set ascii`, `:set petscii` | write the file as ASCII or PETSCII | ✅ |
+| `:set cr`, `:set lf`, `:set crlf` | the file's line endings | ✅ |
+| `:set` | show the file's format, e.g. `ascii crlf` | ✅ |
+| `:set` options (tabs) | | ⬜ |
 | `:g`, `:v` | | ❌ |
 | `:!cmd` | | ❌ |
 | windows (`:sp`, `Ctrl-W`) | | ❌ |

@@ -52,6 +52,9 @@ def petscii(text):
     return bytes(out)
 
 
+# a CRLF file, held with CR line endings in memory
+CRLF = b'line one\r\nline two\r\nlast\r\n'
+
 # (name, keys, [(saved file, expected contents)], text of t.txt (SHORT if left out))
 FILE_SUITES = [
     ('delete-put', r'dw:w a1\njdd:w a2\np:w a3\n1Gyyp:w a4\n', [
@@ -138,6 +141,29 @@ FILE_SUITES = [
         ('s8', petscii(b'HI ello W\nsnake_case | a~\nLAST line')),
         ('s9', b'HI ello W\nsnake_case | a~\nLAST line'),
     ], ASCII),
+    # c1 round trip, c2 an edit, then other line endings; c5: an LF file
+    # read back stays LF; c6 :r of a CRLF file into a CR file
+    ('crlf', r':w c1\njdd:w c2\n:set lf\n:w c3\n:set cr\n:w c4\n:e! c3\nx:w c5\n'
+             r':set cr\n:r c1\n:w c6\n:set crlf\n:w c7\n', [
+        ('c1', CRLF),
+        ('c2', b'line one\r\nlast\r\n'),
+        ('c3', b'line one\nlast\n'),
+        ('c4', b'line one\rlast\r'),
+        ('c5', b'ine one\nlast\n'),
+        ('c6', b'ine one\rline one\rline two\rlast\rlast\r'),
+        ('c7', b'ine one\r\nline one\r\nline two\r\nlast\r\nlast\r\n'),
+    ], CRLF),
+    # f F t T ; as motions and with d.  f1: T at the start of the text
+    # finds nothing (and must not search from the end); f5: T again right
+    # after the character skips it
+    ('find', r'0Tax:w f1\n$Fax:w f2\n0tax:w f3\n0fb;x:w f4\n$Tb;x:w f5\n0dtc:w f6\n', [
+        ('f1', b'bcabcabc'),
+        ('f2', b'bcabcbc'),
+        ('f3', b'babcbc'),
+        ('f4', b'babcc'),
+        ('f5', b'bbcc'),
+        ('f6', b'cc'),
+    ], b'abcabcabc'),
 ]
 
 # (name, text, keys)
