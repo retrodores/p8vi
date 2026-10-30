@@ -68,7 +68,11 @@ main {
             record_after()
             if repeat_requested
                 replay()
-            view.refresh(false)
+            ; the start screen stays up while a ':' command is typed
+            bool clear_splash = view.splash and mode != MODE_CMD
+            if clear_splash
+                view.splash = false
+            view.refresh(clear_splash)
             if mode == MODE_CMD {
                 ; the cursor is on the command line, after the typed text.
                 ; (not min(): prog8c 14.0-BETA3 miscompiles min() of two
@@ -1551,8 +1555,9 @@ main {
         gapbuffer.undo_init(undo_buf, undo_size)
         mode = MODE_NAV
         txt.cls()
-        void strings.copy("sampsmall.txt", filename)
-        void load_file(filename, false)
+        filename[0] = 0
+        new_text()
+        view.splash = true
     }
 
     ; returns size bytes of the platform's spare memory if there is room,
@@ -1869,6 +1874,19 @@ main {
 view {
     const uword NONE = gapbuffer.NONE
 
+    bool splash     ; show the start screen, until the first command
+
+    str[] splash_lines = [
+        "Prog8 VI",
+        "v0.1 20261030",
+        "",
+        "by Andrew Gillham",
+        "and Claude Code",
+        "",
+        ":e name  edit a file",
+        ":q       quit       "     ; as wide as the line above, to line up
+    ]
+
     ubyte column    ; screen position of the cursor
     ubyte row
 
@@ -1916,9 +1934,11 @@ view {
             layout()
             void locate()
         }
-        if force or gapbuffer.get_mark(main.MARK_TOP) != drawn_top
+        if force or gapbuffer.get_mark(main.MARK_TOP) != drawn_top {
             draw_all()
-        else if gapbuffer.change_start != NONE
+            if splash
+                draw_splash()
+        } else if gapbuffer.change_start != NONE
             draw_changed()
         if main.mode != main.MODE_CMD
             main.status_position()
@@ -2030,6 +2050,24 @@ view {
             }
         }
         return found
+    }
+
+    ; the start screen, centered over the empty rows
+    sub draw_splash() {
+        ubyte r = main.MIN_ROW + (main.MAX_ROW - main.MIN_ROW + 1 - len(splash_lines)) / 2
+        ubyte i
+        ubyte c
+        uword line
+        for i in 0 to len(splash_lines) - 1 {
+            line = splash_lines[i]
+            c = (main.SCREEN_WIDTH - strings.length(line)) / 2
+            while @(line) != 0 {
+                txt.setchr(c, r, txt.petscii2scr(@(line)))
+                c++
+                line++
+            }
+            r++
+        }
     }
 
     sub draw_all() {
