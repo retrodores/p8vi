@@ -17,7 +17,7 @@ main {
         sys.memset(sys.progend(), $9f00-sys.progend(), $55)
 
         ; our test buffer is 49 bytes
-        gapbuffer.init(sys.progend(), sys.progend() + 49)
+        buffer.init(sys.progend(), sys.progend() + 49)
 
         txt.cls()
 
@@ -28,28 +28,28 @@ main {
 ;        dump_pointers()
 
         repeat 20 {
-        void gapbuffer.insert_char(' ', gapbuffer.bufend)
+        void buffer.insert_char(' ', buffer.bufend)
         }
-        void gapbuffer.insert("abcde", gapbuffer.gappos)
-;        gapbuffer.insert_char('a', gapbuffer.gappos)
-;        gapbuffer.insert_char('b', gapbuffer.gappos)
-;        gapbuffer.insert_char('c', gapbuffer.gappos)
-;        gapbuffer.insert_char('d', gapbuffer.gappos)
-;        gapbuffer.insert_char('e', gapbuffer.gappos)
+        void buffer.insert("abcde", buffer.gappos)
+;        buffer.insert_char('a', buffer.gappos)
+;        buffer.insert_char('b', buffer.gappos)
+;        buffer.insert_char('c', buffer.gappos)
+;        buffer.insert_char('d', buffer.gappos)
+;        buffer.insert_char('e', buffer.gappos)
         txt.print("after insert\n")
         dump_pointers()
         dump_ram()
         dump_buffer()
 ;        repeat {}
 
-        void gapbuffer.insert("fghij", gapbuffer.gappos)
+        void buffer.insert("fghij", buffer.gappos)
         dump_pointers()
         dump_ram()
         dump_buffer()
 
 ;        repeat {}
-        gapbuffer.move_gap(23)
-        void gapbuffer.insert("klmno", gapbuffer.gappos)
+        buffer.move_gap(23)
+        void buffer.insert("klmno", buffer.gappos)
 
         ; move_cursor should move to the spot to the right
         ; of point on delete as gapstart will move 1 byte left
@@ -58,15 +58,15 @@ main {
         ; the inserted character goes at gapstart?
         ; meaning the point is between the existing character and
         ; the spot for the new one.
-        gapbuffer.move_gap(2)
+        buffer.move_gap(2)
         repeat 20 {
-            void gapbuffer.delete_char(gapbuffer.gappos)
+            void buffer.delete_char(buffer.gappos)
         }
         dump_pointers()
         dump_ram()
         dump_buffer()
-        gapbuffer.move_gap(40)
-        void gapbuffer.insert("Prog8", gapbuffer.gappos)
+        buffer.move_gap(40)
+        void buffer.insert("Prog8", buffer.gappos)
         dump_pointers()
         dump_ram()
         dump_buffer()
@@ -75,28 +75,28 @@ main {
 
     sub dump_pointers() {
         txt.print("ramstart: ")
-        txt.print_uwhex(gapbuffer.ramstart, true)
+        txt.print_uwhex(buffer.ramstart, true)
         txt.nl()
         txt.print("ramtop: ")
-        txt.print_uwhex(gapbuffer.ramtop, true)
+        txt.print_uwhex(buffer.ramtop, true)
         txt.nl()
         txt.print("gapstart: ")
-        txt.print_uwhex(gapbuffer.gapstart, true)
+        txt.print_uwhex(buffer.gapstart, true)
         txt.nl()
         txt.print("gapend: ")
-        txt.print_uwhex(gapbuffer.gapend, true)
+        txt.print_uwhex(buffer.gapend, true)
         txt.nl()
         txt.print("gapsize: ")
-        txt.print_uwhex(gapbuffer.gapsize, true)
+        txt.print_uwhex(buffer.gapsize, true)
         txt.nl()
         txt.print("bufend: ")
-        txt.print_uwhex(gapbuffer.bufend, true)
+        txt.print_uwhex(buffer.bufend, true)
         txt.nl()
         txt.print("gappos: ")
-        txt.print_uwhex(gapbuffer.gappos, true)
+        txt.print_uwhex(buffer.gappos, true)
         txt.nl()
         txt.print("free(): ")
-        txt.print_uwhex(gapbuffer.free(), true)
+        txt.print_uwhex(buffer.free(), true)
         txt.nl()
     }
 
@@ -104,22 +104,22 @@ main {
         ubyte i
         txt.nl()
         for i in 0 to 15 {
-            txt.print_ubhex(gapbuffer.get(i), false)
+            txt.print_ubhex(buffer.get(i), false)
             txt.spc()
         }
         txt.nl()
         for i in 16 to 31 {
-            txt.print_ubhex(gapbuffer.get(i), false)
+            txt.print_ubhex(buffer.get(i), false)
             txt.spc()
         }
         txt.nl()
         for i in 32 to 47 {
-            txt.print_ubhex(gapbuffer.get(i), false)
+            txt.print_ubhex(buffer.get(i), false)
             txt.spc()
         }
         txt.nl()
         for i in 48 to 63 {
-            txt.print_ubhex(gapbuffer.get(i), false)
+            txt.print_ubhex(buffer.get(i), false)
             txt.spc()
         }
         txt.nl()
@@ -129,22 +129,22 @@ main {
         ubyte i
         txt.nl()
         for i in 0 to 15 {
-            txt.print_ubhex(gapbuffer.ramstart[i], false)
+            txt.print_ubhex(buffer.ramstart[i], false)
             txt.spc()
         }
         txt.nl()
         for i in 16 to 31 {
-            txt.print_ubhex(gapbuffer.ramstart[i], false)
+            txt.print_ubhex(buffer.ramstart[i], false)
             txt.spc()
         }
         txt.nl()
         for i in 32 to 47 {
-            txt.print_ubhex(gapbuffer.ramstart[i], false)
+            txt.print_ubhex(buffer.ramstart[i], false)
             txt.spc()
         }
         txt.nl()
         for i in 48 to 63 {
-            txt.print_ubhex(gapbuffer.ramstart[i], false)
+            txt.print_ubhex(buffer.ramstart[i], false)
             txt.spc()
         }
         txt.nl()

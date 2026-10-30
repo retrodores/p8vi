@@ -18,7 +18,7 @@ main {
     ubyte failures
 
     sub start() {
-        gapbuffer.init(sys.progend(), sys.progend() + CAPACITY)
+        buffer.init(sys.progend(), sys.progend() + CAPACITY)
 
         test_empty()
         test_insert()
@@ -52,182 +52,182 @@ main {
 
     sub test_empty() {
         txt.print("empty\n")
-        gapbuffer.clear()
+        buffer.clear()
         expect("")
-        check_uw("free", gapbuffer.free(), CAPACITY)
-        check_ub("get(0)", gapbuffer.get(0), 0)
-        check_bool("delete_char", gapbuffer.delete_char(0), false)
+        check_uw("free", buffer.free(), CAPACITY)
+        check_ub("get(0)", buffer.get(0), 0)
+        check_bool("delete_char", buffer.delete_char(0), false)
     }
 
     sub test_insert() {
         txt.print("insert\n")
-        gapbuffer.clear()
-        check_bool("insert", gapbuffer.insert("hello", 0), true)
-        check_bool("insert_char", gapbuffer.insert_char(' ', 5), true)
-        check_bool("insert", gapbuffer.insert("world", gapbuffer.gappos), true)
+        buffer.clear()
+        check_bool("insert", buffer.insert("hello", 0), true)
+        check_bool("insert_char", buffer.insert_char(' ', 5), true)
+        check_bool("insert", buffer.insert("world", buffer.gappos), true)
         expect("hello world")
-        check_uw("gappos", gapbuffer.gappos, 11)
-        check_uw("free", gapbuffer.free(), CAPACITY - 11)
+        check_uw("gappos", buffer.gappos, 11)
+        check_uw("free", buffer.free(), CAPACITY - 11)
     }
 
     sub test_insert_middle() {
         ; gap must move left to reach the insertion point
         txt.print("insert middle\n")
-        gapbuffer.clear()
-        void gapbuffer.insert("hello world", 0)
-        void gapbuffer.insert("big ", 6)
+        buffer.clear()
+        void buffer.insert("hello world", 0)
+        void buffer.insert("big ", 6)
         expect("hello big world")
-        check_uw("gappos", gapbuffer.gappos, 10)
+        check_uw("gappos", buffer.gappos, 10)
         ; and right again, past the text that moved after the gap
-        void gapbuffer.insert_char('!', gapbuffer.length())
+        void buffer.insert_char('!', buffer.length())
         expect("hello big world!")
     }
 
     sub test_insert_start_end() {
         txt.print("insert start/end\n")
-        gapbuffer.clear()
-        void gapbuffer.insert("middle", 0)
-        void gapbuffer.insert("[", 0)
-        void gapbuffer.insert("]", gapbuffer.length())
-        void gapbuffer.insert("<", 0)
+        buffer.clear()
+        void buffer.insert("middle", 0)
+        void buffer.insert("[", 0)
+        void buffer.insert("]", buffer.length())
+        void buffer.insert("<", 0)
         expect("<[middle]")
         ; positions past the end are clamped to the end
-        void gapbuffer.insert(">", 200)
+        void buffer.insert(">", 200)
         expect("<[middle]>")
     }
 
     sub test_delete() {
         txt.print("delete\n")
-        gapbuffer.clear()
-        void gapbuffer.insert("abcdef", 0)
-        check_bool("first", gapbuffer.delete_char(0), true)
+        buffer.clear()
+        void buffer.insert("abcdef", 0)
+        check_bool("first", buffer.delete_char(0), true)
         expect("bcdef")
-        check_bool("last", gapbuffer.delete_char(4), true)
+        check_bool("last", buffer.delete_char(4), true)
         expect("bcde")
-        check_bool("middle", gapbuffer.delete_char(1), true)
+        check_bool("middle", buffer.delete_char(1), true)
         expect("bde")
-        check_uw("gappos", gapbuffer.gappos, 1)
-        check_bool("past end", gapbuffer.delete_char(3), false)
+        check_uw("gappos", buffer.gappos, 1)
+        check_bool("past end", buffer.delete_char(3), false)
         expect("bde")
-        check_uw("free", gapbuffer.free(), CAPACITY - 3)
+        check_uw("free", buffer.free(), CAPACITY - 3)
         ; delete everything
         repeat 3 {
-            void gapbuffer.delete_char(0)
+            void buffer.delete_char(0)
         }
         expect("")
-        check_uw("free", gapbuffer.free(), CAPACITY)
+        check_uw("free", buffer.free(), CAPACITY)
     }
 
     sub test_delete_nchar() {
         txt.print("delete_nchar\n")
-        gapbuffer.clear()
-        void gapbuffer.insert("0123456789", 0)
-        check_uw("count", gapbuffer.delete_nchar(3, 2), 3)
+        buffer.clear()
+        void buffer.insert("0123456789", 0)
+        check_uw("count", buffer.delete_nchar(3, 2), 3)
         expect("0156789")
         ; count is clamped to the end of the text
-        check_uw("clamped", gapbuffer.delete_nchar(100, 4), 3)
+        check_uw("clamped", buffer.delete_nchar(100, 4), 3)
         expect("0156")
-        check_uw("past end", gapbuffer.delete_nchar(1, 4), 0)
+        check_uw("past end", buffer.delete_nchar(1, 4), 0)
         expect("0156")
     }
 
     sub test_move_gap() {
         txt.print("move_gap\n")
-        gapbuffer.clear()
-        void gapbuffer.insert("abcdefgh", 0)
+        buffer.clear()
+        void buffer.insert("abcdefgh", 0)
         gap_to(3)
         expect("abcdefgh")
-        check_uw("gappos", gapbuffer.gappos, 3)
+        check_uw("gappos", buffer.gappos, 3)
         gap_to(7)
         expect("abcdefgh")
         gap_to(0)
         expect("abcdefgh")
         gap_to(500)
         expect("abcdefgh")
-        check_uw("clamped", gapbuffer.gappos, 8)
+        check_uw("clamped", buffer.gappos, 8)
     }
 
     sub test_full() {
         txt.print("full\n")
-        gapbuffer.clear()
+        buffer.clear()
         ; 30 characters, 2 left
-        void gapbuffer.insert("abcdefghijklmnopqrstuvwxyz0123", 0)
-        check_bool("too long", gapbuffer.insert("XYZ", 5), false)
+        void buffer.insert("abcdefghijklmnopqrstuvwxyz0123", 0)
+        check_bool("too long", buffer.insert("XYZ", 5), false)
         expect("abcdefghijklmnopqrstuvwxyz0123")
-        check_bool("char 1", gapbuffer.insert_char('-', 5), true)
-        check_bool("char 2", gapbuffer.insert_char('-', 10), true)
-        check_uw("free", gapbuffer.free(), 0)
-        check_bool("char 3", gapbuffer.insert_char('-', 0), false)
+        check_bool("char 1", buffer.insert_char('-', 5), true)
+        check_bool("char 2", buffer.insert_char('-', 10), true)
+        check_uw("free", buffer.free(), 0)
+        check_bool("char 3", buffer.insert_char('-', 0), false)
         expect("abcde-fghi-jklmnopqrstuvwxyz0123")
         ; moving with no gap at all must keep the text intact
         gap_to(2)
         gap_to(20)
         expect("abcde-fghi-jklmnopqrstuvwxyz0123")
         ; deleting makes room again
-        void gapbuffer.delete_char(5)
-        check_bool("after delete", gapbuffer.insert_char('+', 0), true)
+        void buffer.delete_char(5)
+        check_bool("after delete", buffer.insert_char('+', 0), true)
         expect("+abcdefghi-jklmnopqrstuvwxyz0123")
     }
 
     sub test_loaded() {
         txt.print("loaded\n")
-        gapbuffer.clear()
+        buffer.clear()
         ; simulate a file load straight into buffer memory
-        sys.memcopy("line one\nline two", gapbuffer.ramstart, 17)
-        check_bool("loaded", gapbuffer.loaded(17), true)
+        sys.memcopy("line one\nline two", buffer.ramstart, 17)
+        check_bool("loaded", buffer.loaded(17), true)
         expect("line one\nline two")
-        check_uw("free", gapbuffer.free(), CAPACITY - 17)
-        void gapbuffer.insert(" 1", 8)
+        check_uw("free", buffer.free(), CAPACITY - 17)
+        void buffer.insert(" 1", 8)
         expect("line one 1\nline two")
-        check_bool("too big", gapbuffer.loaded(CAPACITY + 1), false)
+        check_bool("too big", buffer.loaded(CAPACITY + 1), false)
     }
 
     sub test_set() {
         txt.print("set\n")
-        gapbuffer.clear()
-        void gapbuffer.insert("abc", 0)
+        buffer.clear()
+        void buffer.insert("abc", 0)
         gap_to(1)
-        check_bool("set", gapbuffer.set(1, 'X'), true)
-        check_bool("set end", gapbuffer.set(3, 'X'), false)
+        check_bool("set", buffer.set(1, 'X'), true)
+        check_bool("set end", buffer.set(3, 'X'), false)
         expect("aXc")
-        check_uw("gappos", gapbuffer.gappos, 1)
+        check_uw("gappos", buffer.gappos, 1)
     }
 
     sub test_marks() {
         txt.print("marks\n")
-        gapbuffer.clear()
-        void gapbuffer.insert("hello world", 0)
-        gapbuffer.set_mark(0, 6)
-        gapbuffer.set_mark(1, 0)
-        gapbuffer.set_mark(2, 11)
-        gapbuffer.set_mark(3, 5)
+        buffer.clear()
+        void buffer.insert("hello world", 0)
+        buffer.set_mark(0, 6)
+        buffer.set_mark(1, 0)
+        buffer.set_mark(2, 11)
+        buffer.set_mark(3, 5)
         ; marks after the insertion point move, a mark at it stays
-        void gapbuffer.insert("big ", 6)
+        void buffer.insert("big ", 6)
         expect("hello big world")
         check_marks(6, 0, 15, 5)
         ; marks inside a deleted range move to its start
-        check_uw("deleted", gapbuffer.delete_range(2, 8), 6)
+        check_uw("deleted", buffer.delete_range(2, 8), 6)
         expect("heg world")
         check_marks(2, 0, 9, 2)
-        gapbuffer.set_mark(0, 500)
-        check_uw("clamped", gapbuffer.get_mark(0), 9)
-        gapbuffer.clear()
+        buffer.set_mark(0, 500)
+        check_uw("clamped", buffer.get_mark(0), 9)
+        buffer.clear()
         check_marks(0, 0, 0, 0)
     }
 
     sub check_marks(uword m0, uword m1, uword m2, uword m3) {
-        check_uw("mark 0", gapbuffer.get_mark(0), m0)
-        check_uw("mark 1", gapbuffer.get_mark(1), m1)
-        check_uw("mark 2", gapbuffer.get_mark(2), m2)
-        check_uw("mark 3", gapbuffer.get_mark(3), m3)
+        check_uw("mark 0", buffer.get_mark(0), m0)
+        check_uw("mark 1", buffer.get_mark(1), m1)
+        check_uw("mark 2", buffer.get_mark(2), m2)
+        check_uw("mark 3", buffer.get_mark(3), m3)
     }
 
     sub test_lines() {
         ; offsets: one=0..2 eol=3 two=4..6 eol=7 eol=8 four=9..12 end=13
         txt.print("lines\n")
-        gapbuffer.eol = '\n'
-        gapbuffer.clear()
-        void gapbuffer.insert("one\ntwo\n\nfour", 0)
+        buffer.eol = '\n'
+        buffer.clear()
+        void buffer.insert("one\ntwo\n\nfour", 0)
         ; the searches must give the same results wherever the gap is
         gap_to(0)
         check_lines()
@@ -235,75 +235,75 @@ main {
         check_lines()
         gap_to(13)
         check_lines()
-        gapbuffer.eol = $0d
+        buffer.eol = $0d
     }
 
     sub check_lines() {
-        const uword NONE = gapbuffer.NONE
-        check_uw("find_next", gapbuffer.find_next('o', 0, 13), 0)
-        check_uw("find_next", gapbuffer.find_next('o', 1, 13), 6)
-        check_uw("find_next limit", gapbuffer.find_next('o', 7, 10), 10)
-        check_uw("find_next", gapbuffer.find_next('o', 7, 13), 10)
-        check_uw("find_prev", gapbuffer.find_prev('o', 13), 10)
-        check_uw("find_prev", gapbuffer.find_prev('o', 6), 0)
-        check_uw("find_prev none", gapbuffer.find_prev('x', 13), NONE)
-        check_uw("line_start", gapbuffer.line_start(5), 4)
-        check_uw("line_start eol", gapbuffer.line_start(3), 0)
-        check_uw("line_start empty", gapbuffer.line_start(8), 8)
-        check_uw("line_start end", gapbuffer.line_start(13), 9)
-        check_uw("line_end", gapbuffer.line_end(0), 3)
-        check_uw("line_end last", gapbuffer.line_end(9), 13)
-        check_uw("next_line", gapbuffer.next_line(0), 4)
-        check_uw("next_line", gapbuffer.next_line(4), 8)
-        check_uw("next_line empty", gapbuffer.next_line(8), 9)
-        check_uw("next_line last", gapbuffer.next_line(9), NONE)
-        check_uw("prev_line", gapbuffer.prev_line(9), 8)
-        check_uw("prev_line", gapbuffer.prev_line(8), 4)
-        check_uw("prev_line first", gapbuffer.prev_line(2), NONE)
-        check_uw("line_offset", gapbuffer.line_offset(0), 0)
-        check_uw("line_offset", gapbuffer.line_offset(3), 9)
-        check_uw("line_offset none", gapbuffer.line_offset(4), NONE)
-        check_uw("line_number", gapbuffer.line_number(0), 0)
-        check_uw("line_number", gapbuffer.line_number(3), 0)
-        check_uw("line_number", gapbuffer.line_number(4), 1)
-        check_uw("line_number", gapbuffer.line_number(8), 2)
-        check_uw("line_number", gapbuffer.line_number(13), 3)
+        const uword NONE = buffer.NONE
+        check_uw("find_next", buffer.find_next('o', 0, 13), 0)
+        check_uw("find_next", buffer.find_next('o', 1, 13), 6)
+        check_uw("find_next limit", buffer.find_next('o', 7, 10), 10)
+        check_uw("find_next", buffer.find_next('o', 7, 13), 10)
+        check_uw("find_prev", buffer.find_prev('o', 13), 10)
+        check_uw("find_prev", buffer.find_prev('o', 6), 0)
+        check_uw("find_prev none", buffer.find_prev('x', 13), NONE)
+        check_uw("line_start", buffer.line_start(5), 4)
+        check_uw("line_start eol", buffer.line_start(3), 0)
+        check_uw("line_start empty", buffer.line_start(8), 8)
+        check_uw("line_start end", buffer.line_start(13), 9)
+        check_uw("line_end", buffer.line_end(0), 3)
+        check_uw("line_end last", buffer.line_end(9), 13)
+        check_uw("next_line", buffer.next_line(0), 4)
+        check_uw("next_line", buffer.next_line(4), 8)
+        check_uw("next_line empty", buffer.next_line(8), 9)
+        check_uw("next_line last", buffer.next_line(9), NONE)
+        check_uw("prev_line", buffer.prev_line(9), 8)
+        check_uw("prev_line", buffer.prev_line(8), 4)
+        check_uw("prev_line first", buffer.prev_line(2), NONE)
+        check_uw("line_offset", buffer.line_offset(0), 0)
+        check_uw("line_offset", buffer.line_offset(3), 9)
+        check_uw("line_offset none", buffer.line_offset(4), NONE)
+        check_uw("line_number", buffer.line_number(0), 0)
+        check_uw("line_number", buffer.line_number(3), 0)
+        check_uw("line_number", buffer.line_number(4), 1)
+        check_uw("line_number", buffer.line_number(8), 2)
+        check_uw("line_number", buffer.line_number(13), 3)
         expect("one\ntwo\n\nfour")
     }
 
     sub test_copy() {
         txt.print("copy\n")
-        gapbuffer.eol = '\n'
-        gapbuffer.clear()
-        void gapbuffer.insert("one\ntwo\n\nfour", 0)
+        buffer.eol = '\n'
+        buffer.clear()
+        void buffer.insert("one\ntwo\n\nfour", 0)
         ; gap in the middle of "two" so copies have to cross it
         gap_to(5)
-        check_uw("copy_out", gapbuffer.copy_out(2, 5, linebuf), 5)
+        check_uw("copy_out", buffer.copy_out(2, 5, linebuf), 5)
         linebuf[5] = 0
         check_str("copy_out", linebuf, "e\ntwo")
-        check_uw("copy_out end", gapbuffer.copy_out(11, 5, linebuf), 2)
-        check_uw("copy_line", gapbuffer.copy_line(4, linebuf, 20), 3)
+        check_uw("copy_out end", buffer.copy_out(11, 5, linebuf), 2)
+        check_uw("copy_line", buffer.copy_line(4, linebuf, 20), 3)
         check_str("copy_line", linebuf, "two")
-        check_uw("copy_line wrap", gapbuffer.copy_line(9, linebuf, 2), 2)
+        check_uw("copy_line wrap", buffer.copy_line(9, linebuf, 2), 2)
         check_str("copy_line wrap", linebuf, "fo")
-        check_uw("copy_line empty", gapbuffer.copy_line(8, linebuf, 20), 0)
+        check_uw("copy_line empty", buffer.copy_line(8, linebuf, 20), 0)
         check_str("copy_line empty", linebuf, "")
-        check_uw("copy_line end", gapbuffer.copy_line(13, linebuf, 20), 0)
-        gapbuffer.eol = $0d
+        check_uw("copy_line end", buffer.copy_line(13, linebuf, 20), 0)
+        buffer.eol = $0d
     }
 
     sub test_bytes() {
         txt.print("insert_bytes\n")
         ubyte[] data = [1, 0, 2]
-        gapbuffer.clear()
-        void gapbuffer.insert("ab", 0)
-        check_bool("insert_bytes", gapbuffer.insert_bytes(data, len(data), 1), true)
-        check_uw("length", gapbuffer.length(), 5)
-        check_ub("byte 1", gapbuffer.get(1), 1)
-        check_ub("byte 2", gapbuffer.get(2), 0)
-        check_ub("byte 3", gapbuffer.get(3), 2)
-        check_bool("too big", gapbuffer.insert_bytes(data, CAPACITY, 0), false)
-        check_uw("delete_range", gapbuffer.delete_range(1, 4), 3)
+        buffer.clear()
+        void buffer.insert("ab", 0)
+        check_bool("insert_bytes", buffer.insert_bytes(data, len(data), 1), true)
+        check_uw("length", buffer.length(), 5)
+        check_ub("byte 1", buffer.get(1), 1)
+        check_ub("byte 2", buffer.get(2), 0)
+        check_ub("byte 3", buffer.get(3), 2)
+        check_bool("too big", buffer.insert_bytes(data, CAPACITY, 0), false)
+        check_uw("delete_range", buffer.delete_range(1, 4), 3)
         expect("ab")
     }
 
@@ -311,21 +311,21 @@ main {
         txt.print("chunks\n")
         pointer p
         uword n
-        gapbuffer.clear()
-        void gapbuffer.insert("hello world", 0)
+        buffer.clear()
+        void buffer.insert("hello world", 0)
         gap_to(5)
-        check_ub("chunks", gapbuffer.chunks(), 2)
-        p, n = gapbuffer.chunk(0)
-        check_bool("start", p == gapbuffer.ramstart, true)
+        check_ub("chunks", buffer.chunks(), 2)
+        p, n = buffer.chunk(0)
+        check_bool("start", p == buffer.ramstart, true)
         check_uw("first", n, 5)
         check_ub("first char", @(p), 'h')
-        p, n = gapbuffer.chunk(1)
+        p, n = buffer.chunk(1)
         check_uw("second", n, 6)
         check_ub("second char", @(p), ' ')
-        gap_to(gapbuffer.length())
-        p, n = gapbuffer.chunk(0)
+        gap_to(buffer.length())
+        p, n = buffer.chunk(0)
         check_uw("whole", n, 11)
-        p, n = gapbuffer.chunk(1)
+        p, n = buffer.chunk(1)
         check_uw("empty", n, 0)
     }
 
@@ -333,182 +333,182 @@ main {
         txt.print("read_room\n")
         pointer p
         uword room
-        gapbuffer.clear()
-        void gapbuffer.insert("ad", 0)
-        gapbuffer.set_mark(0, 1)
-        gapbuffer.set_mark(1, 2)
+        buffer.clear()
+        void buffer.insert("ad", 0)
+        buffer.set_mark(0, 1)
+        buffer.set_mark(1, 2)
         ; simulate reading data straight into the buffer
-        p, room = gapbuffer.read_room(1)
-        check_uw("room", room, gapbuffer.free())
+        p, room = buffer.read_room(1)
+        check_uw("room", room, buffer.free())
         @(p) = 'b'
         @(p + 1) = 'c'
-        gapbuffer.read_done(2)
+        buffer.read_done(2)
         expect("abcd")
-        check_uw("mark at room", gapbuffer.get_mark(0), 1)
-        check_uw("mark after", gapbuffer.get_mark(1), 4)
+        check_uw("mark at room", buffer.get_mark(0), 1)
+        check_uw("mark after", buffer.get_mark(1), 4)
     }
 
     sub test_modified() {
         txt.print("modified\n")
-        gapbuffer.clear()
-        check_bool("clear", gapbuffer.modified, false)
-        void gapbuffer.insert("abc", 0)
-        check_bool("insert", gapbuffer.modified, true)
-        gapbuffer.modified = false
+        buffer.clear()
+        check_bool("clear", buffer.modified, false)
+        void buffer.insert("abc", 0)
+        check_bool("insert", buffer.modified, true)
+        buffer.modified = false
         gap_to(1)
-        void gapbuffer.copy_out(0, 3, linebuf)
-        check_bool("move and read", gapbuffer.modified, false)
-        void gapbuffer.delete_nchar(1, 3)
-        check_bool("delete past end", gapbuffer.modified, false)
-        void gapbuffer.delete_char(0)
-        check_bool("delete", gapbuffer.modified, true)
-        gapbuffer.modified = false
-        void gapbuffer.set(0, 'x')
-        check_bool("set", gapbuffer.modified, true)
-        void gapbuffer.loaded(0)
-        check_bool("loaded", gapbuffer.modified, false)
+        void buffer.copy_out(0, 3, linebuf)
+        check_bool("move and read", buffer.modified, false)
+        void buffer.delete_nchar(1, 3)
+        check_bool("delete past end", buffer.modified, false)
+        void buffer.delete_char(0)
+        check_bool("delete", buffer.modified, true)
+        buffer.modified = false
+        void buffer.set(0, 'x')
+        check_bool("set", buffer.modified, true)
+        void buffer.loaded(0)
+        check_bool("loaded", buffer.modified, false)
         ; the change counter only moves on changes
-        uword before = gapbuffer.changes
-        void gapbuffer.insert("abc", 0)
-        check_uw("insert counted", gapbuffer.changes - before, 1)
+        uword before = buffer.changes
+        void buffer.insert("abc", 0)
+        check_uw("insert counted", buffer.changes - before, 1)
         gap_to(1)
-        void gapbuffer.copy_out(0, 3, linebuf)
-        void gapbuffer.delete_nchar(1, 3)
-        check_uw("no change", gapbuffer.changes - before, 1)
-        void gapbuffer.set(0, 'x')
-        void gapbuffer.delete_char(0)
-        check_uw("set and delete", gapbuffer.changes - before, 3)
+        void buffer.copy_out(0, 3, linebuf)
+        void buffer.delete_nchar(1, 3)
+        check_uw("no change", buffer.changes - before, 1)
+        void buffer.set(0, 'x')
+        void buffer.delete_char(0)
+        check_uw("set and delete", buffer.changes - before, 3)
     }
 
     sub test_find_bytes() {
-        const uword NONE = gapbuffer.NONE
+        const uword NONE = buffer.NONE
         txt.print("find_bytes\n")
-        gapbuffer.clear()
+        buffer.clear()
         ; offsets: the=0 cat=4 the=8 hat=12 th=16 end=18
-        void gapbuffer.insert("the cat the hat th", 0)
+        void buffer.insert("the cat the hat th", 0)
         ; matches must be found across the gap too
         gap_to(9)
-        check_uw("first", gapbuffer.find_bytes("the", 3, 0, 18), 0)
-        check_uw("next", gapbuffer.find_bytes("the", 3, 1, 18), 8)
-        check_uw("across gap", gapbuffer.find_bytes("e h", 3, 0, 18), 10)
-        check_uw("limit", gapbuffer.find_bytes("the", 3, 1, 10), NONE)
-        check_uw("cut at end", gapbuffer.find_bytes("the", 3, 9, 18), NONE)
-        check_uw("missing", gapbuffer.find_bytes("dog", 3, 0, 18), NONE)
-        check_uw("prev", gapbuffer.find_bytes_prev("the", 3, 18), 8)
-        check_uw("prev again", gapbuffer.find_bytes_prev("the", 3, 8), 0)
-        check_uw("prev none", gapbuffer.find_bytes_prev("the", 3, 0), NONE)
-        check_uw("prev cut", gapbuffer.find_bytes_prev("th ", 3, 18), NONE)
-        check_bool("match", gapbuffer.match_at("hat", 3, 12), true)
-        check_bool("no match", gapbuffer.match_at("hat", 3, 13), false)
-        check_bool("past end", gapbuffer.match_at("th!", 3, 16), false)
+        check_uw("first", buffer.find_bytes("the", 3, 0, 18), 0)
+        check_uw("next", buffer.find_bytes("the", 3, 1, 18), 8)
+        check_uw("across gap", buffer.find_bytes("e h", 3, 0, 18), 10)
+        check_uw("limit", buffer.find_bytes("the", 3, 1, 10), NONE)
+        check_uw("cut at end", buffer.find_bytes("the", 3, 9, 18), NONE)
+        check_uw("missing", buffer.find_bytes("dog", 3, 0, 18), NONE)
+        check_uw("prev", buffer.find_bytes_prev("the", 3, 18), 8)
+        check_uw("prev again", buffer.find_bytes_prev("the", 3, 8), 0)
+        check_uw("prev none", buffer.find_bytes_prev("the", 3, 0), NONE)
+        check_uw("prev cut", buffer.find_bytes_prev("th ", 3, 18), NONE)
+        check_bool("match", buffer.match_at("hat", 3, 12), true)
+        check_bool("no match", buffer.match_at("hat", 3, 13), false)
+        check_bool("past end", buffer.match_at("th!", 3, 16), false)
         expect("the cat the hat th")
     }
 
     sub test_undo() {
-        const uword NONE = gapbuffer.NONE
+        const uword NONE = buffer.NONE
         txt.print("undo\n")
-        gapbuffer.undo_init(memory("undo", 64, 0), 64)
-        gapbuffer.clear()
-        check_bool("empty", gapbuffer.can_undo(), false)
-        void gapbuffer.insert("one two", 0)
+        buffer.undo_init(memory("undo", 64, 0), 64)
+        buffer.clear()
+        check_bool("empty", buffer.can_undo(), false)
+        void buffer.insert("one two", 0)
         ; insert, undo, redo
-        gapbuffer.undo_mark()
-        void gapbuffer.insert(" three", 7)
+        buffer.undo_mark()
+        void buffer.insert(" three", 7)
         expect("one two three")
-        check_uw("undo insert", gapbuffer.undo(), 7)
+        check_uw("undo insert", buffer.undo(), 7)
         expect("one two")
-        check_uw("redo insert", gapbuffer.undo(), 7)
+        check_uw("redo insert", buffer.undo(), 7)
         expect("one two three")
         ; delete
-        gapbuffer.undo_mark()
-        void gapbuffer.delete_range(3, 7)
+        buffer.undo_mark()
+        void buffer.delete_range(3, 7)
         expect("one three")
-        check_uw("undo delete", gapbuffer.undo(), 3)
+        check_uw("undo delete", buffer.undo(), 3)
         expect("one two three")
         ; several changes in one command, across the gap
-        gapbuffer.undo_mark()
-        void gapbuffer.delete_char(0)
-        void gapbuffer.set(0, 'N')
-        void gapbuffer.insert("!", 12)
+        buffer.undo_mark()
+        void buffer.delete_char(0)
+        void buffer.set(0, 'N')
+        void buffer.insert("!", 12)
         gap_to(5)
-        void gapbuffer.insert("-", 5)
+        void buffer.insert("-", 5)
         expect("Ne tw-o three!")
-        check_uw("undo several", gapbuffer.undo(), 0)
+        check_uw("undo several", buffer.undo(), 0)
         expect("one two three")
-        check_uw("redo several", gapbuffer.undo(), 0)
+        check_uw("redo several", buffer.undo(), 0)
         expect("Ne tw-o three!")
-        check_uw("undo again", gapbuffer.undo(), 0)
+        check_uw("undo again", buffer.undo(), 0)
         expect("one two three")
         ; typing extends one record, deleting typed text shrinks it
-        gapbuffer.undo_mark()
-        void gapbuffer.insert_char('a', 3)
-        void gapbuffer.insert_char('b', 4)
-        void gapbuffer.insert_char('c', 5)
-        void gapbuffer.delete_char(5)
-        check_uw("one record", gapbuffer.undo_len, 2 + 7)
+        buffer.undo_mark()
+        void buffer.insert_char('a', 3)
+        void buffer.insert_char('b', 4)
+        void buffer.insert_char('c', 5)
+        void buffer.delete_char(5)
+        check_uw("one record", buffer.undo_len, 2 + 7)
         expect("oneab two three")
-        check_uw("undo typing", gapbuffer.undo(), 3)
+        check_uw("undo typing", buffer.undo(), 3)
         expect("one two three")
         ; moving the gap or the marks starts no new log
-        gapbuffer.undo_mark()
+        buffer.undo_mark()
         gap_to(0)
-        check_bool("still there", gapbuffer.can_undo(), true)
+        check_bool("still there", buffer.can_undo(), true)
         ; a change too big for the log can't be undone (24 byte log here)
-        gapbuffer.undo_init(memory("undo", 64, 0), 24)
-        gapbuffer.undo_mark()
-        void gapbuffer.delete_range(0, 13)
-        check_bool("small change", gapbuffer.can_undo(), true)
-        void gapbuffer.insert("abcdefghij", 0)
-        check_bool("too big", gapbuffer.can_undo(), false)
-        check_uw("no undo", gapbuffer.undo(), NONE)
+        buffer.undo_init(memory("undo", 64, 0), 24)
+        buffer.undo_mark()
+        void buffer.delete_range(0, 13)
+        check_bool("small change", buffer.can_undo(), true)
+        void buffer.insert("abcdefghij", 0)
+        check_bool("too big", buffer.can_undo(), false)
+        check_uw("no undo", buffer.undo(), NONE)
         expect("abcdefghij")
         ; a new log after it works again
-        gapbuffer.undo_mark()
-        void gapbuffer.delete_range(2, 10)
+        buffer.undo_mark()
+        void buffer.delete_range(2, 10)
         expect("ab")
-        check_uw("after lost", gapbuffer.undo(), 2)
+        check_uw("after lost", buffer.undo(), 2)
         expect("abcdefghij")
         ; loading empties the log
-        void gapbuffer.loaded(0)
-        check_bool("loaded", gapbuffer.can_undo(), false)
-        gapbuffer.undo_init(0, 0)
+        void buffer.loaded(0)
+        check_bool("loaded", buffer.can_undo(), false)
+        buffer.undo_init(0, 0)
     }
 
     sub test_change_range() {
-        const uword NONE = gapbuffer.NONE
+        const uword NONE = buffer.NONE
         txt.print("change range\n")
-        gapbuffer.clear()
-        void gapbuffer.insert("0123456789", 0)
-        gapbuffer.change_reset()
-        check_uw("none", gapbuffer.change_start, NONE)
+        buffer.clear()
+        void buffer.insert("0123456789", 0)
+        buffer.change_reset()
+        check_uw("none", buffer.change_start, NONE)
         ; moving the gap or reading changes nothing
         gap_to(3)
-        void gapbuffer.copy_out(0, 5, linebuf)
-        check_uw("still none", gapbuffer.change_start, NONE)
+        void buffer.copy_out(0, 5, linebuf)
+        check_uw("still none", buffer.change_start, NONE)
         ; an insert: the inserted text
-        void gapbuffer.insert("ab", 4)
-        check_uw("insert start", gapbuffer.change_start, 4)
-        check_uw("insert end", gapbuffer.change_end, 6)
+        void buffer.insert("ab", 4)
+        check_uw("insert start", buffer.change_start, 4)
+        check_uw("insert end", buffer.change_end, 6)
         ; a later insert before it: start moves down, the end moves along
-        void gapbuffer.insert_char('x', 1)
-        check_uw("before start", gapbuffer.change_start, 1)
-        check_uw("before end", gapbuffer.change_end, 7)
+        void buffer.insert_char('x', 1)
+        check_uw("before start", buffer.change_start, 1)
+        check_uw("before end", buffer.change_end, 7)
         ; a delete after it: the end grows to the deletion point
-        void gapbuffer.delete_char(9)
-        check_uw("after start", gapbuffer.change_start, 1)
-        check_uw("after end", gapbuffer.change_end, 9)
+        void buffer.delete_char(9)
+        check_uw("after start", buffer.change_start, 1)
+        check_uw("after end", buffer.change_end, 9)
         ; a delete overlapping the end: the end clamps to it
-        void gapbuffer.delete_nchar(3, 6)
-        check_uw("overlap end", gapbuffer.change_end, 6)
+        void buffer.delete_nchar(3, 6)
+        check_uw("overlap end", buffer.change_end, 6)
         ; set() covers one character
-        gapbuffer.change_reset()
-        void gapbuffer.set(2, 'S')
-        check_uw("set start", gapbuffer.change_start, 2)
-        check_uw("set end", gapbuffer.change_end, 3)
+        buffer.change_reset()
+        void buffer.set(2, 'S')
+        check_uw("set start", buffer.change_start, 2)
+        check_uw("set end", buffer.change_end, 3)
         ; loaded() marks everything changed
-        void gapbuffer.loaded(5)
-        check_uw("loaded start", gapbuffer.change_start, 0)
-        check_uw("loaded end", gapbuffer.change_end, 5)
+        void buffer.loaded(5)
+        check_uw("loaded start", buffer.change_start, 0)
+        check_uw("loaded end", buffer.change_end, 5)
     }
 
     sub check_str(str name, str got, str wanted) {
@@ -525,20 +525,20 @@ main {
     ; move the gap and fill it with junk, so reading gap bytes by
     ; mistake can't accidentally return stale copies of the text
     sub gap_to(uword position) {
-        gapbuffer.move_gap(position)
+        buffer.move_gap(position)
         scramble_gap()
     }
 
     sub scramble_gap() {
-        if gapbuffer.gapsize != 0
-            sys.memset(gapbuffer.gapstart, gapbuffer.gapsize, '#')
+        if buffer.gapsize != 0
+            sys.memset(buffer.gapstart, buffer.gapsize, '#')
     }
 
     ; copy the buffer text into contents using get()
     sub read_contents() {
         ubyte i = 0
-        while i as uword < gapbuffer.length() {
-            contents[i] = gapbuffer.get(i)
+        while i as uword < buffer.length() {
+            contents[i] = buffer.get(i)
             i++
         }
         contents[i] = 0
@@ -555,13 +555,13 @@ main {
             txt.print(contents)
             txt.print("'\n")
         }
-        if gapbuffer.gapend != gapbuffer.gapstart + gapbuffer.gapsize - 1
+        if buffer.gapend != buffer.gapstart + buffer.gapsize - 1
             fail("gapend != gapstart + gapsize - 1")
-        if gapbuffer.bufend + gapbuffer.gapsize != gapbuffer.ramtop - gapbuffer.ramstart
+        if buffer.bufend + buffer.gapsize != buffer.ramtop - buffer.ramstart
             fail("bufend + gapsize != capacity")
-        if gapbuffer.gapstart - gapbuffer.ramstart != gapbuffer.gappos
+        if buffer.gapstart - buffer.ramstart != buffer.gappos
             fail("gappos != gapstart")
-        if gapbuffer.ramend() != gapbuffer.ramtop
+        if buffer.ramend() != buffer.ramtop
             fail("ramend() != ramtop")
         scramble_gap()
     }

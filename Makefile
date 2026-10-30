@@ -45,7 +45,7 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 # p8vi.p8 is the full editor (c64, cx16), p8vi_vic20.p8 the VIC-20's
 # smaller one; both import editor.p8
 PROGS	= build/p8vi-c64.prg build/p8vi-cx16.prg build/p8vi-vic20.prg
-SRCS	= src/editor.p8 src/gapbuffer.p8 src/charset.p8 src/*/platform.p8
+SRCS	= src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/charset.p8 src/*/platform.p8 src/*/store_platform.p8
 
 all: build $(PROGS)
 
@@ -73,7 +73,7 @@ build/p8vi-vic20.prg: src/p8vi_vic20.p8 $(SRCS)
 	$(CP) build/p8vi_vic20.asm build/p8vi-vic20.asm
 	$(RM) build/p8vi_vic20.prg
 
-build/testcx16.prg: src/test.p8 src/gapbuffer.p8
+build/testcx16.prg: src/test.p8 src/buffer.p8 src/gapbuffer.p8
 	$(PCC) $(PCCARGSCX16) $<
 	$(CP) build/test.prg $@
 	$(RM) build/test.prg
