@@ -70,8 +70,12 @@ main {
             last_key = key
             view.refresh(false)
             if mode == MODE_CMD {
-                ; the cursor is on the command line
-                view.column = min(1 + cmdlen, SCREEN_WIDTH - 2)
+                ; the cursor is on the command line, after the typed text.
+                ; (not min(): prog8c 14.0-BETA3 miscompiles min() of two
+                ; ubyte expressions on 6502, it returns the second one)
+                view.column = 1 + cmdlen
+                if view.column > SCREEN_WIDTH - 2
+                    view.column = SCREEN_WIDTH - 2
                 view.row = STATUS_LINE
             }
             void blink_timer()
