@@ -44,7 +44,7 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 
 #PROGS	= build/mainc64.prg build/maincx16.prg
 PROGS	= build/maincx16.prg
-SRCS	= src/main.p8 src/gapbuffer.p8 src/*/platform.p8
+SRCS	= src/main.p8 src/gapbuffer.p8 src/charset.p8 src/*/platform.p8
 
 all: build $(PROGS)
 

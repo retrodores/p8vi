@@ -26,9 +26,15 @@ Commodore keyboards are missing some keys vi uses, so:
 | `Backspace` | `DEL` | |
 | arrow keys | cursor keys | work in nav, insert and replace mode |
 
-Text is edited as raw bytes: there is no ASCII/PETSCII translation yet, so
-an ASCII file's lowercase letters show up as uppercase (and typed lowercase
-letters are saved as ASCII uppercase).
+ASCII files (from other computers) are translated to PETSCII when read and
+back when written, so their letters show up in the right case.  A file is
+taken as ASCII when it has more lowercase than uppercase ASCII letters and
+no PETSCII capitals (with no letters at all: when it has LF line endings).
+`:set ascii` and `:set petscii` change how the file is written, `:set`
+shows which it is.  ASCII `_` `|` `~` become the PETSCII characters typed
+for them; `{` `}` have no PETSCII form and show as graphics characters.
+The translation is one to one, so bytes that are not text survive a round
+trip unchanged.
 
 ## Moving
 
@@ -184,6 +190,7 @@ can't be undone ("too big to undo").  Loading a file empties it.
 | `Ctrl-G` | show line count and free memory | ✅ |
 | `:s/old/new/` | substitute (plain text) | ⬜ |
 | line ranges (`:1,5d`, `:%`) | | ⬜ |
+| `:set ascii`, `:set petscii`, `:set` | write the file as ASCII or PETSCII, show which | ✅ |
 | `:set` options (line endings, tabs) | | ⬜ |
 | `:g`, `:v` | | ❌ |
 | `:!cmd` | | ❌ |

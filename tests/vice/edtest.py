@@ -33,7 +33,26 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SHORT = b'ALPHA BETA GAMMA\n  SECOND LINE HERE\nTHIRD, WITH PUNCT!\n\nFIFTH LINE'
 LONG = b'\n'.join(b'LINE %02d ' % i + b'ABCDEFGHIJ' * (i % 4) for i in range(1, 61))
 
-# (name, keys, [(saved file, expected contents)]), all starting from SHORT
+# a mixed case ASCII file, read and written with ASCII <-> PETSCII translation
+ASCII = b'Hello World\nsnake_case | a~b\nLAST line'
+
+
+def petscii(text):
+    """ASCII to PETSCII as the editor translates: letters swap case ranges,
+    _ | ~ become the PETSCII characters typed for them."""
+    out = bytearray()
+    for c in text:
+        if 0x41 <= c <= 0x5a:
+            c += 0x80
+        elif 0x61 <= c <= 0x7a:
+            c -= 0x20
+        else:
+            c = {0x5f: 0xa4, 0x7c: 0xdd, 0x7e: 0xde}.get(c, c)
+        out.append(c)
+    return bytes(out)
+
+
+# (name, keys, [(saved file, expected contents)], text of t.txt (SHORT if left out))
 FILE_SUITES = [
     ('delete-put', r'dw:w a1\njdd:w a2\np:w a3\n1Gyyp:w a4\n', [
         ('a1', b'BETA GAMMA\n  SECOND LINE HERE\nTHIRD, WITH PUNCT!\n\nFIFTH LINE'),
@@ -104,6 +123,21 @@ FILE_SUITES = [
         ('h4', b'FIFTH INE\nFIFTH LINE'),
         ('h5', b'FIFTH INE\nFIFTH LINE\nFIFTH LINE\nFIFTH LINE'),
     ]),
+    # typed letters are PETSCII lowercase, so 'hi' is written as ASCII 'hi'.
+    # s7 is written as PETSCII, then read back: it has PETSCII capitals, so
+    # it is not translated (s8), until :set ascii (s9)
+    ('ascii', r':w s1\nx:w s2\nihi \x1b:w s3\n0\xde\xde:w s4\n/orld\nD:w s5\nj$x:w s6\n'
+              r':set petscii\n:w s7\n:e s7\n:w s8\n:set ascii\n:w s9\n', [
+        ('s1', ASCII),
+        ('s2', b'ello World\nsnake_case | a~b\nLAST line'),
+        ('s3', b'hi ello World\nsnake_case | a~b\nLAST line'),
+        ('s4', b'HI ello World\nsnake_case | a~b\nLAST line'),
+        ('s5', b'HI ello W\nsnake_case | a~b\nLAST line'),
+        ('s6', b'HI ello W\nsnake_case | a~\nLAST line'),
+        ('s7', petscii(b'HI ello W\nsnake_case | a~\nLAST line')),
+        ('s8', petscii(b'HI ello W\nsnake_case | a~\nLAST line')),
+        ('s9', b'HI ello W\nsnake_case | a~\nLAST line'),
+    ], ASCII),
 ]
 
 # (name, text, keys)
@@ -137,10 +171,10 @@ def make_disk(d64, prg, text):
 
 
 def run_files(args, suite):
-    name, keys, expected = suite
+    name, keys, expected, *text = suite
     base = os.path.join(args.work, 'vt-' + name)
     d64 = base + '.d64'
-    make_disk(d64, args.prg, SHORT)
+    make_disk(d64, args.prg, text[0] if text else SHORT)
     # :q! back to BASIC, then a write to $d7ff (the -debugcart) quits VICE
     keybuf = ':e t.txt\\n' + keys + ':q!\\npoke 55295,0\\n'
     with open(base + '.log', 'wb') as log:

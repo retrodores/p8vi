@@ -211,52 +211,34 @@ gapbuffer {
     ; move the gap to position, clamped to the end of the text.
     ; editing routines do this themselves, it is only needed before
     ; using gap_ptr() or to make segments() return the text in one piece.
+    ; the text in between moves to the other side of the gap, in chunks no
+    ; larger than the gap so they never overlap.
     sub move_gap(uword position) {
+        pointer target
+        uword n
         if position > bufend
             position = bufend
-        if position < gappos
-            left(position)
-        else if position > gappos
-            right(position)
-        gappos = position
-    }
-
-    ; move the gap left so it starts at buffer offset position.
-    ; text between position and gapstart moves to just after the gap.
-    ; copies in chunks no larger than the gap so they never overlap.
-    private sub left(uword position) {
-        pointer target = ramstart + position
-        uword n
+        target = ramstart + position
         if gapsize == 0 {
             ; no gap: ram and buffer coordinates are the same
             gapstart = target
             gapend = target - 1
-            return
         }
+        ; moving left
         while gapstart > target {
             n = min((gapstart - target) as uword, gapsize)
             gapstart -= n
             gapend -= n
             sys.memcopy(gapstart, gapend + 1, n)
         }
-    }
-
-    ; move the gap right so it starts at buffer offset position.
-    ; text between the gap and position moves to just before the gap.
-    private sub right(uword position) {
-        pointer target = ramstart + position
-        uword n
-        if gapsize == 0 {
-            gapstart = target
-            gapend = target - 1
-            return
-        }
+        ; moving right
         while gapstart < target {
             n = min((target - gapstart) as uword, gapsize)
             sys.memcopy(gapend + 1, gapstart, n)
             gapstart += n
             gapend += n
         }
+        gappos = position
     }
 
     ;
@@ -408,26 +390,15 @@ gapbuffer {
             ; typing on after the last insert: make that insert longer
             if kind == 'i' and position == last_pos + last_count and undo_len + count <= undo_size {
                 sys.memcopy(data, undo_buf + undo_len - 5, count)
-                last_count += count
-                undo_len += count
-                pokew(undo_buf + start, last_count)
-                pokew(undo_buf + undo_len - 5, last_pos)
-                pokew(undo_buf + undo_len - 3, last_count)
-                undo_buf[undo_len - 1] = 'i'
+                put_record(start, last_count + count, last_pos, 'i')
                 return
             }
             ; deleting the end of what the last insert added: make it shorter
             if kind == 'd' and position >= last_pos and position + count == last_pos + last_count {
                 last_count -= count
-                if last_count == 0 {
-                    undo_len = start
-                } else {
-                    undo_len = start + last_count + 7
-                    pokew(undo_buf + start, last_count)
-                    pokew(undo_buf + undo_len - 5, last_pos)
-                    pokew(undo_buf + undo_len - 3, last_count)
-                    undo_buf[undo_len - 1] = 'i'
-                }
+                undo_len = start
+                if last_count != 0
+                    put_record(start, last_count, last_pos, 'i')
                 return
             }
         }
@@ -435,12 +406,21 @@ gapbuffer {
             undo_lost = true
             return
         }
-        pokew(undo_buf + undo_len, count)
         sys.memcopy(data, undo_buf + undo_len + 2, count)
-        undo_len += count + 7
-        pokew(undo_buf + undo_len - 5, position)
-        pokew(undo_buf + undo_len - 3, count)
-        undo_buf[undo_len - 1] = kind
+        put_record(undo_len, count, position, kind)
+    }
+
+    ; write the rest of the record whose count data bytes follow start:
+    ; the count before the data, the position, count and kind after it.
+    ; the log ends after the record.
+    private sub put_record(uword start, uword count, uword position, ubyte kind) {
+        pointer p = undo_buf + start
+        pokew(p, count)
+        p += count + 2
+        pokew(p, position)
+        pokew(p + 2, count)
+        p[4] = kind
+        undo_len = start + count + 7
     }
 
     ; revert the logged change (or re-do it, if it was just undone).
