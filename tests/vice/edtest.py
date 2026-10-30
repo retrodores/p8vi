@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Editor tests on a C64 in VICE (x64sc with a true-drive 1541).
 
-    edtest.py [--prg build/mainc64.prg] [--work build] [-j N] [files|screen] [name...]
+    edtest.py [--prg build/p8vi-c64.prg] [--work build] [-j N] [files|screen] [name...]
 
 files   (default) types vi commands at the editor, saves the text with
         ":w name" after each step, and compares the saved files with the
@@ -201,7 +201,7 @@ def make_disk(d64, prg, text):
     with open(txt, 'wb') as f:
         f.write(text)
     subprocess.run(['c1541', '-format', 'test,52', 'd64', d64, '-attach', d64,
-                    '-write', prg, 'main,p', '-write', txt, 't.txt,s'],
+                    '-write', prg, 'p8vi,p', '-write', txt, 't.txt,s'],
                    check=True, capture_output=True)
 
 
@@ -342,7 +342,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('kind', nargs='?', default='files', choices=['files', 'screen'])
     ap.add_argument('names', nargs='*', help='only run these suites')
-    ap.add_argument('--prg', default='build/mainc64.prg')
+    ap.add_argument('--prg', default='build/p8vi-c64.prg')
     ap.add_argument('--work', default='build')
     ap.add_argument('-j', type=int, default=os.cpu_count() or 4)
     ap.add_argument('--limit', type=int, default=800_000_000, help='cycle limit per run')

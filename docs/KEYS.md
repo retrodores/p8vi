@@ -9,6 +9,9 @@ systems, and which are implemented.
 | ⬜ | to do |
 | ❌ | won't do (too big for the target machines, or no use there) |
 
+The VIC-20 version (`src/p8vi_vic20.p8`) may leave out some features to
+fit in memory; its `features` block lists which.
+
 A count can be typed before most commands (`3j`, `2dd`, `d2w`, `3x`).
 
 ## CBM keyboard notes

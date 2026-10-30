@@ -42,35 +42,36 @@ PCCARGSCX16=-srcdirs src:src/cx16 -asmlist -target cx16 -out build
 PCCARGSVIC20=-srcdirs src:src/vic20 -asmlist -target config/vic20plus24.properties -out build
 PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 
-#PROGS	= build/mainc64.prg build/maincx16.prg
-PROGS	= build/maincx16.prg
-SRCS	= src/main.p8 src/gapbuffer.p8 src/charset.p8 src/*/platform.p8
+# p8vi.p8 is the full editor (c64, cx16), p8vi_vic20.p8 the VIC-20's
+# smaller one; both import editor.p8
+PROGS	= build/p8vi-c64.prg build/p8vi-cx16.prg build/p8vi-vic20.prg
+SRCS	= src/editor.p8 src/gapbuffer.p8 src/charset.p8 src/*/platform.p8
 
 all: build $(PROGS)
 
 build:
 	$(MD) build
 
-build/mainc64.prg: $(SRCS)
+build/p8vi-c64.prg: src/p8vi.p8 $(SRCS)
 	$(PCC) $(PCCARGSC64) $<
-	$(CP) build/main.prg $@
-	$(CP) build/main.list build/mainc64.list
-	$(CP) build/main.asm build/mainc64.asm
-	$(RM) build/main.prg
+	$(CP) build/p8vi.prg $@
+	$(CP) build/p8vi.list build/p8vi-c64.list
+	$(CP) build/p8vi.asm build/p8vi-c64.asm
+	$(RM) build/p8vi.prg
 
-build/maincx16.prg: $(SRCS)
+build/p8vi-cx16.prg: src/p8vi.p8 $(SRCS)
 	$(PCC) $(PCCARGSCX16) $<
-	$(CP) build/main.prg $@
-	$(CP) build/main.list build/maincx16.list
-	$(CP) build/main.asm build/maincx16.asm
-	$(RM) build/main.prg
+	$(CP) build/p8vi.prg $@
+	$(CP) build/p8vi.list build/p8vi-cx16.list
+	$(CP) build/p8vi.asm build/p8vi-cx16.asm
+	$(RM) build/p8vi.prg
 
-build/mainvic20.prg: $(SRCS)
+build/p8vi-vic20.prg: src/p8vi_vic20.p8 $(SRCS)
 	$(PCC) $(PCCARGSVIC20) $<
-	$(CP) build/main.prg $@
-	$(CP) build/main.list build/mainvic20.list
-	$(CP) build/main.asm build/mainvic20.asm
-	$(RM) build/main.prg
+	$(CP) build/p8vi_vic20.prg $@
+	$(CP) build/p8vi_vic20.list build/p8vi-vic20.list
+	$(CP) build/p8vi_vic20.asm build/p8vi-vic20.asm
+	$(RM) build/p8vi_vic20.prg
 
 build/testcx16.prg: src/test.p8 src/gapbuffer.p8
 	$(PCC) $(PCCARGSCX16) $<
@@ -82,21 +83,21 @@ clean:
 
 disk:
 	c1541 -format $(DISKNAME),52 $(DISKTYPE) $(DISK)
-	c1541 -attach $(DISK) -write build/mainc64.prg main,p
+	c1541 -attach $(DISK) -write build/p8vi-c64.prg p8vi,p
 	c1541 -attach $(DISK) -write samples/sampbig.txt sampbig.txt,s
 	c1541 -attach $(DISK) -write samples/sampmax.txt sampmax.txt,s
 	c1541 -attach $(DISK) -write samples/sampsmall.txt sampsmall.txt,s
 	c1541 -attach $(DISK) -write samples/sample.txt sample.txt,s
 
-emu-c64:	build/mainc64.prg disk
-	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/mainc64.prg
+emu-c64:	build/p8vi-c64.prg disk
+	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/p8vi-c64.prg
 
-emu-cx16:	build/maincx16.prg
-	x16emu -debug -scale 2 -rtc -fsroot samples/ -run -prg build/maincx16.prg
+emu-cx16:	build/p8vi-cx16.prg
+	x16emu -debug -scale 2 -rtc -fsroot samples/ -run -prg build/p8vi-cx16.prg
 
 EMUVIC=xvic -default -keymap 1 -model ntsc -memory all -8 build/testgap.d64 -drive8type 1542 -monitorfont "JetBrains Mono 16"
-emu-vic20:	build/mainvic20.prg disk
-	$(EMUVIC) -autostartprgmode 1 build/mainvic20.prg
+emu-vic20:	build/p8vi-vic20.prg disk
+	$(EMUVIC) -autostartprgmode 1 build/p8vi-vic20.prg
 
 # self checking gap buffer tests on the virtual target
 test-gap:	build
@@ -105,18 +106,18 @@ test-gap:	build
 # memory map of each build and the room left below memtop
 # (tools/listsize.py LIST for where the bytes go, A.list B.list to compare)
 VIC20_MIN_FREE=64
-size:	build/mainc64.prg build/maincx16.prg build/mainvic20.prg
-	python3 tools/listsize.py build/mainc64.list --map
-	python3 tools/listsize.py build/maincx16.list --map
-	python3 tools/listsize.py build/mainvic20.list --map --min-free $(VIC20_MIN_FREE)
+size:	build/p8vi-c64.prg build/p8vi-cx16.prg build/p8vi-vic20.prg
+	python3 tools/listsize.py build/p8vi-c64.list --map
+	python3 tools/listsize.py build/p8vi-cx16.list --map
+	python3 tools/listsize.py build/p8vi-vic20.list --map --min-free $(VIC20_MIN_FREE)
 
 # editor tests on a C64 in VICE (x64sc and c1541 in the PATH)
-test-c64:	build/mainc64.prg
-	python3 tests/vice/edtest.py files --prg build/mainc64.prg
+test-c64:	build/p8vi-c64.prg
+	python3 tests/vice/edtest.py files --prg build/p8vi-c64.prg
 
 # partial redraws must leave the same screen as a full redraw
-test-c64-screen:	build/mainc64.prg
-	python3 tests/vice/edtest.py screen --prg build/mainc64.prg
+test-c64-screen:	build/p8vi-c64.prg
+	python3 tests/vice/edtest.py screen --prg build/p8vi-c64.prg
 
 test:	build/testcx16.prg
 	x16emu -gif output.gif -debug -scale 2 -rtc -run -prg build/testcx16.prg

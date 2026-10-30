@@ -7,7 +7,7 @@ around; the second is not understood yet.
 
 ## 1. `diskio.exists()` / `diskio.f_open()` on a missing file hangs the drive
 
-**Status:** worked around in `src/main.p8`.  Not confirmed on real hardware,
+**Status:** worked around in `src/editor.p8`.  Not confirmed on real hardware,
 and not yet known whether the cause is `diskio`, the KERNAL, the 1541 or VICE.
 
 ### Symptom
@@ -108,7 +108,7 @@ the screen).
 * Not caused by `file_exists()`: the same keys are lost when `load_file()`
   goes straight to `diskio.f_open()` (the old code).
 * Not caused by `diskio.status()`: the editor now reads the status itself
-  with a checked CHKIN (`read_disk_status()` in `src/main.p8`), and the keys
+  with a checked CHKIN (`read_disk_status()` in `src/editor.p8`), and the keys
   are still lost.
 
 ### Suspects

@@ -1,8 +1,12 @@
+; p8vi, a vi for 8-bit computers: the editor.
+; built from a toplevel file that sets the features block:
+; src/p8vi.p8 (c64, cx16) or src/p8vi_vic20.p8 (the VIC-20, which leaves
+; out what doesn't fit).
+
 %import conv
 %import diskio
 %import strings
 %import textio
-%zeropage basicsafe
 
 %import charset
 %import gapbuffer
@@ -76,7 +80,7 @@ main {
             if repeat_requested
                 replay()
             ; the start screen stays up while a ':' command is typed
-            bool clear_splash = view.splash and mode != MODE_CMD
+            bool clear_splash = features.SPLASH and view.splash and mode != MODE_CMD
             if clear_splash
                 view.splash = false
             view.refresh(clear_splash)
@@ -1567,7 +1571,7 @@ main {
         txt.cls()
         filename[0] = 0
         new_text()
-        view.splash = true
+        view.splash = features.SPLASH
     }
 
     ; returns size bytes of the platform's spare memory if there is room,
@@ -1728,7 +1732,9 @@ main {
     sub set_cmd(str arg) {
         ubyte i = 0
         if arg[0] != 0 {
-            while strings.compare(arg, set_options[i]) != 0 {
+            ; (ascii and crlf only in a build with those features)
+            while strings.compare(arg, set_options[i]) != 0 or
+                    (i == 1 and not features.ASCII) or (i == 4 and not features.CRLF) {
                 i++
                 if i == len(set_options) {
                     status("bad option")
@@ -1811,9 +1817,9 @@ main {
             gapbuffer.move_gap(position)
             count = diskio.f_read(gapbuffer.gap_ptr(), gapbuffer.free())
             full = count == gapbuffer.free()
-            if gapbuffer.eol == $0d
+            if features.CRLF and gapbuffer.eol == $0d
                 count = charset.crlf_to_cr(gapbuffer.gap_ptr(), count)
-            if ascii_file
+            if features.ASCII and ascii_file
                 charset.translate(gapbuffer.gap_ptr(), count, charset.TO_PETSCII)
             gapbuffer.inserted(count)
             ; like vi, whole lines: the file's last line must not join the
@@ -1829,14 +1835,16 @@ main {
             count = diskio.f_read(gapbuffer.ramstart, room)
             full = count == room
             ; CR LF pairs make a CRLF file, held with CR line endings
-            room = charset.crlf_to_cr(gapbuffer.ramstart, count)
+            room = count
+            if features.CRLF and count != 0
+                room = charset.crlf_to_cr(gapbuffer.ramstart, count)
             void gapbuffer.loaded(room)
             new_text()
             line_ending = ENDING_CRLF
             if room == count
                 line_ending = if gapbuffer.eol == $0a ENDING_LF else ENDING_CR
-            ascii_file = charset.looks_ascii(gapbuffer.ramstart, room, gapbuffer.eol == $0a)
-            if ascii_file
+            ascii_file = features.ASCII and charset.looks_ascii(gapbuffer.ramstart, room, gapbuffer.eol == $0a)
+            if features.ASCII and ascii_file
                 translate_text(charset.TO_PETSCII)
         }
         ; a full buffer may mean the file did not fit
@@ -1880,7 +1888,7 @@ main {
     sub write_text(pointer p, uword count) -> bool {
         pointer end = p + count
         pointer start = p
-        if line_ending == ENDING_CRLF {
+        if features.CRLF and line_ending == ENDING_CRLF {
             while p != end {
                 p++
                 if @(p - 1) == $0d {
@@ -1911,12 +1919,12 @@ main {
             return false
         }
         ; an ASCII file is translated for writing, and back afterwards
-        if ascii_file
+        if features.ASCII and ascii_file
             translate_text(charset.TO_ASCII)
         p1, n1, p2, n2 = gapbuffer.segments()
         ok = write_text(p1, n1) and write_text(p2, n2)
         diskio.f_close_w()
-        if ascii_file
+        if features.ASCII and ascii_file
             translate_text(charset.TO_PETSCII)
         ; (not diskio.status_code(): it only gets the first digit right,
         ; see bugs/side_effect_calls_merged.p8)
@@ -2055,7 +2063,7 @@ view {
         }
         if force or gapbuffer.get_mark(main.MARK_TOP) != drawn_top {
             draw_all()
-            if splash
+            if features.SPLASH and splash
                 draw_splash()
         } else if gapbuffer.change_start != NONE
             draw_changed()

@@ -23,6 +23,25 @@ grammar, standard library and example code, matching the version of the
 installed `prog8c` compiler.  This gives AI agents the upstream context
 without duplicating it here or checking out the whole compiler repository.
 
+# p8vi
+
+This repository holds p8vi, a vi for 8-bit computers written in Prog8.
+`docs/KEYS.md` lists the vi commands it has.
+
+| Build | Toplevel file | Target |
+|-------|---------------|--------|
+| `build/p8vi-c64.prg` | `src/p8vi.p8` | C64 |
+| `build/p8vi-cx16.prg` | `src/p8vi.p8` | Commander X16 |
+| `build/p8vi-vic20.prg` | `src/p8vi_vic20.p8` | VIC-20 with 24K or more |
+
+The editor itself is `src/editor.p8` (with `gapbuffer.p8`, `charset.p8`
+and `src/<target>/platform.p8`).  Each toplevel file has a `features` block
+of `const bool` switches for optional features; the code of a feature that
+is off is left out of the program.  The VIC-20 program has to end below
+`$8000`, so its version leaves out features when room runs out: new
+features that don't fit start out off there.  `make size` shows the room
+left on each target.
+
 # Prerequisites
 
 - **Java 17 or newer** to run the Prog8 compiler.  Check with `java -version`.
@@ -117,7 +136,7 @@ and ask you to run `setup.py`.
   and `PCC` in the `Makefile`.  Snapshot builds are matched by commit, so
   for a compiler built from a fork or another branch also change
   `TARGET_REPO` and `TARGET_BRANCH`.
-- **Your program:** source goes in `src/`, starting with `src/main.p8`.
+- **Your program:** source goes in `src/`, starting with the toplevel files `src/p8vi.p8` and `src/p8vi_vic20.p8`.
   Code for one target only goes in a target directory such as `src/c64/`.
   See `AGENTS.md` for the conventions.
 

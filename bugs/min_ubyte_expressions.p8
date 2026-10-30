@@ -29,7 +29,7 @@
 ;       lda  P8ZP_SCRATCH_B1
 ; +     sta  p8v_r              ; always b - 2
 ;
-; Found in src/main.p8 as  view.column = min(1 + cmdlen, SCREEN_WIDTH - 2) ,
+; Found in src/main.p8 (now src/editor.p8) as  view.column = min(1 + cmdlen, SCREEN_WIDTH - 2) ,
 ; which always put the command line cursor at SCREEN_WIDTH - 2.
 
 %import textio
