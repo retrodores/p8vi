@@ -15,5 +15,6 @@ insert_bytes
 segments
 gap_ptr
 modified
+find_bytes
 
 all tests passed

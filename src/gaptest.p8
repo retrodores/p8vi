@@ -37,6 +37,7 @@ main {
         test_segments()
         test_gap_ptr()
         test_modified()
+        test_find_bytes()
 
         txt.nl()
         if failures == 0 {
@@ -362,6 +363,30 @@ main {
         check_bool("set", gapbuffer.modified, true)
         void gapbuffer.loaded(0)
         check_bool("loaded", gapbuffer.modified, false)
+    }
+
+    sub test_find_bytes() {
+        const uword NONE = gapbuffer.NONE
+        txt.print("find_bytes\n")
+        gapbuffer.clear()
+        ; offsets: the=0 cat=4 the=8 hat=12 th=16 end=18
+        void gapbuffer.insert("the cat the hat th", 0)
+        ; matches must be found across the gap too
+        gap_to(9)
+        check_uw("first", gapbuffer.find_bytes("the", 3, 0, 18), 0)
+        check_uw("next", gapbuffer.find_bytes("the", 3, 1, 18), 8)
+        check_uw("across gap", gapbuffer.find_bytes("e h", 3, 0, 18), 10)
+        check_uw("limit", gapbuffer.find_bytes("the", 3, 1, 10), NONE)
+        check_uw("cut at end", gapbuffer.find_bytes("the", 3, 9, 18), NONE)
+        check_uw("missing", gapbuffer.find_bytes("dog", 3, 0, 18), NONE)
+        check_uw("prev", gapbuffer.find_bytes_prev("the", 3, 18), 8)
+        check_uw("prev again", gapbuffer.find_bytes_prev("the", 3, 8), 0)
+        check_uw("prev none", gapbuffer.find_bytes_prev("the", 3, 0), NONE)
+        check_uw("prev cut", gapbuffer.find_bytes_prev("th ", 3, 18), NONE)
+        check_bool("match", gapbuffer.match_at("hat", 3, 12), true)
+        check_bool("no match", gapbuffer.match_at("hat", 3, 13), false)
+        check_bool("past end", gapbuffer.match_at("th!", 3, 16), false)
+        expect("the cat the hat th")
     }
 
     sub check_str(str name, str got, str wanted) {

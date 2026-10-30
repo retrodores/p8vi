@@ -405,6 +405,46 @@ gapbuffer {
         return NONE
     }
 
+    ; true if the count bytes at pattern are in the text at position
+    sub match_at(pointer pattern, ubyte count, uword position) -> bool {
+        ubyte i
+        if count as uword > bufend or position > bufend - count
+            return false
+        for i in 0 to count - 1 {
+            if get(position + i) != pattern[i]
+                return false
+        }
+        return true
+    }
+
+    ; returns the offset of the first occurrence of the count bytes at
+    ; pattern that starts at or after position and ends at or before limit,
+    ; or NONE.  count must be at least 1.
+    sub find_bytes(pointer pattern, ubyte count, uword position, uword limit) -> uword {
+        if limit > bufend
+            limit = bufend
+        repeat {
+            position = find_next(pattern[0], position, limit)
+            if position >= limit
+                return NONE
+            if position + count <= limit and match_at(pattern, count, position)
+                return position
+            position++
+        }
+    }
+
+    ; returns the offset of the last occurrence of the count bytes at
+    ; pattern that starts before position, or NONE.  count must be at least 1.
+    sub find_bytes_prev(pointer pattern, ubyte count, uword position) -> uword {
+        repeat {
+            position = find_prev(pattern[0], position)
+            if position == NONE
+                return NONE
+            if match_at(pattern, count, position)
+                return position
+        }
+    }
+
     ;
     ; lines
     ;

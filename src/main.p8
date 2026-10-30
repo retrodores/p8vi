@@ -8,10 +8,9 @@
 %import platform
 
 main {
-    const ubyte MODE_CMD        = 0
+    const ubyte MODE_CMD        = 0     ; typing a ':' command or a '/' or '?' search
     const ubyte MODE_INSERT     = 1
     const ubyte MODE_NAV        = 2
-    const ubyte MODE_OVERTYPE   = 3
     const ubyte MODE_REPLACE    = 4
 
     ; gap buffer marks used by the editor
@@ -19,15 +18,25 @@ main {
     const ubyte MARK_TOP        = 1     ; buffer offset of the top left of the screen
 
     ; more keys
-    const ubyte KEY_RETURN      = $0d
-    const ubyte KEY_DEL         = $14
+    const ubyte KEY_STOP        = $03   ; RUN/STOP, also works as escape
+    const ubyte KEY_CONTROL_B   = 2
+    const ubyte KEY_CONTROL_D   = 4
+    const ubyte KEY_CONTROL_F   = 6
     const ubyte KEY_CONTROL_G   = 7
-    const ubyte KEY_DOLLAR      = '$'
-    const ubyte KEY_COLON       = ':'
+    const ubyte KEY_RETURN      = $0d
+    const ubyte KEY_DOWN        = $11
+    const ubyte KEY_HOME        = $13
+    const ubyte KEY_DEL         = $14
+    const ubyte KEY_CONTROL_U   = $15
+    const ubyte KEY_RIGHT       = $1d
+    const ubyte KEY_UP          = $91
+    const ubyte KEY_LEFT        = $9d
+    const ubyte KEY_TILDE       = $de   ; PETSCII has no ~, use pi (shift + up arrow)
 
     str filename = " " * 40     ; name of the file being edited, empty if none
-    str cmdline = " " * 40      ; text typed after ':'
+    str cmdline = " " * 40      ; text typed after ':', '/' or '?'
     ubyte cmdlen
+    ubyte cmd_prompt            ; ':', '/' or '?'
     bool cut_short              ; the file did not fit, so saving it over itself loses text
 
     ubyte mode
@@ -50,11 +59,12 @@ main {
                 continue
             }
             cursor_off()
+            if key == KEY_STOP
+                key = KEY_ESCAPE
             when mode {
                 MODE_CMD -> key_mode_cmd()
                 MODE_INSERT -> key_mode_insert()
                 MODE_NAV -> key_mode_nav()
-                MODE_OVERTYPE -> key_mode_overtype()
                 MODE_REPLACE -> key_mode_replace()
             }
             last_key = key
@@ -101,13 +111,16 @@ main {
     ; key handling per mode
     ;
 
-    ; typing a ':' command on the status line
+    ; typing a ':' command or a '/' or '?' search on the status line
     sub key_mode_cmd () {
         when key {
             KEY_ESCAPE -> handle_escape()
             KEY_RETURN -> {
                 handle_escape()
-                execute()
+                if cmd_prompt == ':'
+                    execute()
+                else
+                    search_cmd(cmd_prompt == '/')
             }
             KEY_DEL -> {
                 if cmdlen == 0 {
@@ -134,7 +147,7 @@ main {
     sub draw_cmdline() {
         ubyte used
         txt.plot(0, STATUS_LINE)
-        txt.chrout(':')
+        txt.chrout(cmd_prompt)
         used = 1 + view.print_max(cmdline, SCREEN_WIDTH - 2)
         while used < SCREEN_WIDTH - 1 {
             txt.spc()
@@ -142,126 +155,540 @@ main {
         }
     }
 
+    sub handle_escape() {
+        mode = MODE_NAV
+        numbers = 0
+        pending_op = 0
+        op_count = 0
+        pending_char = 0
+        status("")
+    }
+
+    sub start_cmdline(ubyte prompt) {
+        mode = MODE_CMD
+        cmd_prompt = prompt
+        cmdlen = 0
+        cmdline[0] = 0
+        draw_cmdline()
+    }
+
     sub key_mode_insert () {
         when key {
-            KEY_ESCAPE -> {
-                mode = MODE_NAV
-                status("")
-                ; like vi, leaving insert mode moves back onto the last character
-                if cursor() > gapbuffer.line_start(cursor())
-                    set_cursor(cursor() - 1)
-                goal_col = column()
-            }
+            KEY_ESCAPE -> leave_insert()
             KEY_RETURN -> insert_key(gapbuffer.eol)
             KEY_DEL -> {
                 if cursor() > 0 {
+                    ; the cursor mark moves back by itself, so fix the line here
                     if gapbuffer.get(cursor() - 1) == gapbuffer.eol
                         cur_line--
-                    ; the cursor mark moves back by itself
                     void gapbuffer.delete_char(cursor() - 1)
                     view.dirty = true
                 }
             }
+            KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN -> insert_move()
             else -> {
-                if (key >= 32 and key < 128) or key >= 160
+                if printable(key)
                     insert_key(key)
             }
         }
+    }
+
+    ; cursor keys in insert and replace mode, the cursor may go to the line end
+    sub insert_move() {
+        uword target
+        op_active = true
+        target = motion(key, 1)
+        op_active = false
+        set_cursor(target)
+        if key == KEY_LEFT or key == KEY_RIGHT
+            goal_col = column()
+    }
+
+    ; like vi, leaving insert mode moves back onto the last character
+    sub leave_insert() {
+        mode = MODE_NAV
+        status("")
+        if cursor() > gapbuffer.line_start(cursor())
+            set_cursor(cursor() - 1)
+        goal_col = column()
+    }
+
+    sub printable(ubyte char) -> bool {
+        return (char >= 32 and char < 128) or char >= 160
     }
 
     sub insert_key(ubyte char) {
         if gapbuffer.insert_char(char, cursor()) {
             ; a mark at the insertion point stays, so move the cursor past it
             set_cursor(cursor() + 1)
-            if char == gapbuffer.eol
-                cur_line++
             view.dirty = true
         } else {
             status("buffer full")
         }
     }
 
+    sub start_insert() {
+        mode = MODE_INSERT
+        status("-- INSERT --")
+    }
+
+    ; R: typed characters replace the ones under the cursor
+    sub key_mode_replace () {
+        uword c = cursor()
+        when key {
+            KEY_ESCAPE -> leave_insert()
+            KEY_RETURN -> insert_key(gapbuffer.eol)
+            KEY_DEL -> {
+                if c > gapbuffer.line_start(c)
+                    set_cursor(c - 1)
+            }
+            KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN -> insert_move()
+            else -> {
+                if printable(key) {
+                    if c < gapbuffer.line_end(c) {
+                        void gapbuffer.set(c, key)
+                        set_cursor(c + 1)
+                        view.dirty = true
+                    } else {
+                        insert_key(key)
+                    }
+                }
+            }
+        }
+    }
+
+    ;
+    ; nav mode commands
+    ;
+
+    ubyte pending_op        ; 'd', 'c' or 'y' waiting for a motion, or 0
+    uword op_count          ; count typed before the operator
+    ubyte pending_char      ; command waiting for a character: r f F t T Z, or 0
+    uword char_count        ; count for the pending_char command
+    bool count_given        ; a count was typed (G uses it as a line number)
+
     sub key_mode_nav () {
         uword count
+        uword target
 
+        if pending_char != 0 {
+            char_arg()
+            numbers = 0
+            return
+        }
         ; a count before a command, '0' on its own is a command
         if (key >= '1' and key <= '9') or (key == '0' and numbers != 0) {
             numbers = numbers * 10 + (key - '0')
             return
         }
-        count = max(numbers, 1)
+        count_given = numbers != 0 or op_count > 1
+        count = max(numbers, 1) * max(op_count, 1)
+        numbers = 0
+
+        if key == KEY_ESCAPE {
+            handle_escape()
+            return
+        }
+        if pending_op != 0 {
+            operator_key(count)
+            return
+        }
+
+        target = motion(key, count)
+        if target != gapbuffer.NONE {
+            set_cursor(target)
+            when key {
+                'j', 'k', KEY_UP, KEY_DOWN -> {}
+                '$' -> goal_col = $ffff
+                else -> goal_col = column()
+            }
+            return
+        }
 
         when key {
-            KEY_0 -> {
-                set_cursor(gapbuffer.line_start(cursor()))
-                goal_col = 0
-            }
-            KEY_DOLLAR -> {
-                set_cursor(last_char(cursor()))
-                goal_col = $ffff
-            }
-            KEY_CONTROL_L -> view.refresh(true)
-            KEY_CONTROL_G -> show_info()
-            KEY_COLON -> {
-                mode = MODE_CMD
-                cmdlen = 0
-                cmdline[0] = 0
-                draw_cmdline()
-            }
-            KEY_ESCAPE -> handle_escape()
-            KEY_SHIFT_G -> nav_go()
-            KEY_H -> repeat count nav_left()
-            KEY_A -> {
-                mode = MODE_INSERT
-                status("-- INSERT --")
+            'i' -> start_insert()
+            'a' -> {
                 if cursor() < gapbuffer.line_end(cursor())
                     set_cursor(cursor() + 1)
+                start_insert()
             }
-            KEY_I -> {
-                mode = MODE_INSERT
-                status("-- INSERT --")
+            'I' -> {
+                set_cursor(first_nonblank(cursor()))
+                start_insert()
             }
-            KEY_J -> repeat count nav_down()
-            KEY_K -> repeat count nav_up()
-            KEY_L -> repeat count nav_right()
-            KEY_X -> delete_chars(count)
-            KEY_SHIFT_Z -> {
-                ; ZZ is :x, write if modified and quit
-                if last_key == 'Z' and (not gapbuffer.modified or write_cmd("", false))
+            'A' -> {
+                set_cursor(gapbuffer.line_end(cursor()))
+                start_insert()
+            }
+            'o' -> open_line(true)
+            'O' -> open_line(false)
+            'x' -> {
+                target = min(cursor() + count, gapbuffer.line_end(cursor()))
+                apply_operator('d', cursor(), target, false)
+            }
+            'X' -> {
+                target = gapbuffer.line_start(cursor())
+                if cursor() - target > count
+                    target = cursor() - count
+                apply_operator('d', target, cursor(), false)
+            }
+            'D' -> apply_operator('d', cursor(), gapbuffer.line_end(cursor()), false)
+            'C' -> apply_operator('c', cursor(), gapbuffer.line_end(cursor()), false)
+            's' -> apply_operator('c', cursor(), min(cursor() + count, gapbuffer.line_end(cursor())), false)
+            'S' -> lines_operator('c', count)
+            'Y' -> lines_operator('y', count)
+            'd', 'c', 'y' -> {
+                pending_op = key
+                op_count = count
+            }
+            'p' -> put(true, count)
+            'P' -> put(false, count)
+            'J' -> join_lines(max(count, 2) - 1)
+            KEY_TILDE -> toggle_case(count)
+            'R' -> {
+                mode = MODE_REPLACE
+                status("-- REPLACE --")
+            }
+            'r', 'f', 'F', 't', 'T', 'Z' -> {
+                pending_char = key
+                char_count = count
+            }
+            ':', '/', '?' -> start_cmdline(key)
+            'u' -> status("no undo yet")
+            KEY_CONTROL_F -> page(count * (page_lines() - 2), true)
+            KEY_CONTROL_B -> page(count * (page_lines() - 2), false)
+            KEY_CONTROL_D -> page(page_lines() / 2, true)
+            KEY_CONTROL_U -> page(page_lines() / 2, false)
+            KEY_CONTROL_L -> view.refresh(true)
+            KEY_CONTROL_G -> show_info()
+        }
+    }
+
+    ; the character after r f F t T Z
+    sub char_arg() {
+        ubyte cmd = pending_char
+        uword target
+        pending_char = 0
+        if key == KEY_ESCAPE {
+            handle_escape()
+            return
+        }
+        when cmd {
+            'r' -> replace_chars(key, char_count)
+            'Z' -> {
+                if key == 'Z' {
+                    ; ZZ is :x, write if modified and quit
+                    if not gapbuffer.modified or write_cmd("", false)
+                        quit(true)
+                } else if key == 'Q' {
                     quit(true)
+                }
+            }
+            else -> {
+                ; f F t T, as a motion or for a pending operator
+                find_cmd = cmd
+                find_char = key
+                target = find_in_line(cmd, key, char_count)
+                if target == gapbuffer.NONE {
+                    pending_op = 0
+                    op_count = 0
+                    return
+                }
+                if pending_op != 0 {
+                    finish_operator(target, cmd == 'f' or cmd == 't', false)
+                } else {
+                    set_cursor(target)
+                    goal_col = column()
+                }
             }
         }
-        numbers = 0
     }
 
-    sub key_mode_overtype () {
-        when key {
-            KEY_ESCAPE -> handle_escape()
+    ; the key after d, c or y
+    sub operator_key(uword count) {
+        ubyte op = pending_op
+        uword target
+        if key == op {
+            ; dd, cc, yy
+            pending_op = 0
+            op_count = 0
+            lines_operator(op, count)
+            return
         }
-    }
-
-    sub key_mode_replace () {
-        when key {
-            KEY_ESCAPE -> handle_escape()
+        if key == 'f' or key == 'F' or key == 't' or key == 'T' {
+            ; the motion needs a character first
+            pending_char = key
+            char_count = count
+            return
         }
+        ; cw is like ce
+        if op == 'c' and (key == 'w' or key == 'W') and gapbuffer.get(cursor()) != ' '
+            key = key - 'w' + 'e'
+        op_active = true
+        target = motion(key, count)
+        op_active = false
+        if target == gapbuffer.NONE {
+            pending_op = 0
+            op_count = 0
+            return
+        }
+        finish_operator(target, motion_inclusive, motion_linewise)
     }
 
-    sub handle_escape() {
-        mode = MODE_NAV
-        numbers = 0
-        status("")
+    ; apply the pending operator from the cursor to target
+    sub finish_operator(uword target, bool inclusive, bool linewise) {
+        ubyte op = pending_op
+        uword start = cursor()
+        uword end = target
+        pending_op = 0
+        op_count = 0
+        if end < start {
+            start = target
+            end = cursor()
+        } else if inclusive and end < gapbuffer.length() {
+            end++
+        }
+        if linewise
+            lines_range(op, start, end)
+        else
+            apply_operator(op, start, end, false)
+    }
+
+    ; dd, cc, yy with a count: count lines from the cursor line
+    sub lines_operator(ubyte op, uword count) {
+        uword end = cursor()
+        repeat count - 1 {
+            if gapbuffer.next_line(end) == gapbuffer.NONE
+                break
+            end = gapbuffer.next_line(end)
+        }
+        lines_range(op, cursor(), end)
+    }
+
+    ; apply op to the whole lines from the one containing first to the one containing last
+    sub lines_range(ubyte op, uword first, uword last) {
+        uword start = gapbuffer.line_start(first)
+        uword end = gapbuffer.next_line(last)
+        uword length = gapbuffer.length()
+        if op == 'c' {
+            ; cc keeps an empty line to type on
+            apply_operator('c', start, gapbuffer.line_end(last), true)
+            return
+        }
+        if end == gapbuffer.NONE {
+            end = length
+            ; deleting the last lines also removes the line ending before them
+            if op == 'd' and start > 0 {
+                void yank(start, end, true)
+                start--
+                set_cursor(start)
+                void gapbuffer.delete_range(start, end)
+                set_cursor(first_nonblank(gapbuffer.line_start(cursor())))
+                view.dirty = true
+                return
+            }
+        }
+        apply_operator(op, start, end, true)
+        if op == 'd'
+            set_cursor(first_nonblank(cursor()))
+    }
+
+    ; yank, delete or change the text from start up to (not including) end
+    sub apply_operator(ubyte op, uword start, uword end, bool linewise) {
+        bool yanked = yank(start, end, linewise)
+        if op == 'y' {
+            if not linewise
+                set_cursor(start)
+            if not yanked
+                status("too big to yank")
+            return
+        }
+        set_cursor(start)
+        void gapbuffer.delete_range(start, end)
+        view.dirty = true
+        if op == 'c' {
+            start_insert()
+        } else {
+            ; the cursor stays on a character, not on the line ending
+            set_cursor(min(cursor(), last_char(cursor())))
+            if not yanked
+                status("not yanked")
+        }
     }
 
     ;
-    ; cursor movement and editing, all in buffer offsets
+    ; yank buffer, kept at the top of memory above the gap buffer
+    ;
+
+    pointer yank_buf
+    uword yank_size
+    uword yank_len
+    bool yank_lines         ; whole lines, put below / above the cursor line
+
+    ; returns false if the text is too big for the yank buffer
+    sub yank(uword start, uword end, bool linewise) -> bool {
+        uword count = end - start
+        if count > yank_size - 1
+            return false
+        yank_len = gapbuffer.copy_out(start, count, yank_buf)
+        yank_lines = linewise
+        ; whole lines always end with a line ending
+        if linewise and (yank_len == 0 or yank_buf[yank_len - 1] != gapbuffer.eol) {
+            yank_buf[yank_len] = gapbuffer.eol
+            yank_len++
+        }
+        return true
+    }
+
+    ; p and P
+    sub put(bool after, uword count) {
+        uword c = cursor()
+        uword position
+        if yank_len == 0
+            return
+        if yank_lines {
+            if after {
+                position = gapbuffer.next_line(c)
+                if position == gapbuffer.NONE {
+                    ; below the last line: it needs a line ending first
+                    position = gapbuffer.length()
+                    set_cursor(position)
+                    if position != 0 and gapbuffer.get(position - 1) != gapbuffer.eol {
+                        void gapbuffer.insert_char(gapbuffer.eol, position)
+                        position++
+                    }
+                }
+            } else {
+                position = gapbuffer.line_start(c)
+            }
+        } else {
+            position = c
+            if after and c < gapbuffer.line_end(c)
+                position++
+        }
+        ; the cursor mark stays at the insertion point, so put it there first
+        set_cursor(position)
+        repeat count {
+            if not gapbuffer.insert_bytes(yank_buf, yank_len, position) {
+                status("buffer full")
+                break
+            }
+        }
+        view.dirty = true
+        if yank_lines
+            set_cursor(first_nonblank(position))
+        else
+            set_cursor(position + count * yank_len - 1)
+    }
+
+    ;
+    ; other edits
+    ;
+
+    ; o and O
+    sub open_line(bool below) {
+        uword position
+        if below {
+            position = gapbuffer.line_end(cursor())
+            set_cursor(position)
+            if gapbuffer.insert_char(gapbuffer.eol, position)
+                set_cursor(position + 1)
+        } else {
+            position = gapbuffer.line_start(cursor())
+            set_cursor(position)
+            ; the cursor mark stays at the start of the new empty line
+            void gapbuffer.insert_char(gapbuffer.eol, position)
+        }
+        view.dirty = true
+        start_insert()
+    }
+
+    ; J: join count lines onto the cursor line, with one space between
+    sub join_lines(uword count) {
+        uword end
+        repeat count {
+            end = gapbuffer.line_end(cursor())
+            if end >= gapbuffer.length()
+                break
+            set_cursor(end)
+            void gapbuffer.delete_char(end)
+            while gapbuffer.get(end) == ' '
+                void gapbuffer.delete_char(end)
+            if end > gapbuffer.line_start(end) and end < gapbuffer.line_end(end)
+                void gapbuffer.insert_char(' ', end)
+        }
+        view.dirty = true
+    }
+
+    ; r: replace count characters with char, r RETURN splits the line
+    sub replace_chars(ubyte char, uword count) {
+        uword c = cursor()
+        uword i
+        if gapbuffer.line_end(c) - c < count
+            return
+        if char == KEY_RETURN {
+            void gapbuffer.delete_nchar(count, c)
+            void gapbuffer.insert_char(gapbuffer.eol, c)
+            set_cursor(c + 1)
+        } else if printable(char) {
+            for i in 0 to count - 1
+                void gapbuffer.set(c + i, char)
+            set_cursor(c + count - 1)
+        }
+        view.dirty = true
+    }
+
+    ; ~ (pi on CBM keyboards): switch the case of count characters and move past them
+    sub toggle_case(uword count) {
+        uword c = cursor()
+        ubyte char
+        repeat count {
+            if c >= gapbuffer.line_end(c)
+                break
+            char = gapbuffer.get(c)
+            if char >= $41 and char <= $5a
+                char += $80
+            else if char >= $c1 and char <= $da
+                char -= $80
+            else if char >= $61 and char <= $7a
+                char -= $20
+            void gapbuffer.set(c, char)
+            c++
+        }
+        set_cursor(min(c, last_char(cursor())))
+        goal_col = column()
+        view.dirty = true
+    }
+
+    ;
+    ; cursor movement, all in buffer offsets
     ;
 
     sub cursor() -> uword {
         return gapbuffer.get_mark(MARK_CURSOR)
     }
 
+    ; move the cursor, keeping cur_line up to date by counting the line
+    ; endings passed (so the cost is the distance moved)
     sub set_cursor(uword position) {
+        uword old = cursor()
         gapbuffer.set_mark(MARK_CURSOR, position)
+        position = cursor()
+        if position > old
+            cur_line += count_eols(old, position)
+        else if position < old
+            cur_line -= count_eols(position, old)
+    }
+
+    sub count_eols(uword start, uword end) -> uword {
+        uword count = 0
+        repeat {
+            start = gapbuffer.find_next(gapbuffer.eol, start, end)
+            if start >= end
+                return count
+            count++
+            start++
+        }
     }
 
     ; column of the cursor in its line
@@ -280,69 +707,345 @@ main {
         return start
     }
 
-    ; move to goal_col in the line starting at start
-    sub to_goal(uword start) {
+    ; goal_col in the line starting at start
+    sub goal_in_line(uword start) -> uword {
         uword last = last_char(start)
+        if op_active and mode != MODE_NAV
+            last = gapbuffer.line_end(start)
         if goal_col > last - start
-            set_cursor(last)
+            return last
+        return start + goal_col
+    }
+
+    sub first_nonblank(uword position) -> uword {
+        position = gapbuffer.line_start(position)
+        while gapbuffer.get(position) == ' '
+            position++
+        if position > gapbuffer.line_end(position)
+            return gapbuffer.line_end(position)
+        return position
+    }
+
+    ; go to line number line (1 = first), or the last line if there are fewer
+    sub goto_line(uword line) {
+        uword start = gapbuffer.NONE
+        if line != 0
+            start = gapbuffer.line_offset(line - 1)
+        if start == gapbuffer.NONE
+            start = gapbuffer.line_start(gapbuffer.length())
+        set_cursor(first_nonblank(start))
+        goal_col = column()
+    }
+
+    sub page_lines() -> uword {
+        return MAX_ROW - MIN_ROW + 1
+    }
+
+    ; Ctrl-F, Ctrl-B, Ctrl-D, Ctrl-U: move lines lines down or up
+    sub page(uword lines, bool down) {
+        if down
+            key = 'j'
         else
-            set_cursor(start + goal_col)
+            key = 'k'
+        set_cursor(motion(key, lines))
     }
 
-    sub nav_left() {
-        if cursor() > gapbuffer.line_start(cursor())
-            set_cursor(cursor() - 1)
-        goal_col = column()
-    }
+    ;
+    ; motions
+    ;
 
-    sub nav_right() {
-        if cursor() < last_char(cursor())
-            set_cursor(cursor() + 1)
-        goal_col = column()
-    }
+    bool motion_linewise    ; set by motion(): the operator works on whole lines
+    bool motion_inclusive   ; set by motion(): the target character is included
+    bool op_active          ; motion() is for an operator: l and $ may reach the line end
 
-    sub nav_down() {
-        uword next = gapbuffer.next_line(cursor())
-        if next != gapbuffer.NONE {
-            to_goal(next)
-            cur_line++
+    ; returns where the motion key goes, count times, from the cursor.
+    ; returns NONE if key is not a motion (or a search found nothing).
+    sub motion(ubyte k, uword count) -> uword {
+        uword c = cursor()
+        uword p
+        uword limit
+        motion_linewise = false
+        motion_inclusive = false
+        when k {
+            'h', KEY_LEFT, KEY_DEL -> {
+                limit = gapbuffer.line_start(c)
+                repeat count {
+                    if c > limit
+                        c--
+                }
+            }
+            'l', KEY_RIGHT, ' ' -> {
+                limit = last_char(c)
+                if op_active
+                    limit = gapbuffer.line_end(c)
+                repeat count {
+                    if c < limit
+                        c++
+                }
+            }
+            '0', KEY_HOME -> c = gapbuffer.line_start(c)
+            '^' -> c = first_nonblank(c)
+            '$' -> {
+                repeat count - 1 {
+                    p = gapbuffer.next_line(c)
+                    if p != gapbuffer.NONE
+                        c = p
+                }
+                if op_active
+                    c = gapbuffer.line_end(c)
+                else
+                    c = last_char(c)
+            }
+            'w', 'W' -> {
+                big_words = k == 'W'
+                limit = gapbuffer.line_end(c)
+                repeat count
+                    c = word_forward(c)
+                ; dw on the last word of a line stops at the line end
+                if op_active and c > limit and limit > cursor()
+                    c = limit
+                if not op_active and c >= gapbuffer.length()
+                    c = last_char(c)
+            }
+            'b', 'B' -> {
+                big_words = k == 'B'
+                repeat count
+                    c = word_back(c)
+            }
+            'e', 'E' -> {
+                big_words = k == 'E'
+                repeat count
+                    c = word_end(c)
+                motion_inclusive = true
+            }
+            'j', 'k', KEY_DOWN, KEY_UP, '+', '-', KEY_RETURN -> {
+                motion_linewise = true
+                repeat count {
+                    if k == 'k' or k == KEY_UP or k == '-'
+                        p = gapbuffer.prev_line(c)
+                    else
+                        p = gapbuffer.next_line(c)
+                    if p == gapbuffer.NONE
+                        break
+                    c = p
+                }
+                if k == '+' or k == '-' or k == KEY_RETURN
+                    c = first_nonblank(c)
+                else if c != cursor()
+                    c = goal_in_line(gapbuffer.line_start(c))
+            }
+            'G' -> {
+                motion_linewise = true
+                p = gapbuffer.NONE
+                if count_given
+                    p = gapbuffer.line_offset(count - 1)
+                if p == gapbuffer.NONE
+                    p = gapbuffer.line_start(gapbuffer.length())
+                c = first_nonblank(p)
+            }
+            'H', 'M', 'L' -> {
+                motion_linewise = true
+                c = screen_row(k)
+            }
+            ';', ',' -> {
+                if find_cmd == 0
+                    return gapbuffer.NONE
+                p = find_cmd
+                if k == ','
+                    p = reverse_find(find_cmd)
+                c = find_in_line(p as ubyte, find_char, count)
+                motion_inclusive = p == 'f' or p == 't'
+            }
+            'n' -> c = search_next(search_forward)
+            'N' -> c = search_next(not search_forward)
+            else -> return gapbuffer.NONE
         }
+        return c
     }
 
-    sub nav_up() {
-        uword prev = gapbuffer.prev_line(cursor())
-        if prev != gapbuffer.NONE {
-            to_goal(prev)
-            cur_line--
+    ; H M L: first non-blank of the top, middle or bottom screen row
+    sub screen_row(ubyte k) -> uword {
+        ubyte r = main.MIN_ROW
+        ubyte last = main.MIN_ROW
+        while last < main.MAX_ROW and view.row_start[last + 1] != gapbuffer.NONE
+            last++
+        when k {
+            'M' -> r = (main.MIN_ROW + last) / 2
+            'L' -> r = last
         }
+        return first_nonblank(view.row_start[r])
     }
 
-    ; G goes to the last line, nG to line n
-    sub nav_go() {
-        uword start
-        if numbers != 0 {
-            start = gapbuffer.line_offset(numbers - 1)
-            if start != gapbuffer.NONE {
-                cur_line = numbers - 1
-                goal_col = 0
-                to_goal(start)
-                return
+    ;
+    ; words: letters, digits and _ form words, other non-blank characters
+    ; form words of their own; for W B E any non-blank characters do.
+    ; an empty line counts as a word.
+    ;
+
+    bool big_words
+
+    sub char_class(ubyte char) -> ubyte {
+        if char == ' ' or char == gapbuffer.eol or char == $a0
+            return 0
+        if big_words
+            return 1
+        if (char >= '0' and char <= '9') or char == '_' or (char >= $41 and char <= $5a) or
+                (char >= $61 and char <= $7a) or (char >= $c1 and char <= $da)
+            return 2
+        return 1
+    }
+
+    sub empty_line_at(uword p) -> bool {
+        return gapbuffer.get(p) == gapbuffer.eol and (p == 0 or gapbuffer.get(p - 1) == gapbuffer.eol)
+    }
+
+    ; w: start of the next word
+    sub word_forward(uword p) -> uword {
+        uword length = gapbuffer.length()
+        ubyte class
+        if p >= length
+            return length
+        class = char_class(gapbuffer.get(p))
+        if class != 0 {
+            while p < length and char_class(gapbuffer.get(p)) == class
+                p++
+        } else if empty_line_at(p) {
+            p++
+        }
+        while p < length and char_class(gapbuffer.get(p)) == 0 {
+            if empty_line_at(p)
+                return p
+            p++
+        }
+        return p
+    }
+
+    ; e: last character of this or the next word
+    sub word_end(uword p) -> uword {
+        uword length = gapbuffer.length()
+        ubyte class
+        if p + 1 >= length
+            return p
+        p++
+        while p < length and char_class(gapbuffer.get(p)) == 0
+            p++
+        if p >= length
+            return length - 1
+        class = char_class(gapbuffer.get(p))
+        while p + 1 < length and char_class(gapbuffer.get(p + 1)) == class
+            p++
+        return p
+    }
+
+    ; b: start of this or the previous word
+    sub word_back(uword p) -> uword {
+        ubyte class
+        if p == 0
+            return 0
+        p--
+        while p > 0 and char_class(gapbuffer.get(p)) == 0 {
+            if empty_line_at(p)
+                return p
+            p--
+        }
+        class = char_class(gapbuffer.get(p))
+        if class == 0
+            return p
+        while p > 0 and char_class(gapbuffer.get(p - 1)) == class
+            p--
+        return p
+    }
+
+    ;
+    ; f F t T ; ,
+    ;
+
+    ubyte find_cmd          ; last f F t T, for ; and ,
+    ubyte find_char
+
+    sub reverse_find(ubyte cmd) -> ubyte {
+        when cmd {
+            'f' -> return 'F'
+            'F' -> return 'f'
+            't' -> return 'T'
+        }
+        return 't'
+    }
+
+    ; returns the target of f F t T in the cursor line, or NONE
+    sub find_in_line(ubyte cmd, ubyte char, uword count) -> uword {
+        uword c = cursor()
+        uword p = c
+        uword start = gapbuffer.line_start(c)
+        uword end = gapbuffer.line_end(c)
+        repeat count {
+            if cmd == 'f' or cmd == 't' {
+                ; t again right before the character must skip it
+                if cmd == 't' and p == c and p + 1 < end and gapbuffer.get(p + 1) == char
+                    p++
+                p = gapbuffer.find_next(char, p + 1, end)
+                if p >= end
+                    return gapbuffer.NONE
+            } else {
+                if cmd == 'T' and p == c and p > start and gapbuffer.get(p - 1) == char
+                    p--
+                p = gapbuffer.find_prev(char, p)
+                if p == gapbuffer.NONE or p < start
+                    return gapbuffer.NONE
             }
         }
-        cur_line = gapbuffer.line_number(gapbuffer.length())
-        goal_col = 0
-        to_goal(gapbuffer.line_start(gapbuffer.length()))
+        if cmd == 't'
+            p--
+        else if cmd == 'T'
+            p++
+        return p
     }
 
-    ; delete count characters at the cursor, but not past the end of the line
-    sub delete_chars(uword count) {
-        uword room = gapbuffer.line_end(cursor()) - cursor()
-        if room == 0
+    ;
+    ; / ? n N
+    ;
+
+    str search_pat = " " * 40
+    ubyte search_len
+    bool search_forward = true
+
+    sub search_cmd(bool forward) {
+        uword target
+        if cmdlen != 0 {
+            void strings.copy(cmdline, search_pat)
+            search_len = cmdlen
+        }
+        search_forward = forward
+        if search_len == 0 {
+            status("no pattern")
             return
-        void gapbuffer.delete_nchar(min(count, room), cursor())
-        ; deleting the last character leaves the cursor on the line ending
-        set_cursor(min(cursor(), last_char(cursor())))
-        view.dirty = true
+        }
+        target = search_next(forward)
+        if target != gapbuffer.NONE {
+            set_cursor(target)
+            goal_col = column()
+        }
+    }
+
+    ; returns the next match after (or before) the cursor, wrapping
+    ; around the end of the text, or NONE
+    sub search_next(bool forward) -> uword {
+        uword c = cursor()
+        uword p
+        if search_len == 0
+            return gapbuffer.NONE
+        if forward {
+            p = gapbuffer.find_bytes(search_pat, search_len, c + 1, gapbuffer.length())
+            if p == gapbuffer.NONE
+                p = gapbuffer.find_bytes(search_pat, search_len, 0, c + search_len)
+        } else {
+            p = gapbuffer.find_bytes_prev(search_pat, search_len, c)
+            if p == gapbuffer.NONE
+                p = gapbuffer.find_bytes_prev(search_pat, search_len, gapbuffer.length())
+        }
+        if p == gapbuffer.NONE
+            status("not found")
+        return p
     }
 
     ;
@@ -417,7 +1120,12 @@ main {
     sub init() {
         txt.lowercase()
         platform.init()
-        gapbuffer.init(sys.progend(), platform.ramtop)
+        ; the yank buffer goes at the top of memory, the gap buffer below it
+        yank_size = 1024
+        if platform.ramtop - sys.progend() < 4096
+            yank_size = 256
+        yank_buf = platform.ramtop - yank_size
+        gapbuffer.init(sys.progend(), yank_buf)
         mode = MODE_NAV
         txt.cls()
         void strings.copy("sampsmall.txt", filename)
@@ -443,7 +1151,6 @@ main {
         ubyte i = 0
         ubyte n = 0
         bool force = false
-        uword line
         pointer arg
 
         while cmdline[i] == ' '
@@ -453,10 +1160,7 @@ main {
 
         ; :n goes to line n
         if cmdline[i] >= '0' and cmdline[i] <= '9' {
-            line = conv.str2uword(&cmdline + i)
-            numbers = max(line, 1)
-            nav_go()
-            numbers = 0
+            goto_line(max(conv.str2uword(&cmdline + i), 1))
             return
         }
 
@@ -601,7 +1305,6 @@ main {
             count = diskio.f_read(gapbuffer.gap_ptr(), gapbuffer.free())
             gapbuffer.inserted(count)
             set_cursor(position)
-            cur_line = gapbuffer.line_number(position)
             goal_col = 0
         } else {
             count = diskio.f_read(gapbuffer.ramstart, (gapbuffer.ramtop - gapbuffer.ramstart) as uword)
