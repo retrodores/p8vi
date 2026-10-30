@@ -6,20 +6,35 @@
 ; platform specific -- could merge to main
 ;
 platform {
-    ; gap buffer memory ends here (1 byte past the last usable byte), set by init()
-    pointer ramtop
+    ; memory for the text (the gap buffer), set by init()
+    pointer textstart
+    pointer texttop         ; 1 byte past the last usable byte
+    ; optional spare memory elsewhere, used for the yank buffer if it is big
+    ; enough (otherwise the yank buffer comes off the top of the text memory)
+    pointer sparestart
+    pointer sparetop
 
     sub init() {
-       ; the program needs at least the 8K expansion at $2000 (block 1).
-       ; blocks 2 and 3 ($4000-$7fff) are optional: extend the buffer into
-       ; them when present.  a block the program itself reaches into must
-       ; be there, and must not be tested (that would overwrite the code).
-       ; $8000 is the character ROM.
-       ramtop = $4000
+       ; RAM after the program: blocks 1-3 ($2000-$7fff, $8000 is the
+       ; character ROM).  blocks 2 and 3 are optional; a block the program
+       ; itself reaches into must be there, and must not be tested (that
+       ; would overwrite the code).
+       pointer top = $4000
        if sys.progend() > $4000 or ram_at($4000) {
-           ramtop = $6000
+           top = $6000
            if sys.progend() > $6000 or ram_at($6000)
-               ramtop = $8000
+               top = $8000
+       }
+       ; with RAM in block 5 ($a000-$bfff) the text goes there, and what is
+       ; left after the program holds the yank buffer.
+       if ram_at($a000) {
+           textstart = $a000
+           texttop = $c000
+           sparestart = sys.progend()
+           sparetop = top
+       } else {
+           textstart = sys.progend()
+           texttop = top
        }
        main.SCREEN_WIDTH    = txt.DEFAULT_WIDTH
        main.SCREEN_HEIGHT   = txt.DEFAULT_HEIGHT

@@ -6,8 +6,13 @@
 ; platform specific -- could merge to main
 ;
 platform {
-    ; gap buffer memory ends here (1 byte past the last usable byte), set by init()
-    pointer ramtop
+    ; memory for the text (the gap buffer), set by init()
+    pointer textstart
+    pointer texttop         ; 1 byte past the last usable byte
+    ; optional spare memory elsewhere, used for the yank buffer if it is big
+    ; enough (otherwise the yank buffer comes off the top of the text memory)
+    pointer sparestart
+    pointer sparetop
 
     sub init() {
        ; Prog8's system init banks out the BASIC ROM, unless floats are used
@@ -15,10 +20,11 @@ platform {
        ; reads at $a000-$bfff return the ROM instead of the RAM underneath,
        ; so the buffer must end there.  BASIC is visible when the LORAM and
        ; HIRAM bits (0 and 1) of the processor port are both set.
+       textstart = sys.progend()
        if (@($01) & %00000011) == %00000011
-           ramtop = $a000
+           texttop = $a000
        else
-           ramtop = $cfe0      ; Prog8 keeps the R0-R15 virtual registers at $cfe0-$cfff
+           texttop = $cfe0     ; Prog8 keeps the R0-R15 virtual registers at $cfe0-$cfff
 
        main.SCREEN_WIDTH    = txt.DEFAULT_WIDTH
        main.SCREEN_HEIGHT   = txt.DEFAULT_HEIGHT

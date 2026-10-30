@@ -1120,12 +1120,18 @@ main {
     sub init() {
         txt.lowercase()
         platform.init()
-        ; the yank buffer goes at the top of memory, the gap buffer below it
+        ; the yank buffer goes in the platform's spare memory if it fits,
+        ; otherwise at the top of the text memory, with the gap buffer below it
         yank_size = 1024
-        if platform.ramtop - sys.progend() < 4096
+        if platform.texttop - platform.textstart < 4096
             yank_size = 256
-        yank_buf = platform.ramtop - yank_size
-        gapbuffer.init(sys.progend(), yank_buf)
+        if platform.sparetop - platform.sparestart >= yank_size {
+            yank_buf = platform.sparestart
+        } else {
+            yank_buf = platform.texttop - yank_size
+            platform.texttop = yank_buf
+        }
+        gapbuffer.init(platform.textstart, platform.texttop)
         mode = MODE_NAV
         txt.cls()
         void strings.copy("sampsmall.txt", filename)
