@@ -126,13 +126,14 @@ warning, which makes it look like the clean way to write a switch.)  A
 small reproducer is in `bugs/ifexpr_const_condition.p8`.  Use an `if`
 statement instead.
 
-### Keep the feature's code out of `main`
+### Assembly routines
 
-Feature code is best kept in its own block or subroutines outside `main`.
-In a test with prog8c 14.0-BETA3, an `asmsub` in `main` that nothing called
-was still in the program, while the same `asmsub` in another block was
-removed.  In p8vi the ASCII routines are in their own `charset` block, which
-is left out completely when nothing calls it.
+Prog8 never removes an unused `asmsub` itself: it stays in the `.asm` file,
+probably because other assembly code could call it by its label.  It still costs
+nothing, because the routine is a `.proc` there, and 64tass only assembles
+a `.proc` that something references.  So when you look for leftover
+feature code, check the `.list` file or the program size, not the `.asm`
+file.
 
 ## Checking that it worked
 
