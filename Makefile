@@ -119,6 +119,13 @@ test-c64:	build/p8vi-c64.prg
 test-c64-screen:	build/p8vi-c64.prg
 	python3 tests/vice/edtest.py screen --prg build/p8vi-c64.prg
 
+# REU tests on a C64 in VICE: detection finds every size and leaves the
+# REU's memory alone, and the REU keeps its memory over a reset
+test-reu:	build
+	$(PCC) -quiet $(PCCARGSC64) tests/reu/reudetect.p8
+	$(PCC) -quiet $(PCCARGSC64) tests/reu/reureset.p8
+	python3 tests/reu/reutest.py --build build
+
 test:	build/testcx16.prg
 	x16emu -gif output.gif -debug -scale 2 -rtc -run -prg build/testcx16.prg
 

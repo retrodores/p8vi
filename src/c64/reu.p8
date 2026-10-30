@@ -66,18 +66,15 @@ reu {
     bool modified = true
 
     ;
-    ; Detect an REU and return size in KB, 0 without one.
-    ; Destructive: detect() writes 9 bytes at the start of every REU bank.
-    ; Afterwards $a000-$bfff holds bank 0.
+    ; Detect an REU and return size in KB, 0 without one.  The REU's memory
+    ; is left as it was (see detect()).  Afterwards $a000-$bfff holds bank 0.
     ;
     sub init() -> uword {
         ubyte detectbanks
         detectbanks, present = detect()
         if not present
             return 0
-        ; both addresses count up (an earlier program may have fixed one)
-        reu_addrcontrol = 0
-        ; detectbanks is the last REU bank, 0 for 256 of them (16 MB)
+        ; detectbanks is the last REU bank
         banks = detectbanks as uword + 1
         rambanks = banks * 8
         if rambanks > 256
@@ -90,39 +87,70 @@ reu {
         return banks * 64
     }
 
+    ; where detect() probes, in every REU bank: the end of the bank, away
+    ; from anything a program keeps at the start of bank 0
+    const uword PROBE_ADDR = $fff8
+    const ubyte PROBE_LEN = 8
+
     ;
-    ; Detect an REU and its size in banks: returns the last REU bank (0 for
-    ; 256 of them) and whether there is an REU.  Smaller REUs repeat their
-    ; banks above their size, so the banks are written from the top down
-    ; and read back from the bottom up until one doesn't match.
-    ; TODO: Make this use the raster line
-    ; detection method. Make size detection
-    ; non-destructive
+    ; Detect an REU and its size in banks: returns the last REU bank (255
+    ; for 16 MB) and whether there is an REU.
+    ;
+    ; Doesn't change the REU's memory, so whatever is in it (text to
+    ; recover after a reset, say) survives.  REU sizes are powers of two, so
+    ; a marker is put in bank 1, 2, 4 ... 128 in turn until one doesn't
+    ; stay there (a 1764 has no banks 4-7) or shows up in bank 0 (a smaller
+    ; REU repeats its banks above its size).  Each probe swaps its marker in
+    ; and back out again (REU_SWAP), 8 bytes at a time.  The REU registers
+    ; are changed.
     ;
     sub detect() -> ubyte, bool {
-        ubyte[] signature = [$00, 'p', 'r', 'o', 'g', '8', 'r', 'e', 'u']
-        ubyte[] xsignature = ['x', 'p', 'r', 'o', 'g', '8', 'r', 'e', 'u']
+        ubyte n
+        ; both addresses count up (an earlier program may have fixed one)
+        reu_addrcontrol = 0
+        ; there is an REU if a marker put in bank 0 can be read back
+        if not probe(0)
+            return 0, false
+        n = 1
+        repeat 8 {
+            if not probe(n)
+                return n - 1, true
+            n <<= 1
+        }
+        return 255, true
+    }
+
+    ubyte[PROBE_LEN] probe_mark = ['p', '8', 'r', 'e', 'u', 'd', 'e', 't']
+    ubyte[PROBE_LEN] probe_saved
+    ubyte[PROBE_LEN] probe_seen
+
+    ; puts a marker in REU bank b and returns whether bank b is there: the
+    ; marker can be read back from it, and (unless b is 0) not from bank 0.
+    ; then puts back what was there.
+    sub probe(ubyte b) -> bool {
+        bool found
+        probe_mark[PROBE_LEN - 1] = b
+        sys.memcopy(probe_mark, probe_saved, PROBE_LEN)
+        ; afterwards bank b holds the marker, probe_saved what was there
+        cmd(probe_saved, PROBE_ADDR, PROBE_LEN, b, REU_SWAP)
+        found = marked(b) and (b == 0 or not marked(0))
+        cmd(probe_saved, PROBE_ADDR, PROBE_LEN, b, REU_SWAP)
+        return found
+    }
+
+    ; whether REU bank b holds probe_mark
+    sub marked(ubyte b) -> bool {
         ubyte i
-        ubyte j
-        bool found = false
-
-        for i in 255 downto 0 {
-            signature[0] = i
-            cmd(signature, 0, 9, i, REU_STASH)
+        ; without an REU nothing is fetched, so start with something else
+        probe_seen[PROBE_LEN - 1] = ~probe_mark[PROBE_LEN - 1]
+        cmd(probe_seen, PROBE_ADDR, PROBE_LEN, b, REU_FETCH)
+        ; (not sys.memcmp: with basicsafe it doesn't assemble on the C64,
+        ; see bugs/memcmp_c64_basicsafe.p8)
+        for i in 0 to PROBE_LEN - 1 {
+            if probe_seen[i] != probe_mark[i]
+                return false
         }
-
-        for i in 0 to 255 {
-            signature[0] = i
-            cmd(xsignature, 0, 9, i, REU_FETCH)
-            for j in 0 to 8 {
-                if signature[j] != xsignature[j]
-                    return i - 1, found
-            }
-            found = true
-        }
-        ; all 256 banks: 16 MB.  (the value of i after the loop is
-        ; undefined in Prog8, so it isn't returned)
-        return 0, found
+        return true
     }
 
     sub cmd(uword c64addr, uword reuaddr, uword length, ubyte bank, ubyte command) {

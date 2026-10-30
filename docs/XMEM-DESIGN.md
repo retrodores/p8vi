@@ -145,11 +145,11 @@ Several files at once would be several page lists too.
 
 ## Crash recovery
 
-After a crash, a reset or a power cycle of the computer alone, the REU
-still holds its pages, and the X16 its banked RAM (to be checked: what
-the X16 KERNAL does to banked RAM on a reset).  To find the text again,
-extended memory needs a **header** at a fixed place (the start of REU
-bank 0, or the X16's first page bank):
+After a crash or a reset, the REU still holds its pages, and the X16
+its banked RAM (both tested, see "What survives a reset" below).  After
+switching off, both are lost.  To find the text again, extended memory
+needs a **header** at a fixed place (the start of REU bank 0, or the
+start of X16 bank 2, the first `xmem` bank):
 
 - a signature and a format version;
 - `PAGE_SIZE`, the file name, the line ending and ASCII settings;
@@ -174,29 +174,36 @@ At startup, before anything writes to extended memory:
 
 ### REU detection without writing
 
-`reu.detect()` writes 9 bytes into all 256 possible banks now.  REU sizes
-are powers of two, and a smaller REU repeats its banks above its size
-(the current detection relies on that too), so the size can be found
-with about 9 probes, each saving and restoring what it overwrites:
+Done: `reu.detect()` no longer changes the REU's memory.  REU sizes are
+powers of two, so it probes bank 1, 2, 4 ... 128 in turn, 8 bytes at
+`$fff8` (the end of the bank, away from the header), until a bank isn't
+there:
 
-1. Is there an REU at all?  Write and read back the REU's address
-   registers (`$df02`-`$df05`).  This doesn't touch REU memory.
-2. Save a few bytes of bank 0 into main RAM.
-3. For n = 1, 2, 4, ... 128: save a few bytes of bank n, write a marker
-   there, and fetch bank 0.  If bank 0 now holds the marker, bank n is
-   bank 0 again and the REU has n banks.  Put back what was saved in
-   bank n (which is bank 0).
-4. If no bank repeated, there are 256 banks (16 MB).
+- the marker doesn't stay in it (VICE's 256 KB REU, like a 1764, has no
+  banks 4-7: they don't repeat banks 0-3), or
+- the marker shows up in bank 0 (a smaller REU repeats its banks above
+  its size).
 
-The probe bytes must not be the header's; with the header at the start of
-bank 0, the probes use an offset well after it.  This is the first thing
-to build, before anything else writes to the REU.
+Each probe swaps the marker in with the REU's swap command and swaps it
+back out, so the bytes are put back without a copy.  Bank 0 is probed
+first, to see whether there is an REU at all.  This takes 25 transfers of
+8 bytes at most.
+
+### What survives a reset
+
+Tested (`make test-reu`, `tests/x16/bankreset.p8`):
+
+| | Kept |
+|---|---|
+| C64 reset in VICE (`reset 0`, like the reset button) | the REU's memory, all of it; the C64's RAM too |
+| C64 hard reset in VICE (`reset 1`, like switching off) | nothing: the REU is empty and the RAM refilled |
+| X16 reset through the SMC (x16emu, ROM R49) | all banked RAM except the first byte of bank 1 (`$a000` becomes `$a0`) |
 
 ## Steps
 
 1. **Non-destructive REU detection** and a test in VICE: a known pattern
    in the REU survives `reu.init()`, and the sizes are still right.  Find
-   out what the X16 keeps in banked RAM over a reset.
+   out what the X16 keeps in banked RAM over a reset.  *Done.*
 2. **The chunk interface** in the gap buffer and the editor.  No change
    in behaviour; the VIC-20 must keep its free bytes (64 at least).
 3. **The page store, main RAM only**, with the gap buffer's tests and new

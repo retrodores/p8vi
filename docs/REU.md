@@ -40,8 +40,9 @@ main {
 
 - `reu.init()` finds the REU, sets `reu.present`, `reu.banks` (64 KB REU
   banks) and `reu.rambanks` (8 KB banks, at most 256 = 2 MB, like the X16),
-  and fetches bank 0 into `$a000-$bfff`.  It writes 9 bytes at the start
-  of every REU bank to find the size.
+  and fetches bank 0 into `$a000-$bfff`.  Finding the size doesn't change
+  the REU's memory (see below), so a program can find its data again
+  after a reset.
 - `reu.bank(n)` (or `cx16.rambank(n)`) stashes the current bank and
   fetches bank n: 16 KB of DMA, about 18 ms.  A bank number past the end
   of a smaller REU lands on a lower bank.
@@ -60,9 +61,30 @@ main {
   startup banks BASIC out unless floats are used or `%option no_sysinit`
   is set.
 
+## Finding the size
+
+`reu.detect()` puts an 8 byte marker at `$fff8` in bank 1, 2, 4 ... 128
+in turn, until a bank isn't there: the marker doesn't stay in it (a
+1764 has no banks 4-7) or it shows up in bank 0 (a smaller REU repeats its
+banks above its size).  Each marker is swapped in and back out with the
+REU's swap command, so the REU's memory is left as it was.  It changes
+`reu_addrcontrol` (to 0) and the address and length registers.
+
+## Tests
+
+`make test-reu` (VICE `x64sc` in the PATH) runs `tests/reu/reutest.py`:
+
+- `tests/reu/reudetect.p8` with every REU size from 128 KB to 16 MB and
+  without one: the size must be right and the REU's memory unchanged
+  (checked at the start and the end of all 256 bank numbers).  With the
+  old detection all sizes fail.
+- `tests/reu/reureset.p8`: writes a pattern into the REU and waits; VICE
+  is reset through its monitor (`reset 0`, like the reset button), the
+  program starts again from a CBM80 hook in RAM and must find the pattern.
+
 ## Measured (VICE x64sc, prog8c 14.0-BETA3)
 
-- 512 KB REU: 512 KB, 64 banks; 16 MB REU: 16384 KB, 256 banks; no REU: 0.
+- All REU sizes, 128 KB to 16 MB, found; no REU: 0.
 - Four banks filled, switched out of order: all intact.
 - 60 switches: 66 jiffies (about 18 ms each); with change tracking and
   nothing modified, 33 jiffies (about 9 ms).
@@ -104,6 +126,13 @@ To carry back to the original project:
 9. `reu`: `track_changes` and `modified` (see above).
 10. `src/c128/reucompat.p8`: changes 1 and 2 (it's `reucompat128.p8` in the
     original).
+11. `reu`: `detect()` doesn't change the REU's memory (see "Finding the
+    size"), and returns the last bank as 255 for 16 MB.  It returned 0
+    for that, the same as for a 64 KB REU, and `init()` reported 64 KB
+    (seen with the old `detect()` and `tests/reu/reudetect.p8`).  `init()` sets `reu_addrcontrol` before
+    detecting rather than after.  It doesn't use `sys.memcmp()`, which
+    doesn't assemble on the C64 with `%zeropage basicsafe`
+    (`bugs/memcmp_c64_basicsafe.p8`).
 
 ## Open points
 
@@ -111,10 +140,6 @@ To carry back to the original project:
   the previous REU bank after the call (the C64 one does), and `bank()` may
   use zero page that overlaps `$02-$08`, where the KERNAL's JSRFAR keeps
   its arguments.  It also needs `reu.p8`, which is in `src/c64/`.
-- `detect()` writes into every REU bank.  It has to stop doing that
-  before p8vi keeps text in the REU, so that text can be recovered after
-  a crash or a reset: see "REU detection without writing" in
-  `docs/XMEM-DESIGN.md`.
 - The asm in `reucompat` uses the compiler's internal names
   (`p8b_reu.p8s_bank`, `p8b_reu.p8v_current_bank`), which can change
   between compiler versions.
