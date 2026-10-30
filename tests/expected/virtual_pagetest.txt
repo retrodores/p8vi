@@ -1,0 +1,28 @@
+empty
+insert
+insert middle
+insert start/end
+delete
+delete_nchar
+full
+loaded
+set
+marks
+lines
+copy
+insert_bytes
+read_room
+modified
+find_bytes
+undo
+change range
+pages
+full pages
+merge
+page lines
+read pages
+eol change
+chunks
+many pages
+
+all tests passed

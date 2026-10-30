@@ -1966,16 +1966,20 @@ main {
     ; bytes: a new or empty text takes it on, inserted text is converted to
     ; the line endings of the text around it.
     sub load_file(str name, bool insert) -> bool {
-        uword size
-        uword count
-        uword room
+        uword size = 0
         uword position = 0
-        uword end
-        pointer p
-        ubyte extra
-        ubyte eol
-        bool crlf
-        bool ascii
+        bool cr_last = false
+        ; (@dirty: these are always set before they are used, so they
+        ; don't need clearing on every call)
+        uword @dirty room
+        uword @dirty n
+        uword @dirty m
+        uword @dirty start
+        pointer @dirty p
+        ubyte @dirty extra
+        ubyte @dirty eol
+        bool @dirty crlf
+        bool @dirty ascii
         bool empty = buffer.length() == 0
         bool truncated = false
 
@@ -1997,38 +2001,57 @@ main {
             }
         } else
             buffer.clear()
-        ; read straight into the buffer
-        p, room = buffer.read_room(position)
-        size = diskio.f_read(p, room)
-        ; a full buffer may mean the file did not fit
-        if size == room and diskio.f_read(&extra, 1) == 1
+        start = position
+        ; read the file into the room the store gives, a piece at a time
+        ; (the gap buffer gives all its room at once).  the file's format
+        ; comes from the first piece: CR LF pairs are held as CR.
+        repeat {
+            p, room = buffer.read_room(position)
+            if buffer.PAGED and cr_last {
+                ; a CR LF pair split between two pieces: drop the LF
+                n = diskio.f_read(p, 1)
+                if n == 1 and @(p) == $0a {
+                    n = 0
+                    size++
+                }
+                n += diskio.f_read(p + n, room - n)
+            } else
+                n = diskio.f_read(p, room)
+            size += n
+            m = n
+            if features.CRLF and n != 0 {
+                cr_last = buffer.PAGED and p[n - 1] == $0d
+                m = charset.crlf_to_cr(p, n)
+            }
+            if not buffer.PAGED or position == start {
+                crlf = m != n
+                eol = file_eol(p, m)
+                ascii = features.ASCII and charset.looks_ascii(p, m, eol == $0a)
+            }
+            if features.ASCII and ascii
+                charset.translate(p, m, charset.TO_PETSCII)
+            if insert and not empty and eol != buffer.eol
+                charset.translate(p, m, charset.SWAP_EOL)
+            buffer.read_done(m)
+            position += m
+            if not buffer.PAGED or n < room or room == 0
+                break
+        }
+        ; the store is full: is there more in the file?
+        if n == room and diskio.f_read(&extra, 1) == 1
             truncated = true
         diskio.f_close()
 
-        ; the file's format: CR LF pairs are held as CR
-        count = size
-        if features.CRLF and size != 0
-            count = charset.crlf_to_cr(p, size)
-        crlf = count != size
-        eol = file_eol(p, count)
-        ascii = features.ASCII and charset.looks_ascii(p, count, eol == $0a)
-        if features.ASCII and ascii
-            charset.translate(p, count, charset.TO_PETSCII)
-
         if insert {
-            if not empty and eol != buffer.eol
-                charset.translate(p, count, charset.SWAP_EOL)
-            buffer.read_done(count)
             ; like vi, whole lines: the file's last line must not join the
-            ; line after it.  (position is the start of a line or the end of
+            ; line after it.  (start is the start of a line or the end of
             ; the text, so nothing read in means nothing to do here)
-            end = position + count
-            if end < buffer.length()
-                void add_eol_before(end)
-            set_cursor(position)
+            if position < buffer.length()
+                void add_eol_before(position)
+            set_cursor(start)
             goal_col = 0
         } else {
-            void buffer.loaded(count)
+            void buffer.loaded(position)
             new_text()
             cut_short = truncated
         }

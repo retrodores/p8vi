@@ -4,7 +4,6 @@ insert middle
 insert start/end
 delete
 delete_nchar
-move_gap
 full
 loaded
 set
@@ -12,11 +11,14 @@ marks
 lines
 copy
 insert_bytes
-chunks
 read_room
 modified
 find_bytes
 undo
 change range
+gappos
+move_gap
+raw load
+chunks
 
 all tests passed

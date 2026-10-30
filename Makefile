@@ -45,7 +45,7 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 # p8vi.p8 is the full editor (c64, cx16), p8vi_vic20.p8 the VIC-20's
 # smaller one; both import editor.p8
 PROGS	= build/p8vi-c64.prg build/p8vi-cx16.prg build/p8vi-vic20.prg
-SRCS	= src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/charset.p8 src/*/platform.p8 src/*/store_platform.p8
+SRCS	= src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/pagestore.p8 src/charset.p8 src/*/platform.p8 src/*/store_platform.p8
 
 all: build $(PROGS)
 
@@ -99,9 +99,11 @@ EMUVIC=xvic -default -keymap 1 -model ntsc -memory all -8 build/testgap.d64 -dri
 emu-vic20:	build/p8vi-vic20.prg disk
 	$(EMUVIC) -autostartprgmode 1 build/p8vi-vic20.prg
 
-# self checking gap buffer tests on the virtual target
+# self checking text store tests (gap buffer and page store) on the
+# virtual target
 test-gap:	build
-	$(PCC) -quiet $(PCCARGSVM) -emu src/gaptest.p8 | grep -v INFO | diff -u tests/expected/virtual_gaptest.txt -
+	$(PCC) -quiet $(PCCARGSVM) -emu src/gaptest.p8 | grep -v 'INFO\|WARN' | diff -u tests/expected/virtual_gaptest.txt -
+	$(PCC) -quiet $(PCCARGSVM) -emu src/pagetest.p8 | grep -v 'INFO\|WARN' | diff -u tests/expected/virtual_pagetest.txt -
 
 # memory map of each build and the room left below memtop
 # (tools/listsize.py LIST for where the bytes go, A.list B.list to compare)

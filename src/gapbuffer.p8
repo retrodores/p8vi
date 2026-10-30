@@ -22,6 +22,11 @@
 %import buffer
 
 buffer {
+    ; not a page store: read_room() gives all the room there is at once,
+    ; so a file is read in one piece, and a delete is logged in one piece.
+    ; (code only a page store needs can be left out with it)
+    const bool PAGED = false
+
     ; ram address based coordinates
     pointer ramstart  ; start of buffer ram
     pointer ramtop    ; 1 byte past the last usable byte
