@@ -15,8 +15,9 @@ pagemem {
     const uword PAGE_SIZE = 2048
     ; most pages the page store has room for (its tables are in main RAM)
     const ubyte MAX_PAGES = 128
-    ; SCRATCH_SIZE bytes for the page store's buffers: golden RAM
-    const uword SCRATCH_SIZE = 1024
+    ; SCRATCH_SIZE bytes for the page store's buffers (608 with 128 pages):
+    ; golden RAM.  the rest of it is the editor's (platform.sparestart)
+    const uword SCRATCH_SIZE = 640
     const uword scratch = $0400
     const uword BANK_SIZE = 8192
     const uword HEADER_SIZE = 1024

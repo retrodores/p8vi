@@ -170,6 +170,16 @@ FILE_SUITES = [
         ('g2', b''.join(l + b'\r\n' for l in BIG_LINES[1:])),
         ('g3', b''.join(l + b'\r\n' for l in BIG_LINES[1:2] + BIG_LINES + BIG_LINES[2:])),
     ], BIGCRLF),
+    # a line ending at the end of a file ends the last line (vi): G goes to
+    # "two", not to an empty line after it, and the line ending is written
+    # back.  new: a new text gets one too (a CR, PETSCII)
+    ('final-eol', r'Gdd:w e1\nyyp:w e2\nGox\x1b:w e3\nG:r t.txt\n:w e4\n:e! new\nihello\x1b:w\n', [
+        ('e1', b'one\n'),
+        ('e2', b'one\none\n'),
+        ('e3', b'one\none\nx\n'),
+        ('e4', b'one\none\nx\none\ntwo\n'),
+        ('new', b'HELLO\r'),
+    ], b'one\ntwo\n'),
     # :r of a file without a line ending at its end (r0): r1 inside the
     # text gets a line ending after it, r2 at the end of the text doesn't;
     # r3: undo takes the whole :r back
@@ -252,7 +262,9 @@ HUGE_LINES = [b'HUGE LINE %05d ' % i + b'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[:i % 27] fo
 HUGE = b'\n'.join(HUGE_LINES) + b'\n'
 HUGE2 = b'\n'.join(HUGE_LINES[:1] + HUGE_LINES + HUGE_LINES[1:]) + b'\n'
 FIRST = len(HUGE_LINES[0]) + 1
-HUGE3 = HUGE2[:FIRST] + HUGE[:65534 - len(HUGE2)] + HUGE2[FIRST:]
+# (the text doesn't keep the file's last line ending, so it holds one
+# byte more of the file read in; the line ending is written back)
+HUGE3 = HUGE2[:FIRST] + HUGE[:65534 - len(HUGE2) + 1] + HUGE2[FIRST:]
 REU_SUITES = [
     ('pages', r':w p1\n150Gdd:w p2\nu:w p3\n', [
         ('p1', PAGES),

@@ -16,7 +16,7 @@ pagemem {
     ; most pages the page store has room for
     const ubyte MAX_PAGES = 255
     ; SCRATCH_SIZE bytes for the page store's buffers
-    const uword SCRATCH_SIZE = 1024
+    const uword SCRATCH_SIZE = 768
     uword scratch = memory("pagescratch", SCRATCH_SIZE, 0) as uword
     const uword HEADER_SIZE = 1024
     const bool persistent = true

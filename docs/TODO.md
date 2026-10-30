@@ -19,9 +19,11 @@ aren't.
 
 - **Keys typed ahead during a failed load are lost.**  For example after
   `:r nofile`.  See `bugs/diskio_missing_file.md`, part 2.
-- **An extra empty line at the end of a file.**  Every line ending starts a
-  new line, so a file that ends with a line ending shows an empty last
-  line.  vi treats the last line ending as the end of the last line.
+- **An extra empty line at the end of a file, on the VIC-20.**  Fixed on
+  the C64 and X16 (`features.FINAL_EOL`: the text doesn't keep a file's
+  last line ending, writing puts it back), but it costs about 100 bytes
+  the VIC-20 doesn't have, so there a file that ends with a line ending
+  still shows an empty last line.
 - **The VIC-20 status line** is only 22 columns: 12 for messages and 10 for
   the line,column position.  Check what gets cut short and whether the two
   parts can run into each other.
@@ -38,9 +40,10 @@ aren't.
 - **Text in extended memory** (the cx16's banked RAM, a C64 REU): files
   up to 64 KB fit, with yank and undo as big, and `:recover` after a crash
   (done, `docs/XMEM-DESIGN.md`).
-- **The X16's main RAM is nearly full** (505 bytes left, 384 of them for
-  the key buffers): the page store's code is big.  Parts in assembler, or
-  feature switches for the X16, before adding much more.
+- **The X16's main RAM is nearly full** (302 bytes left; the key buffers
+  are in golden RAM, after the page store's buffers): the page store's
+  code is big.  Parts in assembler, or feature switches for the X16,
+  before adding much more.
 - **More text on the VIC-20.**  With RAM in block 5 the text is at
   `$a000-$bfff` (8 KB).  The main RAM after the program was the idea for a
   second text area (a gap buffer split across two memory areas), but the

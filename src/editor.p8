@@ -51,12 +51,18 @@ main {
     const ubyte META_ENDING = 41     ; (after the file name)
     const ubyte META_ASCII = 42
     const ubyte META_EOL = 43
+    const ubyte META_FINAL_EOL = 44
     str cmdline = " " * 40      ; text typed after ':', '/' or '?'
     ubyte cmdlen
     ubyte cmd_prompt            ; ':', '/' or '?'
     bool cut_short              ; the file did not fit, so saving it over itself loses text
     bool ascii_file             ; the file is ASCII: translated to PETSCII when read, back when written
     ubyte line_ending           ; the file's ENDING_*; CRLF is CR in memory
+    ; the file ends with a line ending.  like vi, the text doesn't keep it
+    ; (it ends the last line, it doesn't start an empty one): reading takes
+    ; it off, writing puts it back.  new texts have one.  (features.FINAL_EOL:
+    ; without it the text keeps the line ending, and shows an empty last line)
+    bool final_eol
 
     const ubyte ENDING_CR = 0
     const ubyte ENDING_LF = 1
@@ -1997,6 +2003,7 @@ main {
         ubyte @dirty eol
         bool @dirty crlf
         bool @dirty ascii
+        bool @dirty last_eol
         bool empty = buffer.length() == 0
         bool truncated = false
 
@@ -2059,21 +2066,32 @@ main {
             truncated = true
         diskio.f_close()
 
+        ; a line ending at the end of what was read ends its last line.
+        ; (read into text, it is the text's line ending now)
+        if features.FINAL_EOL and insert and not empty
+            eol = buffer.eol
+        last_eol = features.FINAL_EOL and position != start and buffer.get(position - 1) == eol
         if insert {
             ; like vi, whole lines: the file's last line must not join the
             ; line after it.  (start is the start of a line or the end of
-            ; the text, so nothing read in means nothing to do here)
+            ; the text, so nothing read in means nothing to do here.)  at
+            ; the end of the text, its line ending is taken off instead.
             if position < buffer.length()
                 void add_eol_before(position)
+            else if features.FINAL_EOL and last_eol
+                void buffer.delete_char(position - 1)
             set_cursor(start)
             goal_col = 0
         } else {
+            if features.FINAL_EOL and last_eol
+                position--
             void buffer.loaded(position)
             new_text()
             cut_short = truncated
         }
         if not insert or empty {
             buffer.eol = eol
+            final_eol = features.FINAL_EOL and last_eol
             ascii_file = ascii
             line_ending = ENDING_CR
             if eol == $0a
@@ -2109,6 +2127,7 @@ main {
         meta[META_ENDING] = line_ending
         meta[META_ASCII] = ascii_file as ubyte
         meta[META_EOL] = buffer.eol
+        meta[META_FINAL_EOL] = final_eol as ubyte
         buffer.sync(meta)
     }
 
@@ -2128,6 +2147,7 @@ main {
         line_ending = meta[META_ENDING]
         ascii_file = meta[META_ASCII] != 0
         buffer.eol = meta[META_EOL]
+        final_eol = meta[META_FINAL_EOL] != 0
         cur_line = buffer.line_number(cursor())
         view.refresh(true)
         if buffer.recoverable != 0
@@ -2139,6 +2159,7 @@ main {
     ; reset the editor for new text in the buffer
     sub new_text() {
         buffer.eol = $0d
+        final_eol = features.FINAL_EOL
         cur_line = 0
         goal_col = 0
     }
@@ -2199,6 +2220,9 @@ main {
         if features.ASCII and ascii_file
             void translate_text(charset.TO_ASCII)
         ok = translate_text(WRITE_TEXT)
+        ; the line ending the text doesn't keep (see final_eol)
+        if features.FINAL_EOL and ok and final_eol
+            ok = write_text(&buffer.eol, 1)
         diskio.f_close_w()
         if features.ASCII and ascii_file
             void translate_text(charset.TO_PETSCII)

@@ -45,7 +45,8 @@ buffer {
     ubyte lines_eol
 
     ; the buffers below are in pagemem.scratch (on the X16 that is golden
-    ; RAM, which leaves main RAM for the program)
+    ; RAM, which leaves main RAM for the program): 2 * BOUNCE_SIZE +
+    ; MAX_PAGES + H_IDS + 32 + 2 * STREAM_PAGES bytes
 
     ; pages not in the text (MAX_PAGES bytes)
     ubyte nfree
@@ -54,7 +55,7 @@ buffer {
     ; bytes going from one page to another pass through bounce, and bytes
     ; going from a stream into the text through put_buf (bounce is used
     ; while inserting them)
-    const ubyte BOUNCE_SIZE = 255
+    const ubyte BOUNCE_SIZE = 128
     ^^ubyte bounce
     ^^ubyte put_buf
 

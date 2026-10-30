@@ -19,11 +19,11 @@ platform {
     sub init() {
        textstart = sys.progend()
        texttop = $9f00
-       ; no spare memory: the yank buffer, undo log and key buffers come
-       ; off the top of main memory.  (not banked RAM: the page store
-       ; switches banks to get at the text)
-       sparestart = 0
-       sparetop = 0
+       ; spare memory for the key buffers: the end of golden RAM, after the
+       ; page store's buffers.  (not banked RAM: the page store switches
+       ; banks to get at the text; it keeps the yank buffer and undo log)
+       sparestart = pagemem.scratch + pagemem.SCRATCH_SIZE
+       sparetop = $0800
        main.SCREEN_WIDTH    = txt.DEFAULT_WIDTH
        main.SCREEN_HEIGHT   = txt.DEFAULT_HEIGHT
        main.STATUS_HEIGHT   = 2

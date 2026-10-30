@@ -15,5 +15,6 @@ features {
     const bool CRLF = true      ; CR LF line endings, :set crlf
     const bool SUBST = false    ; :s/old/new/ and line ranges (:%, :1,5, :$)
     const bool DOS = false      ; :@ sends a command to the drive (:@s:name deletes a file)
+    const bool FINAL_EOL = false ; a line ending at the end of a file ends the last line (no empty line after it)
     const bool DIR = false      ; :@$ shows the disk directory
 }
