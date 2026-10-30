@@ -50,6 +50,12 @@ gapbuffer {
     ; counts every change to the text (it wraps around): compare two
     ; readings to see whether anything changed in between
     uword changes
+    ; the text from change_start up to change_end may differ from what it
+    ; was at the last change_reset() (NONE if nothing changed).  text before
+    ; change_start is the same, text after change_end is the same but moved
+    ; by the change in length().  for redrawing only what changed.
+    uword change_start = NONE
+    uword change_end
 
     uword[NUM_MARKS] marks
 
@@ -89,6 +95,8 @@ gapbuffer {
         for i in 0 to NUM_MARKS - 1
             marks[i] = 0
         modified = false
+        change_start = 0
+        change_end = count
         undo_len = 0
         undo_lost = false
         return true
@@ -123,7 +131,38 @@ gapbuffer {
         @(p) = value
         modified = true
         changes++
+        note_change(offset, 1, 1)
         return true
+    }
+
+    ;
+    ; change tracking
+    ;
+
+    ; forget the changes so far (after redrawing them)
+    sub change_reset() {
+        change_start = NONE
+        change_end = 0
+    }
+
+    ; count bytes at position were replaced by inserted new ones
+    private sub note_change(uword position, uword inserted, uword deleted) {
+        if change_start == NONE {
+            change_start = position
+            change_end = position + inserted
+            return
+        }
+        ; the end of the earlier change moves with this one
+        if change_end > position {
+            if change_end - position > deleted
+                change_end = change_end - deleted + inserted
+            else
+                change_end = position + inserted
+        }
+        if position < change_start
+            change_start = position
+        if position + inserted > change_end
+            change_end = position + inserted
     }
 
     ;
@@ -264,8 +303,10 @@ gapbuffer {
     sub inserted(uword count) {
         if count > gapsize
             count = gapsize
-        if count != 0
+        if count != 0 {
             log_change('i', gappos, gapstart, count)
+            note_change(gappos, count, 0)
+        }
         gapstart += count
         gapsize -= count
         marks_inserted(gappos, count)
@@ -296,6 +337,7 @@ gapbuffer {
             count = bufend - position
         move_gap(position)
         log_change('d', position, gapend + 1, count)
+        note_change(position, 0, count)
         gapend += count
         gapsize += count
         bufend -= count

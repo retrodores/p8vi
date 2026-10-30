@@ -308,7 +308,6 @@ main {
                     if gapbuffer.get(cursor() - 1) == gapbuffer.eol
                         cur_line--
                     void gapbuffer.delete_char(cursor() - 1)
-                    view.dirty = true
                 }
             }
             KEY_CONTROL_W -> {
@@ -339,7 +338,6 @@ main {
             return
         ; the cursor mark moves back to start by itself
         void gapbuffer.delete_range(start, cursor())
-        view.dirty = true
     }
 
     ; cursor keys in insert and replace mode, the cursor may go to the line end
@@ -375,7 +373,6 @@ main {
         if gapbuffer.insert_char(char, cursor()) {
             ; a mark at the insertion point stays, so move the cursor past it
             set_cursor(cursor() + 1)
-            view.dirty = true
         } else {
             status("buffer full")
         }
@@ -418,7 +415,6 @@ main {
             }
             set_cursor(cursor() + length)
         }
-        view.dirty = true
     }
 
     ; R: typed characters replace the ones under the cursor
@@ -437,7 +433,6 @@ main {
                     if c < gapbuffer.line_end(c) {
                         void gapbuffer.set(c, key)
                         set_cursor(c + 1)
-                        view.dirty = true
                     } else {
                         insert_key(key)
                     }
@@ -586,7 +581,6 @@ main {
         cur_line = gapbuffer.line_number(cursor())
         set_cursor(min(cursor(), last_char(cursor())))
         goal_col = column()
-        view.dirty = true
     }
 
     ; the character after r f F t T Z g
@@ -759,7 +753,6 @@ main {
                 set_cursor(start)
                 void gapbuffer.delete_range(start, end)
                 set_cursor(first_nonblank(gapbuffer.line_start(cursor())))
-                view.dirty = true
                 return
             }
         }
@@ -780,7 +773,6 @@ main {
         }
         set_cursor(start)
         void gapbuffer.delete_range(start, end)
-        view.dirty = true
         if op == 'c' {
             start_insert()
         } else {
@@ -854,7 +846,6 @@ main {
         ; the text didn't end with a line ending before, so it shouldn't now
         if added_eol
             void gapbuffer.delete_char(gapbuffer.length() - 1)
-        view.dirty = true
         if yank_lines
             set_cursor(first_nonblank(position))
         else
@@ -879,7 +870,6 @@ main {
             ; the cursor mark stays at the start of the new empty line
             void gapbuffer.insert_char(gapbuffer.eol, position)
         }
-        view.dirty = true
         start_insert_n(count, true)
     }
 
@@ -907,7 +897,6 @@ main {
                 break
         }
         set_cursor(first_nonblank(start))
-        view.dirty = true
     }
 
     ; J: join count lines onto the cursor line, with one space between
@@ -927,7 +916,6 @@ main {
                     void gapbuffer.insert_char(' ', end)
             }
         }
-        view.dirty = true
     }
 
     ; r: replace count characters with char, r RETURN splits the line
@@ -945,7 +933,6 @@ main {
                 void gapbuffer.set(c + i, char)
             set_cursor(c + count - 1)
         }
-        view.dirty = true
     }
 
     ; ~ (pi on CBM keyboards): switch the case of count characters and move past them
@@ -967,7 +954,6 @@ main {
         }
         set_cursor(min(c, last_char(cursor())))
         goal_col = column()
-        view.dirty = true
     }
 
     ;
@@ -1767,7 +1753,6 @@ main {
         if gapbuffer.free() == 0 and diskio.f_read(&extra, 1) == 1
             truncated = true
         diskio.f_close()
-        view.dirty = true
         if not insert
             cut_short = truncated
         if truncated
@@ -1786,7 +1771,6 @@ main {
             gapbuffer.eol = $0a
         cur_line = 0
         goal_col = 0
-        view.dirty = true
     }
 
     ; write the whole text to a file, replacing it if it exists.
@@ -1887,12 +1871,15 @@ view {
 
     ubyte column    ; screen position of the cursor
     ubyte row
-    bool dirty      ; the text changed and the screen must be redrawn
 
     ; buffer offset and length of the text on each screen row, NONE past the end
     uword[txt.DEFAULT_HEIGHT] row_start
     ubyte[txt.DEFAULT_HEIGHT] row_len
+    ; the same for what is on the screen now, to redraw only rows that changed
+    uword[txt.DEFAULT_HEIGHT] drawn_start
+    ubyte[txt.DEFAULT_HEIGHT] drawn_len
     uword drawn_top = NONE
+    uword drawn_length      ; gapbuffer.length() when the screen was drawn
 
     ubyte[txt.DEFAULT_WIDTH] linebuf
 
@@ -1910,7 +1897,12 @@ view {
         ; cursor above the screen: its row becomes the top row
         if cursor < gapbuffer.get_mark(main.MARK_TOP)
             gapbuffer.set_mark(main.MARK_TOP, row_of(cursor))
-        layout()
+        ; work out the rows again only as far as needed: not at all when
+        ; nothing changed and nothing scrolled (just moving the cursor)
+        if force or gapbuffer.get_mark(main.MARK_TOP) != drawn_top
+            layout()
+        else if gapbuffer.change_start != NONE
+            layout_changed()
         if not locate() {
             ; cursor below the screen: its row becomes the bottom row
             top = row_of(cursor)
@@ -1924,11 +1916,10 @@ view {
             layout()
             void locate()
         }
-        if force or dirty or gapbuffer.get_mark(main.MARK_TOP) != drawn_top {
-            draw()
-            dirty = false
-            drawn_top = gapbuffer.get_mark(main.MARK_TOP)
-        }
+        if force or gapbuffer.get_mark(main.MARK_TOP) != drawn_top
+            draw_all()
+        else if gapbuffer.change_start != NONE
+            draw_changed()
         if main.mode != main.MODE_CMD
             main.status_position()
     }
@@ -1956,12 +1947,46 @@ view {
 
     ; work out which text goes on each screen row, starting at the top mark
     sub layout() {
-        uword position = gapbuffer.get_mark(main.MARK_TOP)
+        layout_from(main.MIN_ROW, gapbuffer.get_mark(main.MARK_TOP), false)
+    }
+
+    ; after a change (with the same top row): rows before the one the change
+    ; starts in are the same, and once a row after the change starts where
+    ; it did before, moved along with the change in length, the rest are the
+    ; same too
+    sub layout_changed() {
+        ubyte first = main.MIN_ROW
+        ubyte r
+        for r in main.MIN_ROW to main.MAX_ROW {
+            if drawn_start[r] == NONE or drawn_start[r] > gapbuffer.change_start
+                break
+            first = r
+        }
+        if drawn_start[first] == NONE or drawn_start[first] > gapbuffer.change_start
+            layout()
+        else
+            layout_from(first, drawn_start[first], true)
+    }
+
+    sub layout_from(ubyte first, uword position, bool reuse) {
         uword length = gapbuffer.length()
+        uword moved = length - drawn_length
         uword limit
         uword end
         ubyte r
-        for r in main.MIN_ROW to main.MAX_ROW {
+        ubyte rest
+        for r in first to main.MAX_ROW {
+            if reuse and position != NONE and position >= gapbuffer.change_end and
+                    drawn_start[r] != NONE and position == drawn_start[r] + moved {
+                ; from here on the old rows, moved along
+                for rest in r to main.MAX_ROW {
+                    row_start[rest] = drawn_start[rest]
+                    if row_start[rest] != NONE
+                        row_start[rest] += moved
+                    row_len[rest] = drawn_len[rest]
+                }
+                return
+            }
             row_start[r] = position
             row_len[r] = 0
             if position == NONE
@@ -2007,36 +2032,80 @@ view {
         return found
     }
 
-    sub draw() {
+    sub draw_all() {
         ubyte r
-        ubyte i
-        ubyte n
+        for r in main.MIN_ROW to main.MAX_ROW
+            draw_row(r)
+        drawn()
+    }
+
+    ; redraw only the rows whose text may have changed since the last draw.
+    ; a row is the same if it lies before the changed text, or after it and
+    ; just moved along with the change in length, and starts on the same
+    ; screen row with the same length.
+    sub draw_changed() {
+        uword start
+        uword change_start = gapbuffer.change_start
+        uword change_end = gapbuffer.change_end
+        ; how far text after the change moved (wraps around for a shrink)
+        uword moved = gapbuffer.length() - drawn_length
+        ubyte r
         for r in main.MIN_ROW to main.MAX_ROW {
-            txt.plot(0, r)
-            n = 0
-            if row_start[r] == NONE {
-                ; rows past the end of the text show a - (vi uses ~, not in petscii)
-                txt.chrout('-')
-                n = 1
-            } else {
-                while n < main.MIN_COL {
-                    txt.spc()
-                    n++
-                }
-                void gapbuffer.copy_out(row_start[r], row_len[r], linebuf)
-                i = 0
-                while i < row_len[r] {
-                    txt.chrout(printable(linebuf[i]))
-                    i++
-                }
-                n += row_len[r]
+            start = row_start[r]
+            if start == NONE {
+                if drawn_start[r] == NONE
+                    continue
+            } else if drawn_start[r] != NONE and row_len[r] == drawn_len[r] {
+                ; (the line ending or wrap point right after the row counts too)
+                if start + row_len[r] < change_start and drawn_start[r] == start
+                    continue
+                if start >= change_end and drawn_start[r] + moved == start
+                    continue
             }
-            while n < main.SCREEN_WIDTH {
-                txt.spc()
-                n++
+            draw_row(r)
+        }
+        drawn()
+    }
+
+    ; remember what is on the screen now
+    sub drawn() {
+        ubyte r
+        for r in main.MIN_ROW to main.MAX_ROW {
+            drawn_start[r] = row_start[r]
+            drawn_len[r] = row_len[r]
+        }
+        drawn_top = gapbuffer.get_mark(main.MARK_TOP)
+        drawn_length = gapbuffer.length()
+        gapbuffer.change_reset()
+    }
+
+    ; draw one text row straight into screen memory (much faster than chrout)
+    sub draw_row(ubyte r) {
+        ubyte col = 0
+        ubyte i = 0
+        if row_start[r] == NONE {
+            ; rows past the end of the text show a - (vi uses ~, not in petscii)
+            txt.setchr(0, r, txt.petscii2scr('-'))
+            col = 1
+        } else {
+            while col < main.MIN_COL {
+                txt.setchr(col, r, SCREEN_SPACE)
+                col++
+            }
+            void gapbuffer.copy_out(row_start[r], row_len[r], linebuf)
+            while i < row_len[r] {
+                txt.setchr(col, r, txt.petscii2scr(printable(linebuf[i])))
+                col++
+                i++
             }
         }
+        while col < main.SCREEN_WIDTH {
+            txt.setchr(col, r, SCREEN_SPACE)
+            col++
+        }
     }
+
+    const ubyte SCREEN_SPACE = $20      ; screen code of a space
 
     ; control characters would change the screen, show them as '.'
     sub printable(ubyte char) -> ubyte {

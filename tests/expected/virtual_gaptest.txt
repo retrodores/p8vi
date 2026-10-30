@@ -17,5 +17,6 @@ gap_ptr
 modified
 find_bytes
 undo
+change range
 
 all tests passed

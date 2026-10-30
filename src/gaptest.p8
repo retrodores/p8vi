@@ -39,6 +39,7 @@ main {
         test_modified()
         test_find_bytes()
         test_undo()
+        test_change_range()
 
         txt.nl()
         if failures == 0 {
@@ -469,6 +470,43 @@ main {
         void gapbuffer.loaded(0)
         check_bool("loaded", gapbuffer.can_undo(), false)
         gapbuffer.undo_init(0, 0)
+    }
+
+    sub test_change_range() {
+        const uword NONE = gapbuffer.NONE
+        txt.print("change range\n")
+        gapbuffer.clear()
+        void gapbuffer.insert("0123456789", 0)
+        gapbuffer.change_reset()
+        check_uw("none", gapbuffer.change_start, NONE)
+        ; moving the gap or reading changes nothing
+        gap_to(3)
+        void gapbuffer.copy_out(0, 5, linebuf)
+        check_uw("still none", gapbuffer.change_start, NONE)
+        ; an insert: the inserted text
+        void gapbuffer.insert("ab", 4)
+        check_uw("insert start", gapbuffer.change_start, 4)
+        check_uw("insert end", gapbuffer.change_end, 6)
+        ; a later insert before it: start moves down, the end moves along
+        void gapbuffer.insert_char('x', 1)
+        check_uw("before start", gapbuffer.change_start, 1)
+        check_uw("before end", gapbuffer.change_end, 7)
+        ; a delete after it: the end grows to the deletion point
+        void gapbuffer.delete_char(9)
+        check_uw("after start", gapbuffer.change_start, 1)
+        check_uw("after end", gapbuffer.change_end, 9)
+        ; a delete overlapping the end: the end clamps to it
+        void gapbuffer.delete_nchar(3, 6)
+        check_uw("overlap end", gapbuffer.change_end, 6)
+        ; set() covers one character
+        gapbuffer.change_reset()
+        void gapbuffer.set(2, 'S')
+        check_uw("set start", gapbuffer.change_start, 2)
+        check_uw("set end", gapbuffer.change_end, 3)
+        ; loaded() marks everything changed
+        void gapbuffer.loaded(5)
+        check_uw("loaded start", gapbuffer.change_start, 0)
+        check_uw("loaded end", gapbuffer.change_end, 5)
     }
 
     sub check_str(str name, str got, str wanted) {
