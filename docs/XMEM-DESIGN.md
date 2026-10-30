@@ -366,9 +366,10 @@ then.
 - A C64 without an REU: decided after step 3, two C64 builds for now.
   `p8vi-c64` keeps the gap buffer (17 KB of text); `p8vi-c64reu` has the
   page store (`src/c64reu/store_platform.p8`, compiled with `src/c64reu`
-  before `src/c64`), and gets the REU in step 4.  Without an REU it has
-  12 KB.
+  before `src/c64`), and got the REU in step 4.  Without an REU it has
+  12 KB of text after step 3, 4 KB after step 6.
 - Recovery: decided, `:recover` and two header slots (see "Crash
   recovery").
 - How often to `sync()`, and whether a sync while typing is noticeable on
-  the C64 (writing 8 changed slots is about 8 ms).
+  the C64 (writing 4 changed slots and the header is about 5 ms).  Not
+  measured yet, nor how a cache slot miss feels while typing.
