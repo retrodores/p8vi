@@ -213,7 +213,7 @@ Tested (`make test-reu`, `tests/x16/bankreset.p8`):
    page store costs" below.
 4. **`pagemem` for the X16 and the REU.**  Key buffers to main RAM.
    *Done:* see "Step 4" below.
-5. **Yank and undo in the page store.**
+5. **Yank and undo in the page store.**  *Done:* see "Step 5" below.
 6. **Recovery:** header, `sync()`, `:recover`.
 7. Later: several files, texts over 64 KB (positions would need more than
    a `uword`, a change across the whole editor).
@@ -275,6 +275,39 @@ then.
   REU.  With the slots never written back the `pages` suite fails.
 - Found on the way: `read_room()` gave a whole page of room even when the
   text was nearly 64 KB, so the length went past 65535 (the `huge` suite).
+
+## Step 5: yank and undo in the page store
+
+- The yank buffer is part of the store's interface: `yank(start, count,
+  lines)` (adds the line ending for whole lines), `put(position)`,
+  `yank_len`.  The gap buffer keeps it in main RAM (`yank_buf`), the page
+  store in a **stream**.
+- A stream is a list of pages outside the text, taken from the free pages
+  as it grows: one for the yank buffer, one for the undo log, up to 64
+  pages each.  The text has a budget, `text_max` pages (enough for 64 KB
+  and 8 more, or all but `stream_min` = 3 when pages are few), and a
+  stream only takes a free page while the text could still reach its
+  budget: an insert still fits whenever `free()` says so; a big yank or
+  undo log fails instead ("undo too big").
+- The undo log keeps its record format; the page store's copy of
+  `log_change()` / `undo()` reads and writes it through the stream, and
+  takes a change's bytes from the text by position (not a pointer: the
+  stream's pages are mapped in between).  The gap buffer's undo code moved
+  unchanged from `buffer.p8` to `gapbuffer.p8`.
+- Bytes from a stream into the text go through `put_buf`, as `bounce` is
+  used inside `insert_bytes()`.
+- The page table holds 255 pages, so a 64 KB text, a 64 KB yank and a
+  64 KB undo log fit together.
+- Tests: the store tests have a shared yank test and a page store stream
+  test; edtest has `bigundo` (REU only: `dG` of 30 KB undone, `yG` of 30 KB
+  put; the step 4 build fails it).  The X16 undid `dG` of a 39 KB file.
+- Found on the way: `delete_nchar` counted the line endings after moving
+  the rest of the page down (a new test, `delete lines`, catches it), and a
+  compiler bug (`bugs/uword_array_eq_ubyte.p8`) made the REU cache miss
+  pages it had and fetch them a second time.
+- Main RAM free: C64 REU build 11630 bytes, X16 2089 (the tables and two
+  255 byte buffers).  The REU build without an REU has 7 KB of text (and
+  3 KB for yank and undo).
 
 ## Open questions
 

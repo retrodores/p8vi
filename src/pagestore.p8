@@ -26,9 +26,12 @@ buffer {
     ; a page store: read_room() gives one page at a time, so a file is read
     ; in pieces, and a delete over several pages is logged a page at a time
     const bool PAGED = true
-    ; most pages the store can have (in the text and free together); page
-    ; ids are 0 to MAX_PAGES - 1
-    const ubyte MAX_PAGES = 128
+    ; most pages the store can have (the text's, the streams' and free
+    ; ones together); page ids are 0 to MAX_PAGES - 1
+    const ubyte MAX_PAGES = 255
+    ; pages kept for the streams (the yank buffer and the undo log) when
+    ; there are few pages (set it before init(); the tests change it)
+    ubyte stream_min = 3
 
     ; the page table: page i of the text is page page_id[i], holds
     ; page_len[i] bytes of text, page_lines[i] of them lines_eol
@@ -47,6 +50,25 @@ buffer {
     ; bytes going from one page to another pass through here
     const ubyte BOUNCE_SIZE = 255
     ubyte[BOUNCE_SIZE] bounce
+    ; and bytes going from a stream into the text through here (bounce is
+    ; used while inserting them)
+    ubyte[BOUNCE_SIZE] put_buf
+
+    ; all pages, and how many of them the text may have: the rest is kept
+    ; for the streams.  page_size is 1 << page_shift.
+    ubyte total_pages
+    ubyte text_max
+    ubyte page_shift
+
+    ; the streams: the yank buffer (YANK) and the undo log (UNDO), each a
+    ; list of pages outside the text, s_count[s] of them at
+    ; s_page[s * STREAM_PAGES]
+    const ubyte YANK = 0
+    const ubyte UNDO = 1
+    const ubyte STREAM_PAGES = 64
+    ubyte[2] s_count
+    ubyte[2 * STREAM_PAGES] s_page
+    uword s_word
 
     ; text that fits in all pages (at most $fffe, positions are uwords)
     uword capacity
@@ -67,16 +89,32 @@ buffer {
     ; memory if there is some (pagemem decides), and empty the store
     sub init(pointer start, pointer top) {
         ubyte n = lsb(pagemem.init(start as uword, top as uword, page_size, MAX_PAGES))
+        uword size = 1
+        total_pages = n
+        page_shift = 0
+        while size != page_size {
+            size <<= 1
+            page_shift++
+        }
         npages = 0
         nfree = 0
+        s_count[YANK] = 0
+        s_count[UNDO] = 0
         while nfree != n {
             ; (the free pages are taken from the end: page 0 first)
             free_id[nfree] = n - 1 - nfree
             nfree++
         }
+        ; the text may have all pages but stream_min, and no more than
+        ; 64 KB of text takes (and a few, to split pages into)
+        text_max = n
+        if n > stream_min
+            text_max = n - stream_min
+        if text_max as uword > $fffe / page_size + 8
+            text_max = lsb($fffe / page_size + 8)
         capacity = $fffe
-        if n < $fffe / page_size
-            capacity = n * page_size
+        if text_max < $fffe / page_size
+            capacity = text_max * page_size
         clear()
     }
 
@@ -116,6 +154,7 @@ buffer {
         change_end = count
         undo_len = 0
         undo_lost = false
+        s_free(UNDO)
         return true
     }
 
@@ -409,8 +448,8 @@ buffer {
         uword p
         if offset >= bufend
             return false
+        log_change('s', offset, 1)
         p = page_at(offset)
-        log_change('s', offset, p, 1)
         if @(p) == lines_eol
             page_lines[cur]--
         if value == lines_eol
@@ -453,7 +492,7 @@ buffer {
             pagemem.changed()
             grow(cur, n, count_eol(p, n))
             bufend += n
-            log_change('i', position, p, n)
+            log_change('i', position, n)
             count -= n
             if count == 0
                 break
@@ -528,11 +567,11 @@ buffer {
         pagemem.changed()
         read_size = 0
         if count != 0 {
-            log_change('i', read_pos, p, count)
-            note_change(read_pos, count, 0)
-            marks_inserted(read_pos, count)
             grow(read_page, count, count_eol(p, count))
             bufend += count
+            log_change('i', read_pos, count)
+            note_change(read_pos, count, 0)
+            marks_inserted(read_pos, count)
             modified = true
             changes++
         }
@@ -546,6 +585,7 @@ buffer {
     ; returns the number of characters actually deleted.
     sub delete_nchar(uword count, uword position) -> uword {
         ubyte k
+        uword lines
         uword left
         uword n
         uword p
@@ -555,14 +595,16 @@ buffer {
             count = bufend - position
         left = count
         while left != 0 {
-            p = page_at(position)
+            find_page(position)
             n = page_len[cur] - (position - cur_start)
             if n > left
                 n = left
-            log_change('d', position, p, n)
+            log_change('d', position, n)
+            p = page_at(position)
+            lines = count_eol(p, n)
             move_bytes(p + n, p, page_len[cur] - (position - cur_start) - n)
             pagemem.changed()
-            grow(cur, 0 - n, 0 - count_eol(p, n))
+            grow(cur, 0 - n, 0 - lines)
             bufend -= n
             left -= n
             if page_len[cur] == 0 and npages > 1
@@ -620,6 +662,290 @@ buffer {
         pagemem.changed()
         lines_eol = 0
         return p, page_len[n]
+    }
+
+    ;
+    ; streams: bytes in pages outside the text, for the yank buffer and the
+    ; undo log.  a stream takes free pages as it grows, but leaves the text
+    ; as many as it may still need (up to text_max): so an insert still
+    ; fits whenever free() says so.
+    ;
+
+    ; free pages the text may still need
+    private sub reserved() -> ubyte {
+        if npages >= text_max
+            return 0
+        return text_max - npages
+    }
+
+    ; give stream s pages for end bytes, more or fewer.  returns false if
+    ; there aren't enough (it may have more pages then, its bytes are kept)
+    private sub s_size(ubyte s, uword end) -> bool {
+        uword need = 0
+        if end != 0
+            need = ((end - 1) >> page_shift) + 1
+        if need > STREAM_PAGES
+            return false
+        while s_count[s] > need {
+            s_count[s]--
+            free_id[nfree] = s_page[s * STREAM_PAGES + s_count[s]]
+            nfree++
+        }
+        while s_count[s] < need {
+            if nfree <= reserved()
+                return false
+            nfree--
+            s_page[s * STREAM_PAGES + s_count[s]] = free_id[nfree]
+            s_count[s]++
+        }
+        return true
+    }
+
+    ; give back all pages of stream s
+    private sub s_free(ubyte s) {
+        void s_size(s, 0)
+    }
+
+    ; the address of byte offset of stream s, until the next pagemem.map()
+    private sub s_at(ubyte s, uword offset) -> uword {
+        return pagemem.map(s_page[s * STREAM_PAGES + lsb(offset >> page_shift)]) + (offset & (page_size - 1))
+    }
+
+    ; copy count bytes between mem and stream s at offset: into the stream
+    ; if write, out of it if not
+    private sub s_copy(ubyte s, uword offset, uword mem, uword count, bool write) {
+        uword n
+        uword p
+        while count != 0 {
+            p = s_at(s, offset)
+            n = page_size - (offset & (page_size - 1))
+            if n > count
+                n = count
+            if write {
+                sys.memcopy(mem, p, n)
+                pagemem.changed()
+            } else
+                sys.memcopy(p, mem, n)
+            offset += n
+            mem += n
+            count -= n
+        }
+    }
+
+    private sub s_peek(ubyte s, uword offset) -> ubyte {
+        return @(s_at(s, offset))
+    }
+
+    private sub s_poke(ubyte s, uword offset, ubyte value) {
+        @(s_at(s, offset)) = value
+        pagemem.changed()
+    }
+
+    private sub s_peekw(ubyte s, uword offset) -> uword {
+        s_copy(s, offset, &s_word as uword, 2, false)
+        return s_word
+    }
+
+    private sub s_pokew(ubyte s, uword offset, uword value) {
+        s_word = value
+        s_copy(s, offset, &s_word as uword, 2, true)
+    }
+
+    ;
+    ; the yank buffer, in stream YANK
+    ;
+
+    ; copy count bytes of text at start into the yank buffer, with a line
+    ; ending after them if lines is set and they don't end with one.
+    ; returns false (and keeps what was in it) if they don't fit.
+    sub yank(uword start, uword count, bool lines) -> bool {
+        uword done = 0
+        uword n
+        if count > yank_size - 1 or not s_size(YANK, count + 1)
+            return false
+        while done != count {
+            n = count - done
+            if n > BOUNCE_SIZE
+                n = BOUNCE_SIZE
+            void copy_out(start + done, n, bounce)
+            s_copy(YANK, done, bounce, n, true)
+            done += n
+        }
+        yank_len = count
+        if lines and (yank_len == 0 or s_peek(YANK, yank_len - 1) != eol) {
+            s_poke(YANK, yank_len, eol)
+            yank_len++
+        }
+        return true
+    }
+
+    ; insert the yank buffer at position.  returns false (and inserts
+    ; nothing) if it doesn't fit.
+    sub put(uword position) -> bool {
+        uword done = 0
+        uword n
+        if yank_len > capacity - bufend
+            return false
+        while done != yank_len {
+            n = yank_len - done
+            if n > BOUNCE_SIZE
+                n = BOUNCE_SIZE
+            s_copy(YANK, done, put_buf, n, false)
+            void insert_bytes(put_buf, n, position + done)
+            done += n
+        }
+        return true
+    }
+
+    ;
+    ; the undo log (see buffer.p8), in stream UNDO
+    ;
+
+    ; log a change of count bytes of text at position: after inserting
+    ; them ('i'), before deleting ('d') or changing ('s') them.  (maps
+    ; other pages)
+    private sub log_change(ubyte kind, uword position, uword count) {
+        uword start
+        uword last_pos
+        uword last_count
+        if undo_size == 0 or undo_off
+            return
+        if undo_new {
+            undo_new = false
+            undo_len = 0
+            undo_lost = false
+            undo_reversed = false
+            s_free(UNDO)
+        }
+        if undo_lost
+            return
+        if undo_len != 0 and s_peek(UNDO, undo_len - 1) == 'i' {
+            last_count = s_peekw(UNDO, undo_len - 3)
+            last_pos = s_peekw(UNDO, undo_len - 5)
+            start = undo_len - 7 - last_count
+            ; typing on after the last insert: make that insert longer
+            if kind == 'i' and position == last_pos + last_count and undo_len + count <= undo_size {
+                if log_text(undo_len - 5, position, count)
+                    put_record(start, last_count + count, last_pos, 'i')
+                return
+            }
+            ; deleting the end of what the last insert added: make it shorter
+            if kind == 'd' and position >= last_pos and position + count == last_pos + last_count {
+                last_count -= count
+                undo_len = start
+                if last_count != 0
+                    put_record(start, last_count, last_pos, 'i')
+                return
+            }
+        }
+        if count > undo_size - undo_len or undo_size - undo_len - count < 7 {
+            undo_lost = true
+            return
+        }
+        if log_text(undo_len + 2, position, count)
+            put_record(undo_len, count, position, kind)
+    }
+
+    ; copy count bytes of text at position into the log at offset, with
+    ; room for a record's end after them.  false (and the change is lost)
+    ; if there are no pages for it.
+    private sub log_text(uword offset, uword position, uword count) -> bool {
+        uword n
+        if not s_size(UNDO, offset + count + 5) {
+            undo_lost = true
+            return false
+        }
+        while count != 0 {
+            n = count
+            if n > BOUNCE_SIZE
+                n = BOUNCE_SIZE
+            void copy_out(position, n, bounce)
+            s_copy(UNDO, offset, bounce, n, true)
+            offset += n
+            position += n
+            count -= n
+        }
+        return true
+    }
+
+    ; write the rest of the record whose count data bytes follow start:
+    ; the count before the data, the position, count and kind after it.
+    ; the log ends after the record.
+    private sub put_record(uword start, uword count, uword position, ubyte kind) {
+        s_pokew(UNDO, start, count)
+        start += count + 2
+        s_pokew(UNDO, start, position)
+        s_pokew(UNDO, start + 2, count)
+        s_poke(UNDO, start + 4, kind)
+        undo_len = start + 5
+    }
+
+    ; revert the logged change (or re-do it, if it was just undone).
+    ; returns the lowest position changed, or NONE if there is nothing to undo.
+    sub undo() -> uword {
+        uword lowest = NONE
+        uword at
+        uword count
+        uword position
+        if not can_undo()
+            return NONE
+        undo_off = true
+        if undo_reversed {
+            ; re-do: the records in the order they were made
+            at = 0
+            while at < undo_len {
+                count = s_peekw(UNDO, at)
+                position = s_peekw(UNDO, at + count + 2)
+                undo_record(at + count + 7, count, position)
+                lowest = min(lowest, position)
+                at += count + 7
+            }
+        } else {
+            ; undo: the last record first
+            at = undo_len
+            while at != 0 {
+                count = s_peekw(UNDO, at - 3)
+                position = s_peekw(UNDO, at - 5)
+                undo_record(at, count, position)
+                lowest = min(lowest, position)
+                at -= count + 7
+            }
+        }
+        undo_off = false
+        undo_reversed = not undo_reversed
+        undo_new = false
+        return lowest
+    }
+
+    ; apply the opposite of the record ending at end, and turn the record
+    ; into that opposite so the next undo() reverses it again
+    private sub undo_record(uword end, uword count, uword position) {
+        uword data = end - 5 - count
+        uword done = 0
+        uword n
+        ubyte old
+        when s_peek(UNDO, end - 1) {
+            'i' -> {
+                void delete_nchar(count, position)
+                s_poke(UNDO, end - 1, 'd')
+            }
+            'd' -> {
+                while done != count {
+                    n = count - done
+                    if n > BOUNCE_SIZE
+                        n = BOUNCE_SIZE
+                    s_copy(UNDO, data + done, put_buf, n, false)
+                    void insert_bytes(put_buf, n, position + done)
+                    done += n
+                }
+                s_poke(UNDO, end - 1, 'i')
+            }
+            's' -> {
+                old = get(position)
+                void set(position, s_peek(UNDO, data))
+                s_poke(UNDO, data, old)
+            }
+        }
     }
 
     ;

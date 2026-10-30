@@ -47,7 +47,15 @@ buffer {
 
     uword[NUM_MARKS] marks
 
-    ; undo log for one change (see undo_init); disabled while undo_size is 0
+    ; the yank buffer (see yank()): yank_len bytes; it can hold yank_size
+    ; less one.  the gap buffer keeps it at yank_buf, the page store in its
+    ; pages.  set yank_buf and yank_size before using it.
+    pointer yank_buf
+    uword yank_size
+    uword yank_len
+
+    ; undo log for one change (see undo_init(), or set undo_buf and
+    ; undo_size); disabled while undo_size is 0
     pointer undo_buf
     uword undo_size
     uword undo_len          ; bytes used
@@ -160,10 +168,12 @@ buffer {
     ; each log record is: count (2 bytes), count data bytes, position
     ; (2 bytes), count (2 bytes) and the kind: 'i' inserted, 'd' deleted,
     ; 's' set (the data is the byte it replaced).  the count at both ends
-    ; lets the log be walked in both directions.
+    ; lets the log be walked in both directions.  each store keeps the log
+    ; its own way (log_change(), undo()).
     ;
 
-    ; use size bytes at buf for the undo log
+    ; use size bytes at buf for the undo log (the page store keeps it in
+    ; its pages: buf isn't used, size is the most it may hold)
     sub undo_init(pointer buf, uword size) {
         undo_buf = buf
         undo_size = size
@@ -185,119 +195,6 @@ buffer {
     ; true if there is a change to undo (or redo)
     sub can_undo() -> bool {
         return undo_len != 0 and not undo_lost
-    }
-
-    private sub log_change(ubyte kind, uword position, pointer data, uword count) {
-        uword start
-        uword last_pos
-        uword last_count
-        if undo_size == 0 or undo_off
-            return
-        if undo_new {
-            undo_new = false
-            undo_len = 0
-            undo_lost = false
-            undo_reversed = false
-        }
-        if undo_lost
-            return
-        if undo_len != 0 and undo_buf[undo_len - 1] == 'i' {
-            last_count = peekw(undo_buf + undo_len - 3)
-            last_pos = peekw(undo_buf + undo_len - 5)
-            start = undo_len - 7 - last_count
-            ; typing on after the last insert: make that insert longer
-            if kind == 'i' and position == last_pos + last_count and undo_len + count <= undo_size {
-                sys.memcopy(data, undo_buf + undo_len - 5, count)
-                put_record(start, last_count + count, last_pos, 'i')
-                return
-            }
-            ; deleting the end of what the last insert added: make it shorter
-            if kind == 'd' and position >= last_pos and position + count == last_pos + last_count {
-                last_count -= count
-                undo_len = start
-                if last_count != 0
-                    put_record(start, last_count, last_pos, 'i')
-                return
-            }
-        }
-        if count > undo_size - undo_len or undo_size - undo_len - count < 7 {
-            undo_lost = true
-            return
-        }
-        sys.memcopy(data, undo_buf + undo_len + 2, count)
-        put_record(undo_len, count, position, kind)
-    }
-
-    ; write the rest of the record whose count data bytes follow start:
-    ; the count before the data, the position, count and kind after it.
-    ; the log ends after the record.
-    private sub put_record(uword start, uword count, uword position, ubyte kind) {
-        pointer p = undo_buf + start
-        pokew(p, count)
-        p += count + 2
-        pokew(p, position)
-        pokew(p + 2, count)
-        p[4] = kind
-        undo_len = start + count + 7
-    }
-
-    ; revert the logged change (or re-do it, if it was just undone).
-    ; returns the lowest position changed, or NONE if there is nothing to undo.
-    sub undo() -> uword {
-        uword lowest = NONE
-        uword at
-        uword count
-        uword position
-        if not can_undo()
-            return NONE
-        undo_off = true
-        if undo_reversed {
-            ; re-do: the records in the order they were made
-            at = 0
-            while at < undo_len {
-                count = peekw(undo_buf + at)
-                position = peekw(undo_buf + at + count + 2)
-                undo_record(at + count + 7, count, position)
-                lowest = min(lowest, position)
-                at += count + 7
-            }
-        } else {
-            ; undo: the last record first
-            at = undo_len
-            while at != 0 {
-                count = peekw(undo_buf + at - 3)
-                position = peekw(undo_buf + at - 5)
-                undo_record(at, count, position)
-                lowest = min(lowest, position)
-                at -= count + 7
-            }
-        }
-        undo_off = false
-        undo_reversed = not undo_reversed
-        undo_new = false
-        return lowest
-    }
-
-    ; apply the opposite of the record ending at end, and turn the record
-    ; into that opposite so the next undo() reverses it again
-    private sub undo_record(uword end, uword count, uword position) {
-        pointer data = undo_buf + end - 5 - count
-        ubyte old
-        when undo_buf[end - 1] {
-            'i' -> {
-                void delete_nchar(count, position)
-                undo_buf[end - 1] = 'd'
-            }
-            'd' -> {
-                void insert_bytes(data, count, position)
-                undo_buf[end - 1] = 'i'
-            }
-            's' -> {
-                old = get(position)
-                void set(position, @(data))
-                @(data) = old
-            }
-        }
     }
 
     ;

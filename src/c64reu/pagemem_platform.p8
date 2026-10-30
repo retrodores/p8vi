@@ -24,7 +24,11 @@ pagemem {
     uword last_addr         ; its address
     ubyte last_slot         ; its slot
 
-    uword[SLOTS] slot_page  ; the page in each slot, NO_PAGE for none
+    ; the page in each slot, NO_SLOT_PAGE for none.  (ubyte, like page ids:
+    ; comparing a uword array element with a ubyte goes wrong, see
+    ; bugs/uword_array_eq_ubyte.p8)
+    const ubyte NO_SLOT_PAGE = 255
+    ubyte[SLOTS] slot_page
     bool[SLOTS] slot_dirty  ; changed since it was copied in
     ubyte[SLOTS] slot_used  ; when it was mapped last (clock)
     ubyte clock
@@ -46,7 +50,7 @@ pagemem {
                 n = (last_bank as uword + 1) * per_bank
             n--
             for i in 0 to SLOTS - 1 {
-                slot_page[i] = NO_PAGE
+                slot_page[i] = NO_SLOT_PAGE
                 slot_dirty[i] = false
                 slot_used[i] = 0
             }
@@ -97,7 +101,7 @@ found:
     ; copy slot s to or from its page in the REU
     sub transfer(ubyte s, ubyte command) {
         ; (page 0 of bank 0 is the one kept free)
-        uword page = slot_page[s] + 1
+        uword page = slot_page[s] as uword + 1
         reu.cmd(main_start + s * size, (page % per_bank) * size, size, lsb(page / per_bank), command)
     }
 

@@ -27,6 +27,7 @@ buftests {
         test_find_bytes()
         test_undo()
         test_change_range()
+        test_yank()
     }
 
     sub report() {
@@ -494,6 +495,43 @@ buftests {
             txt.print("'\n")
         }
         main.check_store()
+    }
+
+    sub test_yank() {
+        txt.print("yank\n")
+        buffer.eol = '\n'
+        buffer.clear()
+        void buffer.insert("one\ntwo\nthree", 0)
+        ; whole lines get a line ending if they don't end with one
+        check_bool("yank lines", buffer.yank(8, 5, true), true)
+        check_uw("lines len", buffer.yank_len, 6)
+        check_bool("put", buffer.put(0), true)
+        expect("three\none\ntwo\nthree")
+        check_bool("yank line", buffer.yank(6, 4, true), true)
+        check_uw("line len", buffer.yank_len, 4)
+        ; characters: as they are
+        check_bool("yank chars", buffer.yank(0, 2, false), true)
+        check_uw("chars len", buffer.yank_len, 2)
+        check_bool("put end", buffer.put(buffer.length()), true)
+        expect("three\none\ntwo\nthreeth")
+        ; a put that doesn't fit inserts nothing
+        check_bool("yank big", buffer.yank(0, 20, false), true)
+        check_bool("put too big", buffer.put(0), false)
+        expect("three\none\ntwo\nthreeth")
+        ; too big for the yank buffer (yank_size 32): the old one stays
+        check_bool("too big", buffer.yank(0, 32, false), false)
+        check_uw("kept", buffer.yank_len, 20)
+        ; undo of a put
+        buffer.undo_init(memory("undo", 64, 0), 64)
+        void buffer.yank(0, 3, false)
+        buffer.undo_mark()
+        void buffer.delete_range(3, 22)
+        void buffer.put(3)
+        expect("thrthr")
+        check_uw("undo put", buffer.undo(), 3)
+        expect("three\none\ntwo\nthreeth")
+        buffer.undo_init(0, 0)
+        buffer.eol = $0d
     }
 
     sub check_str(str name, str got, str wanted) {

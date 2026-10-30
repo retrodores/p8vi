@@ -21,8 +21,11 @@ main {
 
     sub start() {
         buffer.page_size = PAGE
-        ; (one page more for pagemem's window)
-        buffer.init(sys.progend(), sys.progend() + CAPACITY + 2 * PAGE - 1)
+        ; 4 pages for the text, 8 for the streams (yank buffer, undo log),
+        ; one more for pagemem's window
+        buffer.stream_min = 8
+        buffer.init(sys.progend(), sys.progend() + CAPACITY + 9 * PAGE)
+        buffer.yank_size = 32
         check_uw("capacity", buffer.capacity, CAPACITY)
         buftests.run()
         test_pages()
@@ -32,9 +35,13 @@ main {
         test_read_pages()
         test_eol_change()
         test_chunks()
-        ; a bigger store: 10 pages
-        buffer.init(sys.progend(), sys.progend() + 11 * PAGE)
+        ; a bigger store: 10 pages for the text, 40 for the streams
+        buffer.stream_min = 40
+        buffer.init(sys.progend(), sys.progend() + 51 * PAGE)
+        buffer.yank_size = $ffff
         test_many_pages()
+        test_streams()
+        test_delete_lines()
         buftests.report()
     }
 
@@ -283,6 +290,55 @@ main {
         check_store()
     }
 
+    sub test_streams() {
+        txt.print("streams\n")
+        ubyte i
+        buffer.clear()
+        void buffer.insert("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRST", 0)
+        ; a yank over several pages, put twice
+        check_bool("yank", buffer.yank(10, 30, false), true)
+        check_ub("yank pages", buffer.s_count[buffer.YANK], 4)
+        void buffer.delete_range(10, 56)
+        expect("0123456789")
+        check_bool("put", buffer.put(10), true)
+        check_bool("put again", buffer.put(10), true)
+        read_contents_big()
+        check_bool("put twice", strings.compare(big, "0123456789abcdefghijklmnopqrstuvwxyzABCDabcdefghijklmnopqrstuvwxyzABCD") == 0, true)
+        check_store()
+        ; the streams don't take what the text may still need: free() is
+        ; still all there
+        check_uw("free", buffer.free(), 80 - 70)
+        buffer.clear()
+        check_uw("free empty", buffer.free(), 80)
+        ; a big undo log, then fill the text: the log gives way
+        buffer.undo_init(memory("undo2", 200, 0), $ffff)
+        void buffer.insert("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRST", 0)
+        buffer.undo_mark()
+        void buffer.delete_range(0, 56)
+        check_bool("can undo", buffer.can_undo(), true)
+        buffer.undo_mark()
+        for i in 0 to 79
+            check_bool("fill", buffer.insert_char('x', 0), true)
+        check_uw("full", buffer.free(), 0)
+        check_store()
+        buffer.undo_init(0, 0)
+    }
+
+    ; deletes over line endings keep the line counts right
+    sub test_delete_lines() {
+        txt.print("delete lines\n")
+        ubyte i
+        buffer.eol = '\n'
+        buffer.clear()
+        for i in 0 to 15
+            void buffer.insert("a\nb\n\n", 0)
+        for i in 0 to 9 {
+            void buffer.delete_nchar(i % 4 + 1, (i as uword * 5) % (buffer.length() - 4))
+            check_lines()
+        }
+        buffer.eol = $0d
+    }
+
     sub read_contents_big() {
         ubyte i = 0
         while i as uword < buffer.length() {
@@ -324,7 +380,7 @@ main {
         }
         if total != buffer.length()
             fail("page lengths")
-        if (buffer.npages + buffer.nfree) as uword * buffer.page_size != buffer.capacity
+        if buffer.npages + buffer.nfree + buffer.s_count[buffer.YANK] + buffer.s_count[buffer.UNDO] != buffer.total_pages
             fail("pages lost")
     }
 

@@ -237,10 +237,10 @@ FILE_SUITES = [
     ], b'abcabcabc'),
 ]
 
-# an 8 KB file: more pages than the REU build's 4 cache slots, so pages go
-# to the REU and back (and still fits without an REU).  p1 round trip, p2
-# line 150 deleted, p3 that undone
-PAGES_LINES = [b'PAGE LINE %03d ' % i + b'0123456789' * (i % 4) for i in range(300)]
+# a 6 KB file: more pages than the REU build's 4 cache slots, so pages go
+# to the REU and back (and still fits without an REU: 7 KB).  p1 round
+# trip, p2 line 150 deleted, p3 that undone
+PAGES_LINES = [b'PAGE LINE %03d ' % i + b'0123456789' * (i % 4) for i in range(200)]
 PAGES = b'\n'.join(PAGES_LINES) + b'\n'
 FILE_SUITES.append(
     ('pages', r':w p1\n150Gdd:w p2\nu:w p3\n', [
@@ -259,6 +259,12 @@ HUGE2 = b'\n'.join(HUGE_LINES[:1] + HUGE_LINES + HUGE_LINES[1:]) + b'\n'
 FIRST = len(HUGE_LINES[0]) + 1
 HUGE3 = HUGE2[:FIRST] + HUGE[:65534 - len(HUGE2)] + HUGE2[FIRST:]
 REU_SUITES = [
+    # undo and yank bigger than main RAM holds: b1 dG of all 30 KB undone,
+    # b2 all of it yanked and put above the first line (60 KB)
+    ('bigundo', r'dGu:w b1\n1GyG1GP:w b2\n', [
+        ('b1', HUGE),
+        ('b2', HUGE + HUGE),
+    ], HUGE),
     ('huge', r'1G:r t.txt\n1G:r t.txt\n:w h3\n', [
         ('h3', HUGE3),
     ], HUGE),

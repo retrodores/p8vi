@@ -35,14 +35,9 @@ aren't.
 
 ## Memory
 
-- **A bigger undo log on the cx16.**  The yank buffer, undo log (2 KB) and
-  key buffers are in RAM bank 1 (8 KB) and use about 3.4 KB of it, so about
-  4.7 KB is unused.  Choosing the undo size at run time costs the VIC-20
-  bytes, so it may need a feature switch (see `docs/FEATURE-SWITCHES.md`).
-  Left for later, after some of the other items.
 - **Text in extended memory** (the cx16's banked RAM, a C64 REU): files
-  up to 64 KB fit (done).  Still to come: yank and undo in extended memory
-  and recovery after a crash, see `docs/XMEM-DESIGN.md`.
+  up to 64 KB fit, with yank and undo as big (done).  Still to come:
+  recovery after a crash, see `docs/XMEM-DESIGN.md`.
 - **More text on the VIC-20.**  With RAM in block 5 the text is at
   `$a000-$bfff` (8 KB).  The main RAM after the program was the idea for a
   second text area (a gap buffer split across two memory areas), but the

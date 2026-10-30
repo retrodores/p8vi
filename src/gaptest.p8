@@ -17,6 +17,8 @@ main {
 
     sub start() {
         buffer.init(sys.progend(), sys.progend() + CAPACITY)
+        buffer.yank_buf = memory("yank", 32, 0)
+        buffer.yank_size = 32
         buftests.run()
         test_gappos()
         test_move_gap()

@@ -16,6 +16,7 @@ modified
 find_bytes
 undo
 change range
+yank
 gappos
 move_gap
 raw load

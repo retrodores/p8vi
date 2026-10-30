@@ -780,26 +780,17 @@ main {
     }
 
     ;
-    ; yank buffer, kept at the top of memory above the gap buffer
+    ; yanking (the text store keeps the yank buffer)
     ;
 
-    pointer yank_buf
-    uword yank_size
-    uword yank_len
     bool yank_lines         ; whole lines, put below / above the cursor line
 
-    ; returns false if the text is too big for the yank buffer
+    ; returns false if the text is too big for the yank buffer.  (whole
+    ; lines always end with a line ending)
     sub yank(uword start, uword end, bool linewise) -> bool {
-        uword count = end - start
-        if count > yank_size - 1
+        if not buffer.yank(start, end - start, linewise)
             return false
-        yank_len = buffer.copy_out(start, count, yank_buf)
         yank_lines = linewise
-        ; whole lines always end with a line ending
-        if linewise and (yank_len == 0 or yank_buf[yank_len - 1] != buffer.eol) {
-            yank_buf[yank_len] = buffer.eol
-            yank_len++
-        }
         return true
     }
 
@@ -817,7 +808,7 @@ main {
         uword c = cursor()
         uword position
         bool added_eol = false
-        if yank_len == 0
+        if buffer.yank_len == 0
             return
         if yank_lines {
             if after {
@@ -841,7 +832,7 @@ main {
         ; the cursor mark stays at the insertion point, so put it there first
         set_cursor(position)
         repeat count {
-            if not buffer.insert_bytes(yank_buf, yank_len, position) {
+            if not buffer.put(position) {
                 status("buffer full")
                 break
             }
@@ -852,7 +843,7 @@ main {
         if yank_lines
             set_cursor(first_nonblank(position))
         else
-            set_cursor(position + count * yank_len - 1)
+            set_cursor(position + count * buffer.yank_len - 1)
     }
 
     ;
@@ -1553,20 +1544,25 @@ main {
         platform.init()
         ; the yank buffer, undo log and key buffers go in the platform's
         ; spare memory if they fit, otherwise at the top of the text memory,
-        ; with the gap buffer below them
-        uword undo_size = 2048
-        yank_size = 1024
+        ; with the text below them.  (the page store keeps the yank buffer
+        ; and undo log in its own pages, as big as there is room)
+        buffer.undo_size = 2048
+        buffer.yank_size = 1024
         if platform.texttop - platform.textstart < 4096 {
-            yank_size = 256
-            undo_size = 512
+            buffer.yank_size = 256
+            buffer.undo_size = 512
         }
-        yank_buf = take_memory(yank_size)
-        pointer undo_buf = take_memory(undo_size)
+        if buffer.PAGED {
+            buffer.yank_size = $ffff
+            buffer.undo_size = $ffff
+        } else {
+            buffer.yank_buf = take_memory(buffer.yank_size)
+            buffer.undo_buf = take_memory(buffer.undo_size)
+        }
         rec_keys = take_memory(REPEAT_SIZE)
         dot_keys = take_memory(REPEAT_SIZE)
         insert_text = take_memory(INSERT_SIZE)
         buffer.init(platform.textstart, platform.texttop)
-        buffer.undo_init(undo_buf, undo_size)
         mode = MODE_NAV
         txt.cls()
         filename[0] = 0
