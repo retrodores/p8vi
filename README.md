@@ -26,7 +26,8 @@ without duplicating it here or checking out the whole compiler repository.
 # p8vi
 
 This repository holds p8vi, a vi for 8-bit computers written in Prog8.
-`docs/KEYS.md` lists the vi commands it has.
+`docs/KEYS.md` lists the vi commands it has, `docs/TODO.md` ideas for
+later.
 
 | Build | Toplevel file | Target |
 |-------|---------------|--------|
