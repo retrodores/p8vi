@@ -1933,7 +1933,7 @@ main {
             gapbuffer.modified = true
         line_ending = ending
         if eol != gapbuffer.eol {
-            translate_text(charset.SWAP_EOL)
+            void translate_text(charset.SWAP_EOL)
             gapbuffer.eol = eol
             gapbuffer.undo_clear()
             cur_line = gapbuffer.line_number(cursor())
@@ -1968,6 +1968,7 @@ main {
     sub load_file(str name, bool insert) -> bool {
         uword size
         uword count
+        uword room
         uword position = 0
         uword end
         pointer p
@@ -1996,12 +1997,11 @@ main {
             }
         } else
             gapbuffer.clear()
-        ; read straight into the gap
-        gapbuffer.move_gap(position)
-        p = gapbuffer.gap_ptr()
-        size = diskio.f_read(p, gapbuffer.free())
+        ; read straight into the buffer
+        p, room = gapbuffer.read_room(position)
+        size = diskio.f_read(p, room)
         ; a full buffer may mean the file did not fit
-        if size == gapbuffer.free() and diskio.f_read(&extra, 1) == 1
+        if size == room and diskio.f_read(&extra, 1) == 1
             truncated = true
         diskio.f_close()
 
@@ -2018,7 +2018,7 @@ main {
         if insert {
             if not empty and eol != gapbuffer.eol
                 charset.translate(p, count, charset.SWAP_EOL)
-            gapbuffer.inserted(count)
+            gapbuffer.read_done(count)
             ; like vi, whole lines: the file's last line must not join the
             ; line after it.  (position is the start of a line or the end of
             ; the text, so nothing read in means nothing to do here)
@@ -2070,15 +2070,24 @@ main {
         goal_col = 0
     }
 
-    ; translate the whole text, how is one of charset's modes
-    sub translate_text(ubyte how) {
-        pointer p1
-        pointer p2
-        uword n1
-        uword n2
-        p1, n1, p2, n2 = gapbuffer.segments()
-        charset.translate(p1, n1, how)
-        charset.translate(p2, n2, how)
+    ; for translate_text(): write the text to the open file
+    const ubyte WRITE_TEXT = 255
+
+    ; translate the whole text, how is one of charset's modes, or write it
+    ; to the open file (WRITE_TEXT; returns false if that fails)
+    sub translate_text(ubyte how) -> bool {
+        pointer p
+        uword n
+        ubyte i
+        for i in 0 to gapbuffer.chunks() - 1 {
+            p, n = gapbuffer.chunk(i)
+            if how == WRITE_TEXT {
+                if not write_text(p, n)
+                    return false
+            } else
+                charset.translate(p, n, how)
+        }
+        return true
     }
 
     ubyte[1] lf_byte = [$0a]
@@ -2103,10 +2112,6 @@ main {
     ; write the whole text to a file, replacing it if it exists.
     ; returns false (and shows the drive status) if that fails.
     sub save_file(str name) -> bool {
-        pointer p1
-        pointer p2
-        uword n1
-        uword n2
         bool ok
         ; CBM DOS can't open an existing file for writing, so delete it first.
         ; (not with diskio.exists(): probing for a missing file with a read
@@ -2119,12 +2124,11 @@ main {
         }
         ; an ASCII file is translated for writing, and back afterwards
         if features.ASCII and ascii_file
-            translate_text(charset.TO_ASCII)
-        p1, n1, p2, n2 = gapbuffer.segments()
-        ok = write_text(p1, n1) and write_text(p2, n2)
+            void translate_text(charset.TO_ASCII)
+        ok = translate_text(WRITE_TEXT)
         diskio.f_close_w()
         if features.ASCII and ascii_file
-            translate_text(charset.TO_PETSCII)
+            void translate_text(charset.TO_PETSCII)
         ; (not diskio.status_code(): it only gets the first digit right,
         ; see bugs/side_effect_calls_merged.p8)
         read_disk_status()

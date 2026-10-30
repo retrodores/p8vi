@@ -100,29 +100,30 @@ Code must not switch between two banks byte by byte.
 
 ### What the editor sees
 
-The editor uses the gap buffer's subroutines, and three things that
-expose the gap:
-
-- `gap_ptr()`, `inserted()` and `loaded()` for reading a file straight
-  into the gap (`load_file`);
-- `segments()` for writing a file and translating the whole text
-  (`save_file`, `translate_text`).
-
-These become a **chunk** interface that both stores have:
+The editor uses the gap buffer's subroutines.  The places that used the
+gap's memory directly (`gap_ptr()`, `inserted()` and `segments()`) now go
+through a **chunk** interface that both stores have (done in step 2):
 
 ```prog8
     sub chunks() -> ubyte               ; number of pieces of text
     sub chunk(ubyte n) -> pointer, uword    ; piece n and its length
     sub read_room(uword position) -> pointer, uword    ; room to read into
     sub read_done(uword count)          ; count bytes were read into it
+    sub loaded(uword count) -> bool     ; after clear(): they are the text
 ```
 
+- `translate_text(how)` goes through the chunks to translate the text or,
+  with `WRITE_TEXT`, to write it to a file (one loop for both: `:w` and
+  the ASCII and line ending conversions).
+- `load_file` reads into `read_room()` and calls `read_done()` (`:r`) or
+  `loaded()` (`:e`).
+
 The gap buffer has two chunks (before and after the gap) and one read
-room (the gap), so this is the current code renamed.  The page store has
-one chunk per page and gives one page at a time to read into, so a load
-becomes a loop of `f_read` calls.  Two details of the load: a CR LF pair
-can be split between two reads, and the format is detected from the
-first read only, not from the whole file as now.
+room (the gap).  The page store has one chunk per page and gives one page
+at a time to read into, so in step 3 a load becomes a loop of `f_read`
+calls.  Two details of that loop: a CR LF pair can be split between two
+reads, and the format is detected from the first read only, not from the
+whole file as now.  With the gap buffer the loop runs once.
 
 Both stores are one block with the same name and subroutines, so the
 editor calls them the same way: `src/vic20/` imports the gap buffer, the
@@ -206,10 +207,11 @@ Tested (`make test-reu`, `tests/x16/bankreset.p8`):
    out what the X16 keeps in banked RAM over a reset.  *Done.*
 2. **The chunk interface** in the gap buffer and the editor.  No change
    in behaviour; the VIC-20 must keep its free bytes (64 at least).
+   *Done:* every build got smaller (VIC-20 76 to 105 bytes free).
 3. **The page store, main RAM only**, with the gap buffer's tests and new
-   ones for splits and merges, on the virtual target.  C64 and X16 builds
-   use it.  Measure its code size and the text room lost to half-full
-   pages and the table.
+   ones for splits and merges, on the virtual target, and the load loop.
+   C64 and X16 builds use it.  Measure its code size and the text room
+   lost to half-full pages and the table.
 4. **`pagemem` for the X16 and the REU.**  Key buffers to main RAM.
 5. **Yank and undo in the page store.**
 6. **Recovery:** header, `sync()`, `:recover`.

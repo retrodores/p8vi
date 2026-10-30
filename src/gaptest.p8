@@ -34,8 +34,8 @@ main {
         test_lines()
         test_copy()
         test_bytes()
-        test_segments()
-        test_gap_ptr()
+        test_chunks()
+        test_read_room()
         test_modified()
         test_find_bytes()
         test_undo()
@@ -307,42 +307,44 @@ main {
         expect("ab")
     }
 
-    sub test_segments() {
-        txt.print("segments\n")
-        pointer p1
-        pointer p2
-        uword n1
-        uword n2
+    sub test_chunks() {
+        txt.print("chunks\n")
+        pointer p
+        uword n
         gapbuffer.clear()
         void gapbuffer.insert("hello world", 0)
         gap_to(5)
-        p1, n1, p2, n2 = gapbuffer.segments()
-        check_bool("start", p1 == gapbuffer.ramstart, true)
-        check_uw("first", n1, 5)
-        check_uw("second", n2, 6)
-        check_ub("first char", @(p1), 'h')
-        check_ub("second char", @(p2), ' ')
+        check_ub("chunks", gapbuffer.chunks(), 2)
+        p, n = gapbuffer.chunk(0)
+        check_bool("start", p == gapbuffer.ramstart, true)
+        check_uw("first", n, 5)
+        check_ub("first char", @(p), 'h')
+        p, n = gapbuffer.chunk(1)
+        check_uw("second", n, 6)
+        check_ub("second char", @(p), ' ')
         gap_to(gapbuffer.length())
-        p1, n1, p2, n2 = gapbuffer.segments()
-        check_uw("whole", n1, 11)
-        check_uw("empty", n2, 0)
+        p, n = gapbuffer.chunk(0)
+        check_uw("whole", n, 11)
+        p, n = gapbuffer.chunk(1)
+        check_uw("empty", n, 0)
     }
 
-    sub test_gap_ptr() {
-        txt.print("gap_ptr\n")
+    sub test_read_room() {
+        txt.print("read_room\n")
         pointer p
+        uword room
         gapbuffer.clear()
         void gapbuffer.insert("ad", 0)
         gapbuffer.set_mark(0, 1)
         gapbuffer.set_mark(1, 2)
-        ; simulate reading data straight into the gap
-        gap_to(1)
-        p = gapbuffer.gap_ptr()
+        ; simulate reading data straight into the buffer
+        p, room = gapbuffer.read_room(1)
+        check_uw("room", room, gapbuffer.free())
         @(p) = 'b'
         @(p + 1) = 'c'
-        gapbuffer.inserted(2)
+        gapbuffer.read_done(2)
         expect("abcd")
-        check_uw("mark at gap", gapbuffer.get_mark(0), 1)
+        check_uw("mark at room", gapbuffer.get_mark(0), 1)
         check_uw("mark after", gapbuffer.get_mark(1), 4)
     }
 

@@ -12,8 +12,8 @@ marks
 lines
 copy
 insert_bytes
-segments
-gap_ptr
+chunks
+read_room
 modified
 find_bytes
 undo

@@ -209,10 +209,10 @@ gapbuffer {
     ;
 
     ; move the gap to position, clamped to the end of the text.
-    ; editing routines do this themselves, it is only needed before
-    ; using gap_ptr() or to make segments() return the text in one piece.
-    ; the text in between moves to the other side of the gap, in chunks no
-    ; larger than the gap so they never overlap.
+    ; editing routines and read_room() do this themselves; it can make
+    ; chunk(0) hold the whole text.  the text in between moves to the
+    ; other side of the gap, in pieces no larger than the gap so they never
+    ; overlap.
     sub move_gap(uword position) {
         pointer target
         uword n
@@ -274,14 +274,19 @@ gapbuffer {
         return true
     }
 
-    ; returns the ram address of the gap, to read data (e.g. a file)
-    ; straight into the buffer at the gap position.  at most free() bytes
-    ; may be written, then call inserted() with the number written.
-    sub gap_ptr() -> pointer {
-        return gapstart
+    ; room to read text into at position (e.g. from a file): returns its
+    ; ram address and how many bytes fit (the gap).  write at most that
+    ; many there, then call read_done() with the number written.
+    sub read_room(uword position) -> pointer, uword {
+        move_gap(position)
+        return gapstart, gapsize
     }
 
-    ; count bytes were written at gap_ptr(), make them part of the text.
+    ; count bytes were written at read_room(), make them part of the text
+    alias read_done = inserted
+
+    ; count bytes were written at the gap (gapstart), make them part of
+    ; the text
     sub inserted(uword count) {
         if count > gapsize
             count = gapsize
@@ -533,11 +538,18 @@ gapbuffer {
         return n
     }
 
-    ; returns the ram addresses and lengths of the text before and after
-    ; the gap, e.g. to save the text without moving the gap.
-    ; after move_gap(length()) the second segment is empty.
-    sub segments() -> pointer, uword, pointer, uword {
-        return ramstart, gappos, gapend + 1, bufend - gappos
+    ; the text in pieces, to go through all of it in order without
+    ; changing it (saving, translating): chunk(0) to chunk(chunks() - 1)
+    ; return the ram address and length of each piece.  the gap buffer has
+    ; two, the text before and after the gap (either may be empty).
+    sub chunks() -> ubyte {
+        return 2
+    }
+
+    sub chunk(ubyte n) -> pointer, uword {
+        if n == 0
+            return ramstart, gappos
+        return gapend + 1, bufend - gappos
     }
 
     ;
