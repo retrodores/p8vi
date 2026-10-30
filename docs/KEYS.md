@@ -44,6 +44,11 @@ CR LF (DOS/Windows, held as CR while editing).  `:set cr`, `:set lf` and
 `:set crlf` change them for writing; switching between CR and LF changes
 every CR and LF in the text, and can't be undone with `u`.
 
+`:r` finds the format of the file it reads the same way and converts it
+to the text's: its line endings become the text's, and an ASCII file is
+translated to PETSCII.  Read into an empty text, the text takes on the
+file's format, as with `:e`.
+
 ## Moving
 
 | Keys | Action | Status |

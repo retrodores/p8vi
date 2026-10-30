@@ -162,6 +162,16 @@ FILE_SUITES = [
         ('r2', SHORT.split(b'\n', 1)[0] + b'\n' + SHORT + b'\n' + SHORT.split(b'\n', 1)[1] + b'\n' + SHORT),
         ('r3', SHORT.split(b'\n', 1)[0] + b'\n' + SHORT + b'\n' + SHORT.split(b'\n', 1)[1]),
     ]),
+    # :r converts the file read to the text's format.  n1: into a new, empty
+    # text it takes the file's (ASCII, LF), so dd deletes one line; n2: an
+    # LF file into CR text; n4: a CR LF file (n3) into LF text
+    ('read-format', r':e new\n:r t.txt\ndd:w n1\n:set cr\n:r t.txt\n:w n2\n'
+                    r':set crlf\n:w n3\n:set lf\nG:r n3\n:w n4\n', [
+        ('n1', b'two\nthree\n'),
+        ('n2', b'two\rone\rtwo\rthree\rthree\r'),
+        ('n3', b'two\r\none\r\ntwo\r\nthree\r\nthree\r\n'),
+        ('n4', b'two\none\ntwo\nthree\nthree\n' * 2),
+    ], b'one\ntwo\nthree\n'),
     # f F t T ; as motions and with d.  f1: T at the start of the text
     # finds nothing (and must not search from the end); f5: T again right
     # after the character skips it

@@ -1787,14 +1787,20 @@ main {
 
     ; read a file, replacing the text or inserting it below the cursor line.
     ; shows the result on the status line, returns false if it can't be opened
-    ; (the text is not changed then).
+    ; (the text is not changed then).  The file's format is found from its
+    ; bytes: a new or empty text takes it on, inserted text is converted to
+    ; the line endings of the text around it.
     sub load_file(str name, bool insert) -> bool {
+        uword size
         uword count
-        uword position
+        uword position = 0
         uword end
-        uword room
+        pointer p
         ubyte extra
-        bool full
+        ubyte eol
+        bool crlf
+        bool ascii
+        bool empty = gapbuffer.length() == 0
         bool truncated = false
 
         if not file_exists(name) {
@@ -1813,14 +1819,30 @@ main {
                 if add_eol_before(position)
                     position++
             }
-            ; read straight into the gap
-            gapbuffer.move_gap(position)
-            count = diskio.f_read(gapbuffer.gap_ptr(), gapbuffer.free())
-            full = count == gapbuffer.free()
-            if features.CRLF and gapbuffer.eol == $0d
-                count = charset.crlf_to_cr(gapbuffer.gap_ptr(), count)
-            if features.ASCII and ascii_file
-                charset.translate(gapbuffer.gap_ptr(), count, charset.TO_PETSCII)
+        } else
+            gapbuffer.clear()
+        ; read straight into the gap
+        gapbuffer.move_gap(position)
+        p = gapbuffer.gap_ptr()
+        size = diskio.f_read(p, gapbuffer.free())
+        ; a full buffer may mean the file did not fit
+        if size == gapbuffer.free() and diskio.f_read(&extra, 1) == 1
+            truncated = true
+        diskio.f_close()
+
+        ; the file's format: CR LF pairs are held as CR
+        count = size
+        if features.CRLF
+            count = charset.crlf_to_cr(p, size)
+        crlf = count != size
+        eol = file_eol(p, count)
+        ascii = features.ASCII and charset.looks_ascii(p, count, eol == $0a)
+        if features.ASCII and ascii
+            charset.translate(p, count, charset.TO_PETSCII)
+
+        if insert {
+            if not empty and eol != gapbuffer.eol
+                charset.translate(p, count, charset.SWAP_EOL)
             gapbuffer.inserted(count)
             ; like vi, whole lines: the file's last line must not join the
             ; line after it.  (position is the start of a line or the end of
@@ -1831,42 +1853,44 @@ main {
             set_cursor(position)
             goal_col = 0
         } else {
-            room = (gapbuffer.ramtop - gapbuffer.ramstart) as uword
-            count = diskio.f_read(gapbuffer.ramstart, room)
-            full = count == room
-            ; CR LF pairs make a CRLF file, held with CR line endings
-            room = count
-            if features.CRLF and count != 0
-                room = charset.crlf_to_cr(gapbuffer.ramstart, count)
-            void gapbuffer.loaded(room)
+            void gapbuffer.loaded(count)
             new_text()
-            line_ending = ENDING_CRLF
-            if room == count
-                line_ending = if gapbuffer.eol == $0a ENDING_LF else ENDING_CR
-            ascii_file = features.ASCII and charset.looks_ascii(gapbuffer.ramstart, room, gapbuffer.eol == $0a)
-            if features.ASCII and ascii_file
-                translate_text(charset.TO_PETSCII)
-        }
-        ; a full buffer may mean the file did not fit
-        if full and diskio.f_read(&extra, 1) == 1
-            truncated = true
-        diskio.f_close()
-        if not insert
             cut_short = truncated
+        }
+        if not insert or empty {
+            gapbuffer.eol = eol
+            ascii_file = ascii
+            line_ending = ENDING_CR
+            if eol == $0a
+                line_ending = ENDING_LF
+            if crlf
+                line_ending = ENDING_CRLF
+        }
         if truncated
             status("too big, cut")
         else
-            status_bytes(name, count)
+            status_bytes(name, size)
         return true
+    }
+
+    ; the line end character of count bytes at p: LF when there are LFs
+    ; but no CRs (files from other systems), otherwise CR
+    sub file_eol(pointer p, uword count) -> ubyte {
+        ubyte eol = $0d
+        while count != 0 {
+            if @(p) == $0d
+                return $0d
+            if @(p) == $0a
+                eol = $0a
+            p++
+            count--
+        }
+        return eol
     }
 
     ; reset the editor for new text in the buffer
     sub new_text() {
-        uword length = gapbuffer.length()
-        ; files from other systems use LF line endings
         gapbuffer.eol = $0d
-        if gapbuffer.find_next($0d, 0, length) == length and gapbuffer.find_next($0a, 0, length) != length
-            gapbuffer.eol = $0a
         cur_line = 0
         goal_col = 0
     }
