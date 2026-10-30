@@ -15,15 +15,15 @@ aren't.
 
 ## Disk
 
-- **Show the disk directory** of the current drive (`diskio.drivenumber`),
-  for when you don't remember a file's exact name.  Only shown on the
+- **`:@$` shows the disk directory** of the current drive
+  (`diskio.drivenumber`), for when you don't remember a file's exact name,
+  like the `@$` of the C64 DOS wedge and JiffyDOS.  Only shown on the
   screen, not read into the text; any key goes back to the text.
   `diskio.directory()` prints it on all CBM targets.  Off on the VIC-20
   (a feature switch).
-  - Command name still to decide: `:$` (like `LOAD"$",8`), or `:@$` (like
-    the `@$` of the C64 DOS wedge and JiffyDOS).  `:@$` keeps `:$` for
-    its vi meaning, the last line, which goes with `:n` (go to line n)
-    and with the planned line ranges (`:.,$d`, `:10,$s/a/b/`).
+- **`:$` goes to the last line,** as in vi, with `:n` (go to line n).  `$`
+  is also the last line in the planned line ranges (`:.,$d`,
+  `:10,$s/a/b/`), which is why the directory is `:@$` and not `:$`.
 - **Read the directory into the text:** `:r $`, since `$` is the
   directory's file name on a CBM drive.  The drive sends the listing as a
   BASIC program (block counts as line numbers), so it needs turning into
