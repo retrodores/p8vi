@@ -96,6 +96,14 @@ emu-vic20:	build/mainvic20.prg disk
 test-gap:	build
 	$(PCC) -quiet $(PCCARGSVM) -emu src/gaptest.p8 | grep -v INFO | diff -u tests/expected/virtual_gaptest.txt -
 
+# editor tests on a C64 in VICE (x64sc and c1541 in the PATH)
+test-c64:	build/mainc64.prg
+	python3 tests/vice/edtest.py files --prg build/mainc64.prg
+
+# partial redraws must leave the same screen as a full redraw
+test-c64-screen:	build/mainc64.prg
+	python3 tests/vice/edtest.py screen --prg build/mainc64.prg
+
 test:	build/testcx16.prg
 	x16emu -gif output.gif -debug -scale 2 -rtc -run -prg build/testcx16.prg
 
