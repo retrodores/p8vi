@@ -154,6 +154,19 @@ test-reu:	build
 	$(PCC) -quiet $(PCCARGSC64) tests/reu/reureset.p8
 	python3 tests/reu/reutest.py --build build
 
+# the 6502 fastmem routines against plain Prog8, on a C64 in VICE
+test-fastmem:	build
+	$(PCC) -quiet -srcdirs src:src/c64 -target c64 -out build tests/fastmem/fastmemtest.p8
+	cd build && x64sc -default -sounddev dummy -warp -debugcart -autostartprgmode 1 -autostart fastmemtest.prg -limitcycles 900000000 -exitscreenshot fastmemtest.png > fastmemtest.log 2>&1; grep -q 'DBGCART: exit(0)' fastmemtest.log && echo "fastmem: ok" || (echo "fastmem: FAIL, see build/fastmemtest.png"; false)
+
+# timings of the text store routines on a C64 in VICE (page store and gap
+# buffer), screenshots in build/bench-page.png and build/bench-gap.png
+bench:	build
+	$(PCC) -quiet -srcdirs src:src/c64reu:src/c64 -target c64 -out build tests/bench/storebench.p8
+	cd build && x64sc -default -sounddev dummy -warp -debugcart -autostartprgmode 1 -autostart storebench.prg -limitcycles 900000000 -exitscreenshot bench-page.png >/dev/null 2>&1
+	$(PCC) -quiet -srcdirs src:src/c64 -target c64 -out build tests/bench/storebench.p8
+	cd build && x64sc -default -sounddev dummy -warp -debugcart -autostartprgmode 1 -autostart storebench.prg -limitcycles 900000000 -exitscreenshot bench-gap.png >/dev/null 2>&1
+
 test:	build/testcx16.prg
 	x16emu -gif output.gif -debug -scale 2 -rtc -run -prg build/testcx16.prg
 

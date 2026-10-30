@@ -38,12 +38,17 @@ aren't.
 - **Gap buffer fields:** make the gap buffer's internal variables
   `private`, so the editor only uses its subroutines.
 
+- **More assembler:** the byte scans and copies are in `src/fastmem.p8`
+  (3-4 times faster; `make bench`).  Next would be the screen drawing
+  (`view.draw_row`, a `setchr` call per character) with one-row scrolls;
+  the Prog8 code around calls is what costs bytes.
+
 ## Memory
 
 - **Text in extended memory** (the cx16's banked RAM, a C64 REU): files
   up to 64 KB fit, with yank and undo as big, and `:recover` after a crash
   (done, `docs/XMEM-DESIGN.md`).
-- **The X16's main RAM is nearly full** (318 bytes left; the key buffers
+- **The X16's main RAM is nearly full** (278 bytes left; the key buffers
   are in golden RAM, after the page store's buffers): the page store's
   code is big.  Parts in assembler, or more feature switches
   (`src/p8vi_cx16.p8`), before adding much there.

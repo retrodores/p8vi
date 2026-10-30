@@ -20,6 +20,7 @@
 ; the screen etc.) in marks, which are adjusted by inserts and deletes.
 
 %import buffer
+%import fastmem_platform
 
 buffer {
     ; not a page store: read_room() gives all the room there is at once,
@@ -431,59 +432,105 @@ buffer {
     ; before limit (limit is clamped to the end of the text).
     ; returns limit if it is not found.
     sub find_next(ubyte value, uword position, uword limit) -> uword {
-        pointer p
-        uword stop
+        if fastmem.FAST
+            return fast_find_next(value, position, limit)
+        else {
+            pointer p
+            uword stop
+            if limit > bufend
+                limit = bufend
+            ; part before the gap
+            if position < gappos {
+                stop = min(limit, gappos)
+                p = ramstart + position
+                while position < stop {
+                    if @(p) == value
+                        return position
+                    p++
+                    position++
+                }
+            }
+            ; part after the gap
+            if position < limit {
+                p = buffer2ram(position)
+                while position < limit {
+                    if @(p) == value
+                        return position
+                    p++
+                    position++
+                }
+            }
+            return limit
+        }
+    }
+
+    private sub fast_find_next(ubyte value, uword position, uword limit) -> uword {
+        uword n
         if limit > bufend
             limit = bufend
-        ; part before the gap
+        ; part before the gap, then after it (to their ends: limit is
+        ; checked after)
         if position < gappos {
-            stop = min(limit, gappos)
-            p = ramstart + position
-            while position < stop {
-                if @(p) == value
-                    return position
-                p++
-                position++
-            }
+            n = gappos - position
+            position += fastmem.find(ramstart as uword + position, n, value)
+            if position != gappos
+                goto done
         }
-        ; part after the gap
-        if position < limit {
-            p = buffer2ram(position)
-            while position < limit {
-                if @(p) == value
-                    return position
-                p++
-                position++
-            }
-        }
-        return limit
+        if position < bufend
+            position += fastmem.find(buffer2ram(position) as uword, bufend - position, value)
+done:
+        if position > limit
+            position = limit
+        return position
     }
 
     ; returns the offset of the last value before position, or NONE.
     sub find_prev(ubyte value, uword position) -> uword {
-        pointer p
+        if fastmem.FAST
+            return fast_find_prev(value, position)
+        else {
+            pointer p
+            if position > bufend
+                position = bufend
+            ; part after the gap
+            if position > gappos {
+                p = buffer2ram(position - 1)
+                while position > gappos {
+                    position--
+                    if @(p) == value
+                        return position
+                    p--
+                }
+            }
+            ; part before the gap
+            if position > 0 {
+                p = ramstart + position - 1
+                while position > 0 {
+                    position--
+                    if @(p) == value
+                        return position
+                    p--
+                }
+            }
+            return NONE
+        }
+    }
+
+    private sub fast_find_prev(ubyte value, uword position) -> uword {
+        uword found
         if position > bufend
             position = bufend
         ; part after the gap
         if position > gappos {
-            p = buffer2ram(position - 1)
-            while position > gappos {
-                position--
-                if @(p) == value
-                    return position
-                p--
-            }
+            found = fastmem.find_back(gapend as uword + 1, position - gappos, value)
+            if found != NONE
+                return gappos + found
+            position = gappos
         }
         ; part before the gap
-        if position > 0 {
-            p = ramstart + position - 1
-            while position > 0 {
-                position--
-                if @(p) == value
-                    return position
-                p--
-            }
-        }
+        found = fastmem.find_back(ramstart as uword, position, value)
+        if found != NONE
+            return found
         return NONE
     }
 
@@ -502,17 +549,30 @@ buffer {
 
     ; returns the line number of position
     sub line_number(uword position) -> uword {
-        uword line = 0
-        uword found = 0
+        if fastmem.FAST
+            return fast_line_number(position)
+        else {
+            uword line = 0
+            uword found = 0
+            if position > bufend
+                position = bufend
+            repeat {
+                found = find_next(eol, found, position)
+                if found >= position
+                    return line
+                line++
+                found++
+            }
+        }
+    }
+
+    private sub fast_line_number(uword position) -> uword {
         if position > bufend
             position = bufend
-        repeat {
-            found = find_next(eol, found, position)
-            if found >= position
-                return line
-            line++
-            found++
-        }
+        ; the line endings before position: before the gap, and after it
+        if position <= gappos
+            return fastmem.count(ramstart as uword, position, eol)
+        return fastmem.count(ramstart as uword, gappos, eol) + fastmem.count(gapend as uword + 1, position - gappos, eol)
     }
 
     ;

@@ -19,6 +19,7 @@
 
 %import buffer
 %import pagemem_platform
+%import fastmem_platform
 
 buffer {
     ; bytes per page: pagemem's, or set it before init() (the tests use
@@ -237,64 +238,11 @@ buffer {
     }
 
     ; copy count bytes from src to dest, also when they overlap
-    ; (sys.memcopy can't do that).  256 bytes at a time with a byte index,
-    ; which is fast on the 6502.  (not "@(dest) = @(src)" with src++ and
-    ; dest++: the virtual target gets that wrong, see
-    ; bugs/vm_loadp_inc_copy.p8)
-    private sub move_bytes(uword src, uword dest, uword count) {
-        ubyte i
-        ubyte n
-        if dest < src {
-            ; upwards
-            while count >= 256 {
-                i = 0
-                repeat 256 {
-                    @(dest + i) = @(src + i)
-                    i++
-                }
-                src += 256
-                dest += 256
-                count -= 256
-            }
-            i = 0
-            repeat lsb(count) {
-                @(dest + i) = @(src + i)
-                i++
-            }
-        } else if dest > src {
-            ; downwards from the end
-            src += count
-            dest += count
-            while count >= 256 {
-                src -= 256
-                dest -= 256
-                i = 255
-                repeat 256 {
-                    @(dest + i) = @(src + i)
-                    i--
-                }
-                count -= 256
-            }
-            n = lsb(count)
-            src -= n
-            dest -= n
-            i = n
-            repeat n {
-                i--
-                @(dest + i) = @(src + i)
-            }
-        }
-    }
+    alias move_bytes = fastmem.move
 
     ; the number of lines_eol in count bytes at p
-    private sub count_eol(pointer p, uword count) -> uword {
-        uword lines = 0
-        repeat count {
-            if @(p) == lines_eol
-                lines++
-            p++
-        }
-        return lines
+    private sub count_eol(uword p, uword count) -> uword {
+        return fastmem.count(p, count, lines_eol)
     }
 
     ; count the lines in every page again if eol changed
@@ -1205,38 +1153,34 @@ buffer {
     ; before limit (limit is clamped to the end of the text).
     ; returns limit if it is not found.
     sub find_next(ubyte value, uword position, uword limit) -> uword {
-        uword p
-        uword stop
+        uword end
         if limit > bufend
             limit = bufend
+        ; a page at a time (to its end: limit is checked after)
         while position < limit {
-            p = page_at(position)
-            stop = cur_start + page_len[cur]
-            if stop > limit
-                stop = limit
-            while position < stop {
-                if @(p) == value
-                    return position
-                p++
-                position++
-            }
+            find_page(position)
+            end = cur_start + page_len[cur]
+            position += fastmem.find(pagemem.map(page_id[cur]) + position - cur_start, end - position, value)
+            if position != end
+                break
         }
-        return limit
+        if position > limit
+            position = limit
+        return position
     }
 
     ; returns the offset of the last value before position, or NONE.
     sub find_prev(ubyte value, uword position) -> uword {
-        uword p
+        uword found
         if position > bufend
             position = bufend
+        ; a page at a time, from the end
         while position != 0 {
-            p = page_at(position - 1) + 1
-            while position != cur_start {
-                p--
-                position--
-                if @(p) == value
-                    return position
-            }
+            find_page(position - 1)
+            found = fastmem.find_back(pagemem.map(page_id[cur]), position - cur_start, value)
+            if found != NONE
+                return cur_start + found
+            position = cur_start
         }
         return NONE
     }
@@ -1256,14 +1200,14 @@ buffer {
         count_lines()
         for k in 0 to npages - 1 {
             if line <= page_lines[k] {
-                ; the line-th eol in this page ends the line before
+                ; the line-th eol in this page ends the line before.  (each
+                ; search is found within the page: page_lines counts them)
                 p = pagemem.map(page_id[k])
                 repeat {
-                    if @(p) == eol {
-                        line--
-                        if line == 0
-                            return start + p - pagemem.last_addr + 1
-                    }
+                    p += fastmem.find(p, page_len[k], eol)
+                    line--
+                    if line == 0
+                        return start + p - pagemem.last_addr + 1
                     p++
                 }
             }

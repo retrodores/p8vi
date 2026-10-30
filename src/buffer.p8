@@ -19,6 +19,8 @@
 ; and uses bufend, note_change(), marks_inserted(), marks_deleted() and
 ; log_change() below for every change.
 
+%import strings
+
 buffer {
 %option merge
 
