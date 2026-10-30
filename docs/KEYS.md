@@ -197,7 +197,7 @@ can't be undone ("undo too big").  Loading a file empties it.
 
 | Command | Action | Status |
 |---------|--------|--------|
-| `:w`, `:w name` | write the file, or write to name | ✅ |
+| `:w`, `:w name` | write the file, or write to name (safely: to `p8vi.tmp` first, which replaces the file only once it was written whole; a full disk leaves the old file as it was) | ✅ |
 | `:w!` | write a file that was cut short when read over itself | ✅ |
 | `:q`, `:q!` | quit, `!` discards changes | ✅ |
 | `:wq`, `:x`, `ZZ` | write (`:x` and `ZZ` only if changed) and quit | ✅ |

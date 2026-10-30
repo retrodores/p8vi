@@ -2203,16 +2203,25 @@ main {
         return diskio.f_write(start, end - start)
     }
 
+    ; the text is written to this file first, and the file it replaces is
+    ; deleted only once that worked: a failed write (a full disk, a drive
+    ; error, a reset) leaves the old file as it was
+    str save_temp = "p8vi.tmp"
+
     ; write the whole text to a file, replacing it if it exists.
     ; returns false (and shows the drive status) if that fails.
     sub save_file(str name) -> bool {
         bool ok
+        ; (straight into the file if that is the temporary name itself)
+        pointer target = save_temp
+        if strings.compare(name, save_temp) == 0
+            target = name
         ; CBM DOS can't open an existing file for writing, so delete it first.
         ; (not with diskio.exists(): probing for a missing file with a read
         ; channel hangs the 1541 after a number of tries; deleting a file
         ; that isn't there is harmless)
-        diskio.delete(name)
-        if not platform.open_write(name) {
+        diskio.delete(target)
+        if not platform.open_write(target) {
             disk_error()
             return false
         }
@@ -2231,7 +2240,19 @@ main {
         read_disk_status()
         if not ok or disk_code != 0 {
             status(status_text)
+            ; what was written is no good; the old file is still there
+            diskio.delete(target)
             return false
+        }
+        ; the text is safe on the disk: now the old file can go
+        if target != name {
+            diskio.delete(name)
+            diskio.rename(save_temp, name)
+            read_disk_status()
+            if disk_code != 0 {
+                status("saved as p8vi.tmp")
+                return false
+            }
         }
         status_bytes(name, buffer.length())
         return true

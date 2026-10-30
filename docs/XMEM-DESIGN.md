@@ -371,5 +371,7 @@ then.
 - Recovery: decided, `:recover` and two header slots (see "Crash
   recovery").
 - How often to `sync()`, and whether a sync while typing is noticeable on
-  the C64 (writing 4 changed slots and the header is about 5 ms).  Not
-  measured yet, nor how a cache slot miss feels while typing.
+  the C64 (writing 4 changed slots and the header is about 5 ms).  Tried
+  by hand in the C64 REU build: paging through `sampbig.txt` with Ctrl-F
+  is as fast as in the plain build, and typing, pausing, yanking and
+  putting never felt slow or stalled.

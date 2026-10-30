@@ -55,6 +55,9 @@ def petscii(text):
 # a CRLF file, held with CR line endings in memory
 CRLF = b'line one\r\nline two\r\nlast\r\n'
 
+# a 2 KB file for saving to a full disk
+FULL = b''.join(b'FULL LINE %03d ABCDEFGHIJ\n' % i for i in range(80))
+
 # a 3.2 KB CRLF file over several 1 KB pages: the first line is 31
 # characters and the others 30, so a CR is the last byte of the first and
 # the second KB and its LF the first byte of the next (the editor reads a
@@ -67,6 +70,7 @@ assert BIGCRLF[1023] == 13 and BIGCRLF[1024] == 10 and BIGCRLF[2047] == 13
 # (name, keys, [(saved file, expected contents)], text of t.txt (SHORT if left out))
 FILE_SUITES = [
     ('delete-put', r'dw:w a1\njdd:w a2\np:w a3\n1Gyyp:w a4\n', [
+        ('p8vi.tmp', None),     # (the safe save's temporary file is gone)
         ('a1', b'BETA GAMMA\n  SECOND LINE HERE\nTHIRD, WITH PUNCT!\n\nFIFTH LINE'),
         ('a2', b'BETA GAMMA\nTHIRD, WITH PUNCT!\n\nFIFTH LINE'),
         ('a3', b'BETA GAMMA\nTHIRD, WITH PUNCT!\n  SECOND LINE HERE\n\nFIFTH LINE'),
@@ -170,6 +174,18 @@ FILE_SUITES = [
         ('g2', b''.join(l + b'\r\n' for l in BIG_LINES[1:])),
         ('g3', b''.join(l + b'\r\n' for l in BIG_LINES[1:2] + BIG_LINES + BIG_LINES[2:])),
     ], BIGCRLF),
+    # :w over the file itself: written to p8vi.tmp, which then replaces it
+    ('save-over', r'dd:w\n', [
+        ('t.txt', SHORT.split(b'\n', 1)[1]),
+        ('p8vi.tmp', None),
+    ]),
+    # saving to a full disk: the text doubled (read in again) doesn't fit in
+    # the 3 blocks left, so the save fails, and the file is as it was (it
+    # used to be deleted before writing), with no temporary file left
+    ('save-full', r'G:r t.txt\n:w\n', [
+        ('t.txt', FULL),
+        ('p8vi.tmp', None),
+    ], FULL, 3),
     # a line ending at the end of a file ends the last line (vi): G goes to
     # "two", not to an empty line after it, and the line ending is written
     # back.  new: a new text gets one too (a CR, PETSCII)
@@ -315,20 +331,29 @@ def dir_text(args, text, after):
     return b'\n'.join(old[:after] + lines + old[after:])
 
 
-def make_disk(d64, prg, text):
+def make_disk(d64, prg, text, blocks_free=None):
     txt = d64 + '.txt'
     with open(txt, 'wb') as f:
         f.write(text)
     subprocess.run(['c1541', '-format', 'test,52', 'd64', d64, '-attach', d64,
                     '-write', prg, 'p8vi,p', '-write', txt, 't.txt,s'],
                    check=True, capture_output=True)
+    if blocks_free is not None:
+        # a file that fills the disk up to blocks_free blocks
+        out = subprocess.run(['c1541', '-attach', d64, '-dir'], capture_output=True, text=True).stdout
+        free = int(re.search(r'(\d+) blocks free', out).group(1))
+        fill = d64 + '.fill'
+        with open(fill, 'wb') as f:
+            f.write(b'x' * 254 * (free - blocks_free))
+        subprocess.run(['c1541', '-attach', d64, '-write', fill, 'fill,s'],
+                       check=True, capture_output=True)
 
 
 def run_files(args, suite):
     name, keys, expected, *text = suite
     base = os.path.join(args.work, 'vt-' + name)
     d64 = base + '.d64'
-    make_disk(d64, args.prg, text[0] if text else SHORT)
+    make_disk(d64, args.prg, text[0] if text else SHORT, text[1] if len(text) > 1 else None)
     # :q! back to BASIC, then a write to $d7ff (the -debugcart) quits VICE
     keybuf = ':e t.txt\\n' + keys + ':q!\\npoke 55295,0\\n'
     with open(base + '.log', 'wb') as log:

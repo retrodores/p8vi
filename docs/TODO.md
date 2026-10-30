@@ -24,6 +24,9 @@ aren't.
   last line ending, writing puts it back), but it costs about 100 bytes
   the VIC-20 doesn't have, so there a file that ends with a line ending
   still shows an empty last line.
+- **Saving with a drive or path prefix** (`:w 0:name`, `//dir/:name`):
+  the library's delete and rename put `s:` and `r:` before the whole name,
+  which doesn't work with a prefix (nor did saving before the safe save).
 - **The VIC-20 status line** is only 22 columns: 12 for messages and 10 for
   the line,column position.  Check what gets cut short and whether the two
   parts can run into each other.
@@ -40,10 +43,12 @@ aren't.
 - **Text in extended memory** (the cx16's banked RAM, a C64 REU): files
   up to 64 KB fit, with yank and undo as big, and `:recover` after a crash
   (done, `docs/XMEM-DESIGN.md`).
-- **The X16's main RAM is nearly full** (302 bytes left; the key buffers
-  are in golden RAM, after the page store's buffers): the page store's
-  code is big.  Parts in assembler, or feature switches for the X16,
-  before adding much more.
+- **The X16's main RAM is full** (21 bytes left; the key buffers are in
+  golden RAM, after the page store's buffers): the page store's code is
+  big.  Parts in assembler, or feature switches for the X16, before
+  adding anything there.
+- **The VIC-20 start screen** is off (`features.SPLASH`): its room went to
+  the safe save.
 - **More text on the VIC-20.**  With RAM in block 5 the text is at
   `$a000-$bfff` (8 KB).  The main RAM after the program was the idea for a
   second text area (a gap buffer split across two memory areas), but the
