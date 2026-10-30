@@ -55,6 +55,15 @@ def petscii(text):
 # a CRLF file, held with CR line endings in memory
 CRLF = b'line one\r\nline two\r\nlast\r\n'
 
+# a 3.2 KB CRLF file over several 1 KB pages: the first line is 31
+# characters and the others 30, so a CR is the last byte of the first and
+# the second KB and its LF the first byte of the next (the editor reads a
+# page at a time)
+BIG_LINES = [b'FIRST LINE OF A BIG FILE 000000'] + \
+    [b'LINE %03d ' % i + b'ABCDEFGHIJKLMNOPQRSTU' for i in range(1, 100)]
+BIGCRLF = b''.join(l + b'\r\n' for l in BIG_LINES)
+assert BIGCRLF[1023] == 13 and BIGCRLF[1024] == 10 and BIGCRLF[2047] == 13
+
 # (name, keys, [(saved file, expected contents)], text of t.txt (SHORT if left out))
 FILE_SUITES = [
     ('delete-put', r'dw:w a1\njdd:w a2\np:w a3\n1Gyyp:w a4\n', [
@@ -153,6 +162,14 @@ FILE_SUITES = [
         ('c6', b'ine one\rline one\rline two\rlast\rlast\r'),
         ('c7', b'ine one\r\nline one\r\nline two\r\nlast\r\nlast\r\n'),
     ], CRLF),
+    # a CRLF file bigger than a page, CR LF pairs split between reads: g1
+    # round trip, g2 without the first line, g3 the whole file read in
+    # after the (new) first line
+    ('big', r':w g1\n1Gdd:w g2\n:r t.txt\n:w g3\n', [
+        ('g1', BIGCRLF),
+        ('g2', b''.join(l + b'\r\n' for l in BIG_LINES[1:])),
+        ('g3', b''.join(l + b'\r\n' for l in BIG_LINES[1:2] + BIG_LINES + BIG_LINES[2:])),
+    ], BIGCRLF),
     # :r of a file without a line ending at its end (r0): r1 inside the
     # text gets a line ending after it, r2 at the end of the text doesn't;
     # r3: undo takes the whole :r back

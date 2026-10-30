@@ -1,2 +1,2 @@
-; the text store: the gap buffer for now (pagestore.p8 to come)
-%import gapbuffer
+; the text store: pages (see pagestore.p8 and docs/XMEM-DESIGN.md)
+%import pagestore

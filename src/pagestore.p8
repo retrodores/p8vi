@@ -143,6 +143,19 @@ buffer {
         cur_start = 0
     }
 
+    ; the address of position in its page (which becomes cur)
+    private sub page_at(uword position) -> uword {
+        find_page(position)
+        return page_mem[cur] + position - cur_start
+    }
+
+    ; page k got count more bytes, lines more of them line endings (both
+    ; may be negative: 0 - n)
+    private sub grow(ubyte k, uword count, uword lines) {
+        page_len[k] += count
+        page_lines[k] += lines
+    }
+
     ; copy count bytes from src to dest, also when they overlap
     ; (sys.memcopy can't do that).  256 bytes at a time with a byte index,
     ; which is fast on the 6502.  (not "@(dest) = @(src)" with src++ and
@@ -245,48 +258,44 @@ buffer {
         forget_page()
     }
 
-    ; move the last count bytes of page k to the start of page k + 1
-    private sub move_tail(ubyte k, uword count) {
-        uword src = page_mem[k] + page_len[k] - count
-        uword dest = page_mem[k + 1]
-        uword lines = count_eol(src, count)
-        move_bytes(dest, dest + count, page_len[k + 1])
-        sys.memcopy(src, dest, count)
-        page_len[k] -= count
-        page_len[k + 1] += count
-        page_lines[k] -= lines
-        page_lines[k + 1] += lines
-        forget_page()
-    }
-
-    ; move the first count bytes of page k to the end of page k - 1
-    private sub move_head(ubyte k, uword count) {
+    ; move count bytes from page k to the page next to it, j: the last
+    ; bytes to the start of the page after, or the first bytes to the end
+    ; of the page before
+    private sub move_over(ubyte k, ubyte j, uword count) {
         uword src = page_mem[k]
-        uword lines = count_eol(src, count)
-        sys.memcopy(src, page_mem[k - 1] + page_len[k - 1], count)
-        move_bytes(src + count, src, page_len[k] - count)
-        page_len[k] -= count
-        page_len[k - 1] += count
-        page_lines[k] -= lines
-        page_lines[k - 1] += lines
+        uword dest = page_mem[j]
+        uword lines
+        if j > k {
+            src += page_len[k] - count
+            move_bytes(dest, dest + count, page_len[j])
+        } else
+            dest += page_len[j]
+        lines = count_eol(src, count)
+        sys.memcopy(src, dest, count)
+        if j < k
+            move_bytes(src + count, src, page_len[k] - count)
+        grow(k, 0 - count, 0 - lines)
+        grow(j, count, lines)
         forget_page()
     }
 
     ; make cur a page to insert at position into, with room for at least
-    ; one byte.  there must be room somewhere (free() != 0).
-    private sub room_at(uword position) {
+    ; one byte, and return the address of position in it.  there must be
+    ; room somewhere (free() != 0).
+    private sub room_at(uword position) -> uword {
         repeat {
             find_page(position)
-            if page_len[cur] < page_size
-                return
+            if page_len[cur] != page_size
+                break
             ; at the start of a full page: the end of the page before
-            if position == cur_start and cur != 0 and page_len[cur - 1] < page_size {
+            if position == cur_start and cur != 0 and page_len[cur - 1] != page_size {
                 cur--
                 cur_start -= page_len[cur]
-                return
+                break
             }
             make_room(position)
         }
+        return page_mem[cur] + position - cur_start
     }
 
     ; page cur, which holds position, is full: make room in it, or in
@@ -304,7 +313,7 @@ buffer {
             else {
                 new_page(k + 1)
                 if offset != page_len[k]
-                    move_tail(k, page_len[k] - offset)
+                    move_over(k, k + 1, page_len[k] - offset)
             }
             return
         }
@@ -315,10 +324,12 @@ buffer {
         while j < npages and page_len[j] == page_size
             j++
         if j < npages {
-            count = min(page_size - page_len[j], page_len[k] - offset)
+            count = page_size - page_len[j]
+            if count > page_len[k] - offset
+                count = page_len[k] - offset
             while j != k {
                 j--
-                move_tail(j, count)
+                move_over(j, j + 1, count)
             }
             return
         }
@@ -331,17 +342,19 @@ buffer {
         j = k
         while page_len[j] == page_size
             j--
-        count = min(page_size - page_len[j], offset)
+        count = page_size - page_len[j]
+        if count > offset
+            count = offset
         while j != k {
             j++
-            move_head(j, count)
+            move_over(j, j - 1, count)
         }
     }
 
     ; merge page k with the page after it if both together are small
     private sub merge(ubyte k) {
         if k + 1 < npages and page_len[k] + page_len[k + 1] <= page_size - page_size / 4 {
-            move_head(k + 1, page_len[k + 1])
+            move_over(k + 1, k, page_len[k + 1])
             drop_page(k + 1)
         }
     }
@@ -355,8 +368,7 @@ buffer {
     sub get(uword offset) -> ubyte {
         if offset >= bufend
             return 0
-        find_page(offset)
-        return @(page_mem[cur] + offset - cur_start)
+        return @(page_at(offset))
     }
 
     ; overwrite the character at offset (for overtype / replace).
@@ -365,8 +377,7 @@ buffer {
         uword p
         if offset >= bufend
             return false
-        find_page(offset)
-        p = page_mem[cur] + offset - cur_start
+        p = page_at(offset)
         log_change('s', offset, p, 1)
         if @(p) == lines_eol
             page_lines[cur]--
@@ -390,7 +401,6 @@ buffer {
     ; returns false (and inserts nothing) if it doesn't fit.
     sub insert_bytes(pointer src, uword count, uword position) -> bool {
         uword n
-        uword offset
         uword p
         if count > capacity - bufend
             return false
@@ -401,14 +411,13 @@ buffer {
         note_change(position, count, 0)
         marks_inserted(position, count)
         repeat {
-            room_at(position)
-            offset = position - cur_start
-            n = min(count, page_size - page_len[cur])
-            p = page_mem[cur] + offset
-            move_bytes(p, p + n, page_len[cur] - offset)
+            p = room_at(position)
+            n = page_size - page_len[cur]
+            if n > count
+                n = count
+            move_bytes(p, p + n, page_len[cur] - (position - cur_start))
             sys.memcopy(src, p, n)
-            page_len[cur] += n
-            page_lines[cur] += count_eol(p, n)
+            grow(cur, n, count_eol(p, n))
             bufend += n
             log_change('i', position, p, n)
             count -= n
@@ -440,24 +449,22 @@ buffer {
         find_page(position)
         k = cur
         offset = position - cur_start
-        if nfree != 0 and page_size - page_len[k] < page_size / 2 {
-            ; little room in this page: a new page at position (after
-            ; moving what follows position to a page of its own)
+        if nfree != 0 and page_len[k] > page_size / 2 {
+            ; little room in this page: a new page at position, or after
+            ; it with the bytes after position (then the next read goes
+            ; into the start of that)
             if offset == 0
                 new_page(k)
             else {
-                if offset != page_len[k] {
-                    new_page(k + 1)
-                    move_tail(k, page_len[k] - offset)
-                }
-                if nfree != 0 {
+                new_page(k + 1)
+                if offset == page_len[k] {
                     k++
-                    new_page(k)
                     offset = 0
-                }
+                } else
+                    move_over(k, k + 1, page_len[k] - offset)
             }
         } else {
-            room_at(position)
+            void room_at(position)
             k = cur
             offset = position - cur_start
         }
@@ -485,8 +492,7 @@ buffer {
             log_change('i', read_pos, p, count)
             note_change(read_pos, count, 0)
             marks_inserted(read_pos, count)
-            page_len[read_page] += count
-            page_lines[read_page] += count_eol(p, count)
+            grow(read_page, count, count_eol(p, count))
             bufend += count
             modified = true
             changes++
@@ -503,7 +509,6 @@ buffer {
         ubyte k
         uword left
         uword n
-        uword offset
         uword p
         if position >= bufend
             return 0
@@ -511,14 +516,13 @@ buffer {
             count = bufend - position
         left = count
         while left != 0 {
-            find_page(position)
-            offset = position - cur_start
-            n = min(left, page_len[cur] - offset)
-            p = page_mem[cur] + offset
+            p = page_at(position)
+            n = page_len[cur] - (position - cur_start)
+            if n > left
+                n = left
             log_change('d', position, p, n)
-            page_lines[cur] -= count_eol(p, n)
-            move_bytes(p + n, p, page_len[cur] - offset - n)
-            page_len[cur] -= n
+            move_bytes(p + n, p, page_len[cur] - (position - cur_start) - n)
+            grow(cur, 0 - n, 0 - count_eol(p, n))
             bufend -= n
             left -= n
             if page_len[cur] == 0 and npages > 1
@@ -542,17 +546,18 @@ buffer {
     sub copy_out(uword position, uword count, pointer dest) -> uword {
         uword left
         uword n
-        uword offset
+        uword p
         if position >= bufend
             return 0
         if count > bufend - position
             count = bufend - position
         left = count
         while left != 0 {
-            find_page(position)
-            offset = position - cur_start
-            n = min(left, page_len[cur] - offset)
-            sys.memcopy(page_mem[cur] + offset, dest, n)
+            p = page_at(position)
+            n = page_len[cur] - (position - cur_start)
+            if n > left
+                n = left
+            sys.memcopy(p, dest, n)
             dest += n
             position += n
             left -= n
@@ -587,9 +592,10 @@ buffer {
         if limit > bufend
             limit = bufend
         while position < limit {
-            find_page(position)
-            p = page_mem[cur] + position - cur_start
-            stop = min(limit, cur_start + page_len[cur])
+            p = page_at(position)
+            stop = cur_start + page_len[cur]
+            if stop > limit
+                stop = limit
             while position < stop {
                 if @(p) == value
                     return position
@@ -606,8 +612,7 @@ buffer {
         if position > bufend
             position = bufend
         while position != 0 {
-            find_page(position - 1)
-            p = page_mem[cur] + position - cur_start
+            p = page_at(position - 1) + 1
             while position != cur_start {
                 p--
                 position--

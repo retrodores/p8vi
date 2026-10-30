@@ -220,16 +220,6 @@ buffer {
                 return
             }
         }
-        ; deleting on at the same place as the last delete (a page store
-        ; logs a delete a page at a time): make that delete longer
-        if PAGED and kind == 'd' and undo_len != 0 and undo_buf[undo_len - 1] == 'd' and undo_len + count <= undo_size {
-            last_count = peekw(undo_buf + undo_len - 3)
-            if position == peekw(undo_buf + undo_len - 5) {
-                sys.memcopy(data, undo_buf + undo_len - 5, count)
-                put_record(undo_len - 7 - last_count, last_count + count, position, 'd')
-                return
-            }
-        }
         if count > undo_size - undo_len or undo_size - undo_len - count < 7 {
             undo_lost = true
             return

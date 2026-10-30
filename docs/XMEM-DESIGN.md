@@ -211,12 +211,53 @@ Tested (`make test-reu`, `tests/x16/bankreset.p8`):
 3. **The page store, main RAM only**, with the gap buffer's tests and new
    ones for splits and merges, on the virtual target, and the load loop.
    C64 and X16 builds use it.  Measure its code size and the text room
-   lost to half-full pages and the table.
+   lost to half-full pages and the table.  *Done,* see "Step 3: what the
+   page store costs" below.
 4. **`pagemem` for the X16 and the REU.**  Key buffers to main RAM.
 5. **Yank and undo in the page store.**
 6. **Recovery:** header, `sync()`, `:recover`.
 7. Later: several files, texts over 64 KB (positions would need more than
    a `uword`, a change across the whole editor).
+
+## Step 3: what the page store costs
+
+Built (`src/pagestore.p8`), tested on the virtual target with 8 byte
+pages (`make test-gap`: the store tests both stores pass, plus splits,
+moving bytes between pages, merges, line counts against counting, reads
+over several pages, and typing checked against a model), and in VICE
+(`make test-c64`, with a new `big` suite: a 3.2 KB CR LF file whose CR LF
+pairs are split between 1 KB reads).  A quick check on the X16 (load,
+`dd`, save) is right too.
+
+How it came out, compared with the design above:
+
+- The code both stores share is `src/buffer.p8` (marks, change tracking,
+  undo, searches built on `find_next`/`find_prev`, line routines); a
+  store adds the rest, chosen per target by `store_platform.p8`.
+- `buffer.PAGED` is false in the gap buffer, so code only the page store
+  needs folds away (the VIC-20 lost 10 bytes in all, now 95 free).
+- `read_room()` opens room inside one page (the rest of the page moves to
+  its end, `read_done()` moves it back), so a read needs no free page.
+- A delete over several pages is logged a page at a time, 7 bytes a
+  record.
+- The page store moves bytes with its own loop, 256 at a time with a byte
+  index: `sys.memcopy` can't copy overlapping memory.
+
+Size, main RAM only (1 KB pages, room for 64 in the table):
+
+| | Gap buffer | Page store |
+|---|---|---|
+| C64 code + data | 29201 | 32922 (+3721) |
+| C64 variables | 1024 | 1610 (+586, the page table) |
+| C64 text room | 17486 bytes | 12 pages, 12288 bytes |
+| X16 text room | 9980 bytes | 5 pages, 5120 bytes |
+
+(text room: free memory less the yank buffer, undo log and key buffers,
+3456 bytes on the C64; the X16 has them in bank 1; whole pages only).
+The page store's code is the most of it, about 4 KB of Prog8's code for
+the page table.  With extended memory (step 4) the text leaves main RAM,
+so this matters for a C64 without an REU, and for the X16 only until
+then.
 
 ## Open questions
 
@@ -224,8 +265,10 @@ Tested (`make test-reu`, `tests/x16/bankreset.p8`):
   waste less on half-full pages; bigger ones make the table smaller and
   cross fewer page boundaries.  Measure with real files.
 - A C64 without an REU: the page store in main RAM, or the gap buffer as
-  now?  The page store has more code and loses some room to half-full
-  pages, but one store is simpler than two in one build.
+  now?  Measured in step 3: the page store leaves 12 KB of text instead of
+  17 KB (below).  Choices: accept it; make the page store smaller (parts
+  in assembler); or two C64 builds, the gap buffer one without REU
+  support.
 - Recovery: just a status message and `:recover`, or a question at
   startup?
 - How often to `sync()`, and whether a sync while typing is noticeable on
