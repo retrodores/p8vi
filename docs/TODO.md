@@ -6,7 +6,9 @@ aren't.
 
 ## vi commands
 
-- **`:s/old/new/`** with line ranges (`:%s`, `:1,10s`), and the `g` flag.
+- **Line ranges for more commands:** `:1,5d`, `:.,$y`, `:1,10w name`.
+  `:s` has them (`read_range()`).
+- **`&`** repeats the last `:s` on the cursor line.
 - **Scrolling the view:** `zt`, `zz` and `zb` (cursor line to the top,
   middle or bottom of the screen), and Ctrl-E / Ctrl-Y (scroll one line).
 - **Marks:** `m` and `'` / `` ` ``.  The gap buffer already keeps marks up
@@ -29,9 +31,6 @@ aren't.
   that the editor handles itself.  The editor already reads the drive status
   on channel 15 (`read_disk_status`), so sending a command there is little
   extra code; it might fit on the VIC-20.
-- **`:$` goes to the last line,** as in vi, with `:n` (go to line n).  `$`
-  is also the last line in the planned line ranges (`:.,$d`,
-  `:10,$s/a/b/`), which is why the directory is `:@$` and not `:$`.
 - **Read the directory into the text:** `:r $`, since `$` is the
   directory's file name on a CBM drive.  The drive sends the listing as a
   BASIC program (block counts as line numbers), so it needs turning into

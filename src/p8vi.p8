@@ -11,4 +11,5 @@ features {
     const bool SPLASH = true    ; the start screen
     const bool ASCII = true     ; ASCII files translated to PETSCII and back, :set ascii
     const bool CRLF = true      ; CR LF line endings, :set crlf
+    const bool SUBST = true     ; :s/old/new/ and line ranges (:%, :1,5, :$)
 }

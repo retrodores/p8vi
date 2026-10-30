@@ -12,6 +12,11 @@ systems, and which are implemented.
 The VIC-20 version (`src/p8vi_vic20.p8`) may leave out some features to
 fit in memory; its `features` block lists which.
 
+`:s` replaces plain text, not a pattern: no `.` `*` `^` `$` or `&`.  Any
+character can take the place of the `/` (`:s#a/b#c#`), and the last `/`
+can be left out (`:s/a/b`).  An empty old (`:s//new/`) uses the last
+search.  `u` undoes the whole `:s`, as long as it fits in the undo log.
+
 A count can be typed before most commands (`3j`, `2dd`, `d2w`, `3x`).
 
 ## CBM keyboard notes
@@ -199,10 +204,11 @@ can't be undone ("undo too big").  Loading a file empties it.
 | `ZQ` | quit discarding changes | ✅ |
 | `:e name`, `:e!` | edit another file (a new name starts empty), reload | ✅ |
 | `:r name` | read a file in below the cursor line | ✅ |
-| `:n` | go to line n | ✅ |
+| `:n`, `:$`, `:.` | go to line n, the last line, the cursor line (`:$` and `:.` not on the VIC-20) | ✅ |
 | `Ctrl-G` | show line count and free memory | ✅ |
-| `:s/old/new/` | substitute (plain text) | ⬜ |
-| line ranges (`:1,5d`, `:%`) | | ⬜ |
+| `:s/old/new/`, `:s/old/new/g` | replace old with new in the cursor line: the first one, or all with `g` (not on the VIC-20) | ✅ |
+| `:%s/…`, `:5,10s/…`, `:.,$s/…` | `:s` on a range of lines: `%` all lines, `a,b` with line numbers, `.` (cursor line), `$` (last line) | ✅ |
+| line ranges for other commands (`:1,5d`, `:1,5w`) | | ⬜ |
 | `:set ascii`, `:set petscii` | write the file as ASCII or PETSCII | ✅ |
 | `:set cr`, `:set lf`, `:set crlf` | the file's line endings | ✅ |
 | `:set` | show the file's format, e.g. `ascii crlf` | ✅ |

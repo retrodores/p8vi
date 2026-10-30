@@ -172,6 +172,26 @@ FILE_SUITES = [
         ('n3', b'two\r\none\r\ntwo\r\nthree\r\nthree\r\n'),
         ('n4', b'two\none\ntwo\nthree\nthree\n' * 2),
     ], b'one\ntwo\nthree\n'),
+    # :s and line ranges.  s1 the first match in the cursor line; s2 all of
+    # them in all lines; s3 u takes the whole :%s back, s4 u again redoes it;
+    # s5 a range, the last delimiter left out; s6 :$ goes to the last line;
+    # s7 an empty old is the last search; s8 an empty new deletes; s9 a
+    # backwards range; s10 . in a range
+    ('subst', r':s/one/1/\n:w s1\n:%s/one/x/g\n:w s2\nu:w s3\nu:w s4\n'
+              r':2,3s/two/22\n:w s5\n:$\n:s/four/4 4/\n:w s6\n'
+              r'/x\n:s//y/\n:w s7\n:%s/ //g\n:w s8\n:3,2s/x/z/\n:w s9\n'
+              r':1\n:.,2s/2/n/g\n:w s10\n', [
+        ('s1', b'1 TWO ONE\nTWO ONE TWO\nTHREE ONE\nFOUR'),
+        ('s2', b'1 TWO X\nTWO X TWO\nTHREE X\nFOUR'),
+        ('s3', b'1 TWO ONE\nTWO ONE TWO\nTHREE ONE\nFOUR'),
+        ('s4', b'1 TWO X\nTWO X TWO\nTHREE X\nFOUR'),
+        ('s5', b'1 TWO X\n22 X TWO\nTHREE X\nFOUR'),
+        ('s6', b'1 TWO X\n22 X TWO\nTHREE X\n4 4'),
+        ('s7', b'1 TWO Y\n22 X TWO\nTHREE X\n4 4'),
+        ('s8', b'1TWOY\n22XTWO\nTHREEX\n44'),
+        ('s9', b'1TWOY\n22ZTWO\nTHREEZ\n44'),
+        ('s10', b'1TWOY\nNNZTWO\nTHREEZ\n44'),
+    ], b'ONE TWO ONE\nTWO ONE TWO\nTHREE ONE\nFOUR'),
     # f F t T ; as motions and with d.  f1: T at the start of the text
     # finds nothing (and must not search from the end); f5: T again right
     # after the character skips it

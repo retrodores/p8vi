@@ -1616,6 +1616,15 @@ main {
         if cmdline[i] == 0
             return
 
+        ; a line range; on its own (":12", ":$", ":.") it goes to the line
+        if features.SUBST and read_range(i) {
+            i = cmd_pos
+            if cmdline[i] == 0 {
+                goto_line(range_last + 1)
+                return
+            }
+        }
+
         ; :n goes to line n
         if cmdline[i] >= '0' and cmdline[i] <= '9' {
             goto_line(max(conv.str2uword(&cmdline + i), 1))
@@ -1655,8 +1664,163 @@ main {
             read_cmd(arg)
         else if is_cmd("se") or is_cmd("set")
             set_cmd(arg)
+        else if features.SUBST and is_cmd("s")
+            subst_cmd(arg)
         else
             status("unknown cmd")
+    }
+
+    ; line ranges before a ':' command: "%" (all lines), or one or two line
+    ; addresses "a,b".  an address is a line number, "." (the cursor line)
+    ; or "$" (the last line).  range_first and range_last are line numbers
+    ; from 0; range_first is NONE without a range.
+    ubyte cmd_pos
+    uword range_first
+    uword range_last
+
+    ; read a range at cmdline[start], cmd_pos ends up after it.
+    ; returns false if there is none.
+    sub read_range(ubyte start) -> bool {
+        cmd_pos = start
+        if cmdline[cmd_pos] == '%' {
+            cmd_pos++
+            range_first = 0
+            range_last = gapbuffer.line_number(gapbuffer.length())
+            return true
+        }
+        range_first = read_address()
+        range_last = range_first
+        if range_first == gapbuffer.NONE
+            return false
+        if cmdline[cmd_pos] == ',' {
+            cmd_pos++
+            range_last = read_address()
+            if range_last == gapbuffer.NONE
+                range_last = cur_line
+        }
+        return true
+    }
+
+    ; read a line address at cmdline[cmd_pos] and move cmd_pos past it.
+    ; returns its line number from 0, or NONE if there is none.
+    sub read_address() -> uword {
+        ubyte c = cmdline[cmd_pos]
+        uword line = gapbuffer.NONE
+        if c == '.'
+            line = cur_line
+        else if c == '$'
+            line = gapbuffer.line_number(gapbuffer.length())
+        else if c >= '0' and c <= '9' {
+            line = conv.str2uword(&cmdline + cmd_pos)
+            ; (str2uword leaves the number of digits in r15)
+            cmd_pos += cx16.r15L - 1
+            if line != 0
+                line--
+        } else
+            return line
+        cmd_pos++
+        return line
+    }
+
+    ; :[range]s/old/new/[g] - replace old with new in the lines of the range
+    ; (the cursor line without one): the first one in each line, or all of
+    ; them with g.  old and new are plain text, and any character can take
+    ; the place of the '/'.  An empty old is the last search.
+    sub subst_cmd(str arg) {
+        ubyte delim = arg[0]
+        ubyte old_len
+        ubyte new_at
+        ubyte new_len
+        ubyte i
+        pointer old = arg + 1
+        bool all
+        bool full = false
+        uword line = range_first
+        uword last = range_last
+        uword lines = gapbuffer.line_number(gapbuffer.length())
+        uword position
+        uword end
+        uword match
+        uword found = gapbuffer.NONE
+
+        if delim == 0 {
+            status("no pattern")
+            return
+        }
+        ; old is from arg[1] up to the next delimiter, then comes new, then
+        ; the flag.  the delimiters at the ends can be left out.
+        i = field_end(arg, 1, delim)
+        old_len = i - 1
+        if arg[i] != 0
+            i++
+        new_at = i
+        i = field_end(arg, i, delim)
+        new_len = i - new_at
+        all = arg[i] != 0 and arg[i + 1] == 'g'
+        if old_len == 0 {
+            old = search_pat
+            old_len = search_len
+            if old_len == 0 {
+                status("no pattern")
+                return
+            }
+        }
+        if line == gapbuffer.NONE {
+            line = cur_line
+            last = line
+        }
+        if last < line {
+            position = line
+            line = last
+            last = position
+        }
+        if last > lines
+            last = lines
+        if line > last
+            line = last
+
+        position = gapbuffer.line_offset(line)
+        repeat {
+            end = gapbuffer.line_end(position)
+            repeat {
+                match = gapbuffer.find_bytes(old, old_len, position, end)
+                if match == gapbuffer.NONE
+                    break
+                if gapbuffer.free() + old_len < new_len {
+                    full = true
+                    last = line
+                    break
+                }
+                void gapbuffer.delete_nchar(old_len, match)
+                void gapbuffer.insert_bytes(arg + new_at, new_len, match)
+                found = match
+                position = match + new_len
+                end = end + new_len - old_len
+                if not all
+                    break
+            }
+            if line == last
+                break
+            line++
+            position = end + 1
+        }
+
+        if found != gapbuffer.NONE {
+            set_cursor(first_nonblank(gapbuffer.line_start(found)))
+            goal_col = column()
+        }
+        if full
+            status("buffer full")
+        else if found == gapbuffer.NONE
+            status("not found")
+    }
+
+    ; returns the index of the delimiter (or the 0 at the end) that ends
+    ; the field of s starting at index i
+    sub field_end(str s, ubyte i, ubyte delim) -> ubyte {
+        while s[i] != 0 and s[i] != delim
+            i++
+        return i
     }
 
     ; returns arg, or the current file name if arg is empty
@@ -1832,7 +1996,7 @@ main {
 
         ; the file's format: CR LF pairs are held as CR
         count = size
-        if features.CRLF
+        if features.CRLF and size != 0
             count = charset.crlf_to_cr(p, size)
         crlf = count != size
         eol = file_eol(p, count)
