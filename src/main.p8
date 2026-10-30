@@ -199,9 +199,9 @@ main {
         repeat_requested = false
         if not dot_valid {
             if dot_too_long
-                status("too long to repeat")
+                status("too long (.)")
             else
-                status("nothing to repeat")
+                status("no repeat")
             return
         }
         replaying = true
@@ -555,7 +555,7 @@ main {
                 if gapbuffer.undo_reversed
                     undo()
                 else
-                    status("nothing to redo")
+                    status("no redo")
             }
             KEY_CONTROL_F, KEY_CONTROL_B -> page(count * (page_lines() - 2), key == KEY_CONTROL_F)
             KEY_CONTROL_D, KEY_CONTROL_U -> page(page_lines() / 2, key == KEY_CONTROL_D)
@@ -569,9 +569,9 @@ main {
         uword position = gapbuffer.undo()
         if position == gapbuffer.NONE {
             if gapbuffer.undo_lost
-                status("too big to undo")
+                status("undo too big")
             else
-                status("nothing to undo")
+                status("no undo")
             return
         }
         ; the change can be anywhere, so find the line number from scratch
@@ -760,7 +760,7 @@ main {
             if not linewise
                 set_cursor(start)
             if not yanked
-                status("too big to yank")
+                status("yank too big")
             return
         }
         set_cursor(start)
@@ -799,6 +799,15 @@ main {
         return true
     }
 
+    ; end the text before position with a line ending, unless it has one
+    ; (or position is 0).  returns true if it added one.
+    sub add_eol_before(uword position) -> bool {
+        if position == 0 or gapbuffer.get(position - 1) == gapbuffer.eol
+            return false
+        void gapbuffer.insert_char(gapbuffer.eol, position)
+        return true
+    }
+
     ; p and P
     sub put(bool after, uword count) {
         uword c = cursor()
@@ -813,11 +822,9 @@ main {
                     ; below the last line: it needs a line ending first
                     position = gapbuffer.length()
                     set_cursor(position)
-                    if position != 0 and gapbuffer.get(position - 1) != gapbuffer.eol {
-                        void gapbuffer.insert_char(gapbuffer.eol, position)
+                    added_eol = add_eol_before(position)
+                    if added_eol
                         position++
-                        added_eol = true
-                    }
                 }
             } else {
                 position = gapbuffer.line_start(c)
@@ -1724,7 +1731,7 @@ main {
             while strings.compare(arg, set_options[i]) != 0 {
                 i++
                 if i == len(set_options) {
-                    status("unknown option")
+                    status("bad option")
                     return
                 }
             }
@@ -1778,6 +1785,7 @@ main {
     sub load_file(str name, bool insert) -> bool {
         uword count
         uword position
+        uword end
         uword room
         ubyte extra
         bool full
@@ -1796,10 +1804,8 @@ main {
             if position == gapbuffer.NONE {
                 ; the cursor is on the last line: start a new line after it
                 position = gapbuffer.length()
-                if position != 0 and gapbuffer.get(position - 1) != gapbuffer.eol {
-                    void gapbuffer.insert_char(gapbuffer.eol, position)
+                if add_eol_before(position)
                     position++
-                }
             }
             ; read straight into the gap
             gapbuffer.move_gap(position)
@@ -1810,6 +1816,12 @@ main {
             if ascii_file
                 charset.translate(gapbuffer.gap_ptr(), count, charset.TO_PETSCII)
             gapbuffer.inserted(count)
+            ; like vi, whole lines: the file's last line must not join the
+            ; line after it.  (position is the start of a line or the end of
+            ; the text, so nothing read in means nothing to do here)
+            end = position + count
+            if end < gapbuffer.length()
+                void add_eol_before(end)
             set_cursor(position)
             goal_col = 0
         } else {

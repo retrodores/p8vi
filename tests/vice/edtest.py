@@ -153,6 +153,15 @@ FILE_SUITES = [
         ('c6', b'ine one\rline one\rline two\rlast\rlast\r'),
         ('c7', b'ine one\r\nline one\r\nline two\r\nlast\r\nlast\r\n'),
     ], CRLF),
+    # :r of a file without a line ending at its end (r0): r1 inside the
+    # text gets a line ending after it, r2 at the end of the text doesn't;
+    # r3: undo takes the whole :r back
+    ('read', r':w r0\n1G:r r0\n:w r1\nG:r r0\n:w r2\nu:w r3\n', [
+        ('r0', SHORT),
+        ('r1', SHORT.split(b'\n', 1)[0] + b'\n' + SHORT + b'\n' + SHORT.split(b'\n', 1)[1]),
+        ('r2', SHORT.split(b'\n', 1)[0] + b'\n' + SHORT + b'\n' + SHORT.split(b'\n', 1)[1] + b'\n' + SHORT),
+        ('r3', SHORT.split(b'\n', 1)[0] + b'\n' + SHORT + b'\n' + SHORT.split(b'\n', 1)[1]),
+    ]),
     # f F t T ; as motions and with d.  f1: T at the start of the text
     # finds nothing (and must not search from the end); f5: T again right
     # after the character skips it
