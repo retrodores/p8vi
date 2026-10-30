@@ -24,7 +24,8 @@ main {
         ; 4 pages for the text, 8 for the streams (yank buffer, undo log),
         ; one more for pagemem's window
         buffer.stream_min = 8
-        buffer.init(sys.progend(), sys.progend() + CAPACITY + 9 * PAGE)
+        ; (and the header slots)
+        buffer.init(sys.progend(), sys.progend() + CAPACITY + 9 * PAGE + 2 * pagemem.HEADER_SIZE)
         buffer.yank_size = 32
         check_uw("capacity", buffer.capacity, CAPACITY)
         buftests.run()
@@ -37,11 +38,11 @@ main {
         test_chunks()
         ; a bigger store: 10 pages for the text, 40 for the streams
         buffer.stream_min = 40
-        buffer.init(sys.progend(), sys.progend() + 51 * PAGE)
-        buffer.yank_size = $ffff
+        reinit()
         test_many_pages()
         test_streams()
         test_delete_lines()
+        test_recovery()
         buftests.report()
     }
 
@@ -339,6 +340,90 @@ main {
         buffer.eol = $0d
     }
 
+    ; init() on the same memory: like a reset
+    sub reinit() {
+        buffer.init(sys.progend(), sys.progend() + 51 * PAGE + 2 * pagemem.HEADER_SIZE)
+        buffer.yank_size = $ffff
+    }
+
+    ubyte[buffer.META_SIZE] meta
+
+    ; the text and a mark into the header
+    sub save_text(str text, ubyte tag) {
+        buffer.clear()
+        void buffer.insert(text, 0)
+        buffer.set_mark(0, 3)
+        meta[0] = tag
+        buffer.sync(meta)
+    }
+
+    sub recover_text(str name, str text, ubyte tag) {
+        meta[0] = 0
+        check_bool(name, buffer.recover(meta), true)
+        expect(text)
+        check_ub("meta", meta[0], tag)
+        check_uw("cursor", buffer.get_mark(0), 3)
+        check_bool("modified", buffer.modified, true)
+    }
+
+    sub test_recovery() {
+        txt.print("recovery\n")
+        ubyte i
+        ; nothing in fresh memory
+        check_ub("none", buffer.recoverable, 0)
+        check_bool("nothing", buffer.recover(meta), false)
+        ; a synced text waits after a reset
+        save_text("first text\nline two", 'a')
+        reinit()
+        check_ub("one", buffer.recoverable, 1)
+        expect("")
+        ; its pages are left alone: fill the new text and more
+        for i in 0 to 79
+            void buffer.insert_char('x', 0)
+        check_uw("full", buffer.free(), 0)
+        check_store()
+        ; a second session's text, and a second reset: two wait
+        save_text("second", 'b')
+        reinit()
+        check_ub("two", buffer.recoverable, 2)
+        ; the newer comes back first, then the older
+        recover_text("newer", "second", 'b')
+        check_ub("left", buffer.recoverable, 1)
+        recover_text("older", "first text\nline two", 'a')
+        check_ub("none left", buffer.recoverable, 0)
+        ; (the line endings are counted again, with the eol the editor sets)
+        buffer.eol = '\n'
+        check_uw("lines", buffer.line_number(buffer.length()), 1)
+        buffer.eol = $0d
+        check_store()
+        ; the recovered text is the session's now: after a reset it waits
+        reinit()
+        check_ub("again", buffer.recoverable, 1)
+        recover_text("again", "first text\nline two", 'a')
+        ; two waiting and a new text: the older is dropped at the first sync
+        save_text("third", 'c')
+        reinit()
+        save_text("fourth", 'd')
+        reinit()
+        check_ub("third and fourth", buffer.recoverable, 2)
+        save_text("fifth", 'e')
+        check_ub("one dropped", buffer.recoverable, 1)
+        reinit()
+        check_ub("fourth and fifth", buffer.recoverable, 2)
+        recover_text("fifth", "fifth", 'e')
+        recover_text("fourth", "fourth", 'd')
+        ; clean(): nothing to recover
+        buffer.clean()
+        reinit()
+        check_ub("clean", buffer.recoverable, 0)
+        ; a damaged header doesn't count
+        save_text("sixth", 'f')
+        pagemem.header_put(buffer.session_slot, buffer.H_LENGTH, &i as uword, 1)
+        reinit()
+        check_ub("damaged", buffer.recoverable, 0)
+        check_store()
+    }
+
     sub read_contents_big() {
         ubyte i = 0
         while i as uword < buffer.length() {
@@ -380,9 +465,19 @@ main {
         }
         if total != buffer.length()
             fail("page lengths")
-        if buffer.npages + buffer.nfree + buffer.s_count[buffer.YANK] + buffer.s_count[buffer.UNDO] != buffer.total_pages
+        if buffer.npages + buffer.nfree + buffer.s_count[buffer.YANK] + buffer.s_count[buffer.UNDO] + waiting_pages() != buffer.total_pages
             fail("pages lost")
     }
 
     ubyte[PAGE] pagebuf
+
+    ; pages kept for texts to recover
+    sub waiting_pages() -> ubyte {
+        ubyte n = 0
+        if buffer.waiting[0]
+            n += buffer.slot_pages[0]
+        if buffer.waiting[1]
+            n += buffer.slot_pages[1]
+        return n
+    }
 }

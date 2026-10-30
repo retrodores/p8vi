@@ -27,5 +27,6 @@ chunks
 many pages
 streams
 delete lines
+recovery
 
 all tests passed

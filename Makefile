@@ -135,10 +135,11 @@ test-c64:	build/p8vi-c64.prg
 	python3 tests/vice/edtest.py files --prg build/p8vi-c64.prg
 
 # the same tests on the C64 REU build (the page store), with an REU and
-# without one
+# without one (then it has 4 KB of text: not the big file suite)
 test-c64reu:	build/p8vi-c64reu.prg
 	python3 tests/vice/edtest.py files --prg build/p8vi-c64reu.prg --reu 512 --limit 3000000000
-	python3 tests/vice/edtest.py files --prg build/p8vi-c64reu.prg
+	python3 tests/vice/edtest.py files --prg build/p8vi-c64reu.prg --skip big
+	python3 tests/vice/rectest.py --prg build/p8vi-c64reu.prg
 	python3 tests/vice/edtest.py screen --prg build/p8vi-c64reu.prg --reu 512
 
 # partial redraws must leave the same screen as a full redraw

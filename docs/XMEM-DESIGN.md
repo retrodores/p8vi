@@ -144,32 +144,48 @@ Several files at once would be several page lists too.
 
 ## Crash recovery
 
-After a crash or a reset, the REU still holds its pages, and the X16
-its banked RAM (both tested, see "What survives a reset" below).  After
-switching off, both are lost.  To find the text again, extended memory
-needs a **header** at a fixed place (the start of REU bank 0, or the
-start of X16 bank 2, the first `xmem` bank):
+After a crash or a reset, the REU still holds its pages, and the X16 its
+banked RAM (both tested, see "What survives a reset" below).  After
+switching off, both are lost.  Decided (step 6): like vi's `-r`, the text
+comes back with a command, `:recover` (`:rec`), not a question at startup.
 
-- a signature and a format version;
-- `PAGE_SIZE`, the file name, the line ending and ASCII settings;
-- the page table and a checksum over it;
-- a "clean" flag, set on `:q` and cleared by the first change.
+**Two header slots.**  Extended memory starts with two header slots of
+1 KB; the pages come after them.  A header describes one text:
 
-`pagemem.sync()` writes the changed cache slots (C64) and then the header.
-The editor calls it when the keyboard has been idle for a moment and
-after a fixed number of changes, like vi writing its swap file.  Pages
-written after the last sync but before a crash are lost; the header still
-describes the text as it was at the sync, as long as freed pages are not
-reused before the next sync.
+- a signature, a version, a state (in use, or clean) and a sequence
+  number (the newer text has the higher one);
+- `page_size`, the text length, the cursor;
+- the editor's data (48 bytes: file name, line endings, ASCII);
+- the page ids and lengths of the text;
+- a checksum over all of it.
 
-At startup, before anything writes to extended memory:
+**Syncing.**  `buffer.sync()` writes the changed cache slots back (C64)
+and then the header into the session's slot.  The editor calls it when
+the keyboard has been idle for half a second and the text changed since
+the last sync, like vi writing its swap file.  `:q` marks the session's
+header clean.  A text recovered is the text as of the last sync; a page
+changed after it (or freed and used again) can be off.
+
+**At startup**, before anything writes to extended memory:
 
 1. Find the REU without writing to it (below).
-2. Read the header.  If the signature and checksum are right and it isn't
-   clean, say so: `recover with :recover`.  Until then, nothing may write
-   to extended memory: new text goes in main RAM pages.
-3. `:recover` takes the page table from the header.  `:e`, `:q` or the
-   first change without recovering ends the chance, after asking once.
+2. Read both headers.  A valid one (signature, checksum, page size, page
+   ids) that isn't clean is a text to recover: its pages are left out of
+   the free pages, so nothing overwrites them, and the editor says so
+   (`:rec to recover`).
+3. Nothing is written yet: the session takes a slot at its first sync
+   (below).
+
+So a text waits until it is recovered, also over more sessions and
+resets: missing the message loses nothing.  After a second reset there
+can be two texts: `:recover` brings back the newer one and says that one
+more is there; `:recover` again brings the other.  The session takes a
+header slot only when it first syncs: the recovered text's, a free one,
+or, if two texts still wait then (the user typed a new text instead of
+recovering), the older text's, which is dropped.
+
+`:recover` replaces the text (`:recover!` if it is changed and not
+saved), with the file name and settings it had.
 
 ### REU detection without writing
 
@@ -214,7 +230,8 @@ Tested (`make test-reu`, `tests/x16/bankreset.p8`):
 4. **`pagemem` for the X16 and the REU.**  Key buffers to main RAM.
    *Done:* see "Step 4" below.
 5. **Yank and undo in the page store.**  *Done:* see "Step 5" below.
-6. **Recovery:** header, `sync()`, `:recover`.
+6. **Recovery:** header, `sync()`, `:recover`.  *Done:* see "Step 6"
+   below.
 7. Later: several files, texts over 64 KB (positions would need more than
    a `uword`, a change across the whole editor).
 
@@ -309,6 +326,38 @@ then.
   255 byte buffers).  The REU build without an REU has 7 KB of text (and
   3 KB for yank and undo).
 
+## Step 6: recovery
+
+- `pagemem` has two header slots before the pages (1 KB each), with
+  `header_put()` / `header_get()`, and `persistent` where the memory
+  survives a reset (REU, X16 banked RAM; and the virtual target, where
+  calling `init()` again on the same memory is the reset).
+- The page store reads both headers in `init()` and leaves the waiting
+  texts' pages out of the free pages.  `sync(meta)` writes the session's
+  header; `clean()` marks it clean (`:q`); `recover(meta)` brings back the
+  newest text and syncs it at once into its own slot.  The editor syncs
+  when no key came for 30 jiffies and the text changed (`sync_text()`,
+  with the file name, line ending and ASCII setting), says `:rec to
+  recover` at startup, and has `:recover` / `:rec` / `:rec!`.  `cmdword`
+  holds 8 letters now (VIC-20: 4 bytes).
+- Room: the page store's buffers (bounce, put_buf, free list, header,
+  stream page lists: 989 bytes) are in `pagemem.scratch`: golden RAM
+  `$0400` on the X16, a `memory()` block elsewhere.  `pagemem` gives the
+  page size and the table size: the X16 has 2 KB pages and 128 of them
+  (256 KB, so a 64 KB text, yank and undo log fit), the C64 1 KB pages and
+  255.  Main RAM free: C64 REU build 7653 bytes (without an REU it has
+  4 KB of text), X16 505 (the key buffers take 384 of it), VIC-20 110.
+- Tests: `pagetest` (recovery: one and two texts, newer first, a dropped
+  older one, `clean()`, a damaged header, waiting pages left alone), and
+  `tests/vice/rectest.py` in `make test-c64reu`: edit with an REU, reset
+  VICE, run p8vi again, `:rec`, the edited text is back; and after `:q!`
+  nothing comes back.  Without the sync it fails.  Not tried on the X16
+  over a reset (x16emu can't be reset from pasted keys); the X16 edits
+  big files and undoes `dG` of 39 KB.
+- Compiler bug found: comparing two elements of a split `uword` array
+  doesn't assemble (`bugs/split_array_compare_elements.p8`); `slot_seq` is
+  `@nosplit`.
+
 ## Open questions
 
 - `PAGE_SIZE`: 1 KB is a guess.  Smaller pages make inserts faster and
@@ -319,7 +368,7 @@ then.
   page store (`src/c64reu/store_platform.p8`, compiled with `src/c64reu`
   before `src/c64`), and gets the REU in step 4.  Without an REU it has
   12 KB.
-- Recovery: just a status message and `:recover`, or a question at
-  startup?
+- Recovery: decided, `:recover` and two header slots (see "Crash
+  recovery").
 - How often to `sync()`, and whether a sync while typing is noticeable on
   the C64 (writing 8 changed slots is about 8 ms).

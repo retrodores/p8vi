@@ -5,13 +5,25 @@
 ; called.  That is the strictest of the real ones (the X16 shows one bank
 ; at a time, the C64 copies pages from the REU): using a page after
 ; mapping another, or writing to one without changed(), shows up as
-; wrong text in the tests.
+; wrong text in the tests.  Two header slots of HEADER_SIZE bytes come
+; before the pages; nothing here clears them, so calling init() again on
+; the same memory is like a reset.
 ;
 pagemem {
     const uword NO_PAGE = $ffff
+    ; bytes per page (the tests set smaller ones)
+    const uword PAGE_SIZE = 1024
+    ; most pages the page store has room for
+    const ubyte MAX_PAGES = 255
+    ; SCRATCH_SIZE bytes for the page store's buffers
+    const uword SCRATCH_SIZE = 1024
+    uword scratch = memory("pagescratch", SCRATCH_SIZE, 0) as uword
+    const uword HEADER_SIZE = 1024
+    const bool persistent = true
 
     uword size              ; bytes per page
     uword window            ; where the mapped page is seen
+    uword headers           ; the header slots
     uword pages             ; where the pages are kept
     uword last_id = NO_PAGE ; the page in the window
     uword last_addr         ; its address (window)
@@ -24,7 +36,8 @@ pagemem {
         uword n
         size = page_size
         window = start
-        pages = start + size
+        headers = start + size
+        pages = headers + 2 * HEADER_SIZE
         n = (top - pages) / size
         if n > max_pages
             n = max_pages
@@ -47,6 +60,16 @@ pagemem {
         dirty = false
         maps_done++
         return window
+    }
+
+    ; copy count bytes from src to header slot h at offset, or (get) from
+    ; there to dest
+    sub header_put(ubyte h, uword offset, uword src, uword count) {
+        sys.memcopy(src, headers + h * HEADER_SIZE + offset, count)
+    }
+
+    sub header_get(ubyte h, uword offset, uword dest, uword count) {
+        sys.memcopy(headers + h * HEADER_SIZE + offset, dest, count)
     }
 
     ; the page mapped last was written to

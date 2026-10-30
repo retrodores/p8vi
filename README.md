@@ -111,7 +111,7 @@ The useful `make` targets are:
 | `make test`  | Run on the virtual target and compare with `tests/expected/` |
 | `make test-gap` | Text store tests (gap buffer and page store) on the virtual target |
 | `make test-c64` | Editor command tests on a C64 in VICE (`tests/vice/edtest.py`, ~10 s) |
-| `make test-c64reu` | The same on the C64 REU build (the page store) |
+| `make test-c64reu` | The same on the C64 REU build (the page store), with and without an REU, and recovery after a reset (`tests/vice/rectest.py`) |
 | `make test-reu` | REU detection and reset tests in VICE (`tests/reu/`) |
 | `make test-c64-screen` | Check partial redraws against full redraws in VICE (~30 s) |
 | `make size` | Memory map and room left below memtop for each build (`tools/listsize.py`) |

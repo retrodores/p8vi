@@ -42,6 +42,15 @@ main {
     const ubyte KEY_UNDERSCORE  = $a4   ; _ as typed on a C64 (commodore + @), '_' is $e4
 
     str filename = " " * 40     ; name of the file being edited, empty if none
+
+    ; recovery after a crash (page store): the text is synced when no key
+    ; came for SYNC_DELAY jiffies, with the file's settings in meta
+    const ubyte SYNC_DELAY = 30
+    uword key_time
+    ubyte[buffer.META_SIZE] meta
+    const ubyte META_ENDING = 41     ; (after the file name)
+    const ubyte META_ASCII = 42
+    const ubyte META_EOL = 43
     str cmdline = " " * 40      ; text typed after ':', '/' or '?'
     ubyte cmdlen
     ubyte cmd_prompt            ; ':', '/' or '?'
@@ -63,14 +72,21 @@ main {
 
     sub start() {
         init()
+        if buffer.PAGED and buffer.recoverable != 0
+            status(":rec to recover")
         view.refresh(true)
         cursor_on()
         repeat {
             key = cbm.GETIN2()
             if key == $00 {
+                ; (page store) keep the text recoverable: when the keys stop
+                if buffer.PAGED and buffer.changes != buffer.synced_changes and cbm.RDTIM16() - key_time > SYNC_DELAY
+                    sync_text()
                 draw_cursor()
                 continue
             }
+            if buffer.PAGED
+                key_time = cbm.RDTIM16()
             cursor_off()
             if key == KEY_STOP
                 key = KEY_ESCAPE
@@ -1595,7 +1611,7 @@ main {
     ;   :set ascii, petscii, cr, lf, crlf   how the file is written (:set shows it)
     ;
 
-    str cmdword = " " * 4
+    str cmdword = " " * 8
 
     sub is_cmd(str name) -> bool {
         return strings.compare(cmdword, name) == 0
@@ -1668,6 +1684,8 @@ main {
             set_cmd(arg)
         else if features.SUBST and is_cmd("s")
             subst_cmd(arg)
+        else if buffer.PAGED and (is_cmd("rec") or is_cmd("recover"))
+            recover_cmd(force)
         else
             status("unknown cmd")
     }
@@ -1862,6 +1880,9 @@ main {
             status("unsaved (!)")
             return
         }
+        ; nothing to recover after this
+        if buffer.PAGED
+            buffer.clean()
         txt.cls()
         sys.exit(0)
     }
@@ -2080,6 +2101,39 @@ main {
             count--
         }
         return eol
+    }
+
+    ; write the text's header for recovery, with the file's settings
+    sub sync_text() {
+        void strings.copy(filename, meta)
+        meta[META_ENDING] = line_ending
+        meta[META_ASCII] = ascii_file as ubyte
+        meta[META_EOL] = buffer.eol
+        buffer.sync(meta)
+    }
+
+    ; :recover - replace the text with the one left after a crash or a
+    ; reset (the newest, if there are two)
+    sub recover_cmd(bool force) {
+        if buffer.modified and not force {
+            status("unsaved (!)")
+            return
+        }
+        if not buffer.recover(meta) {
+            status("nothing to recover")
+            return
+        }
+        new_text()
+        void strings.copy(meta, filename)
+        line_ending = meta[META_ENDING]
+        ascii_file = meta[META_ASCII] != 0
+        buffer.eol = meta[META_EOL]
+        cur_line = buffer.line_number(cursor())
+        view.refresh(true)
+        if buffer.recoverable != 0
+            status("recovered, :rec for more")
+        else
+            status("recovered")
     }
 
     ; reset the editor for new text in the buffer

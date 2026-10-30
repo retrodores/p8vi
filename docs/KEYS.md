@@ -203,6 +203,7 @@ can't be undone ("undo too big").  Loading a file empties it.
 | `:wq`, `:x`, `ZZ` | write (`:x` and `ZZ` only if changed) and quit | ✅ |
 | `ZQ` | quit discarding changes | ✅ |
 | `:e name`, `:e!` | edit another file (a new name starts empty), reload | ✅ |
+| `:recover`, `:rec`, `:rec!` | bring back the text left after a crash or a reset, the newest first (REU build with an REU, and the X16); `!` if the text now is changed and not saved | ✅ |
 | `:r name` | read a file in below the cursor line | ✅ |
 | `:r $`, `:r $:pattern` | read the disk directory in below the cursor line, one line per file (not on the VIC-20) | ✅ |
 | `:n`, `:$`, `:.` | go to line n, the last line, the cursor line (`:$` and `:.` not on the VIC-20) | ✅ |

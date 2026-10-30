@@ -36,8 +36,11 @@ aren't.
 ## Memory
 
 - **Text in extended memory** (the cx16's banked RAM, a C64 REU): files
-  up to 64 KB fit, with yank and undo as big (done).  Still to come:
-  recovery after a crash, see `docs/XMEM-DESIGN.md`.
+  up to 64 KB fit, with yank and undo as big, and `:recover` after a crash
+  (done, `docs/XMEM-DESIGN.md`).
+- **The X16's main RAM is nearly full** (505 bytes left, 384 of them for
+  the key buffers): the page store's code is big.  Parts in assembler, or
+  feature switches for the X16, before adding much more.
 - **More text on the VIC-20.**  With RAM in block 5 the text is at
   `$a000-$bfff` (8 KB).  The main RAM after the program was the idea for a
   second text area (a gap buffer split across two memory areas), but the

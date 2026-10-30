@@ -238,16 +238,11 @@ FILE_SUITES = [
 ]
 
 # a 6 KB file: more pages than the REU build's 4 cache slots, so pages go
-# to the REU and back (and still fits without an REU: 7 KB).  p1 round
-# trip, p2 line 150 deleted, p3 that undone
+# to the REU and back (REU only: without one that build has 4 KB of text).
+# p1 round trip, p2 line 150 deleted, p3 that undone
 PAGES_LINES = [b'PAGE LINE %03d ' % i + b'0123456789' * (i % 4) for i in range(200)]
 PAGES = b'\n'.join(PAGES_LINES) + b'\n'
-FILE_SUITES.append(
-    ('pages', r':w p1\n150Gdd:w p2\nu:w p3\n', [
-        ('p1', PAGES),
-        ('p2', b'\n'.join(PAGES_LINES[:149] + PAGES_LINES[150:]) + b'\n'),
-        ('p3', PAGES),
-    ], PAGES))
+
 
 # with an REU only (--reu): a 30 KB file, more than main RAM holds, read
 # in again after its first line (60 KB), and once more, which is cut short
@@ -259,6 +254,11 @@ HUGE2 = b'\n'.join(HUGE_LINES[:1] + HUGE_LINES + HUGE_LINES[1:]) + b'\n'
 FIRST = len(HUGE_LINES[0]) + 1
 HUGE3 = HUGE2[:FIRST] + HUGE[:65534 - len(HUGE2)] + HUGE2[FIRST:]
 REU_SUITES = [
+    ('pages', r':w p1\n150Gdd:w p2\nu:w p3\n', [
+        ('p1', PAGES),
+        ('p2', b'\n'.join(PAGES_LINES[:149] + PAGES_LINES[150:]) + b'\n'),
+        ('p3', PAGES),
+    ], PAGES),
     # undo and yank bigger than main RAM holds: b1 dG of all 30 KB undone,
     # b2 all of it yanked and put above the first line (60 KB)
     ('bigundo', r'dGu:w b1\n1GyG1GP:w b2\n', [
@@ -459,6 +459,8 @@ def main():
     ap.add_argument('--cycles', type=int, default=150_000_000,
                     help='cycles a screen run gets to finish its keys')
     ap.add_argument('--reu', type=int, metavar='KB', help='with an REU of this size')
+    ap.add_argument('--skip', action='append', default=[], metavar='SUITE',
+                    help='leave this suite out (for builds with little room)')
     args = ap.parse_args()
     if args.reu:
         EMU.extend(['-reu', '-reusize', str(args.reu)])
@@ -471,7 +473,7 @@ def main():
 
     if args.kind == 'files':
         suites = [s for s in FILE_SUITES + (REU_SUITES if args.reu else [])
-                  if not args.names or s[0] in args.names]
+                  if (not args.names or s[0] in args.names) and s[0] not in args.skip]
         work = lambda s: run_files(args, s)
     else:
         suites = list(enumerate(s for s in SCREEN_SUITES if not args.names or s[0] in args.names))

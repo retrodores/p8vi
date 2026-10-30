@@ -225,6 +225,25 @@ buffer {
     }
 
     ;
+    ; no recovery after a crash with the gap buffer (see pagestore.p8):
+    ; these are for the editor's code that PAGED leaves out
+    ;
+
+    const ubyte META_SIZE = 48
+    ubyte recoverable
+    uword synced_changes
+
+    sub sync(uword meta) {
+    }
+
+    sub clean() {
+    }
+
+    sub recover(uword meta) -> bool {
+        return false
+    }
+
+    ;
     ; the yank buffer, in main RAM at yank_buf
     ;
 

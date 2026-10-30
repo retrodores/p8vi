@@ -21,14 +21,15 @@
 %import pagemem_platform
 
 buffer {
-    ; bytes per page: set it before init() (the tests use small pages)
-    uword page_size = 1024
+    ; bytes per page: pagemem's, or set it before init() (the tests use
+    ; small pages)
+    uword page_size = pagemem.PAGE_SIZE
     ; a page store: read_room() gives one page at a time, so a file is read
     ; in pieces, and a delete over several pages is logged a page at a time
     const bool PAGED = true
     ; most pages the store can have (the text's, the streams' and free
     ; ones together); page ids are 0 to MAX_PAGES - 1
-    const ubyte MAX_PAGES = 255
+    const ubyte MAX_PAGES = pagemem.MAX_PAGES
     ; pages kept for the streams (the yank buffer and the undo log) when
     ; there are few pages (set it before init(); the tests change it)
     ubyte stream_min = 3
@@ -43,16 +44,19 @@ buffer {
     ; changed, or chunk() handed out the text to change)
     ubyte lines_eol
 
-    ; pages not in the text
-    ubyte nfree
-    ubyte[MAX_PAGES] free_id
+    ; the buffers below are in pagemem.scratch (on the X16 that is golden
+    ; RAM, which leaves main RAM for the program)
 
-    ; bytes going from one page to another pass through here
+    ; pages not in the text (MAX_PAGES bytes)
+    ubyte nfree
+    ^^ubyte free_id
+
+    ; bytes going from one page to another pass through bounce, and bytes
+    ; going from a stream into the text through put_buf (bounce is used
+    ; while inserting them)
     const ubyte BOUNCE_SIZE = 255
-    ubyte[BOUNCE_SIZE] bounce
-    ; and bytes going from a stream into the text through here (bounce is
-    ; used while inserting them)
-    ubyte[BOUNCE_SIZE] put_buf
+    ^^ubyte bounce
+    ^^ubyte put_buf
 
     ; all pages, and how many of them the text may have: the rest is kept
     ; for the streams.  page_size is 1 << page_shift.
@@ -67,7 +71,7 @@ buffer {
     const ubyte UNDO = 1
     const ubyte STREAM_PAGES = 64
     ubyte[2] s_count
-    ubyte[2 * STREAM_PAGES] s_page
+    ^^ubyte s_page          ; 2 * STREAM_PAGES bytes
     uword s_word
 
     ; text that fits in all pages (at most $fffe, positions are uwords)
@@ -90,23 +94,49 @@ buffer {
     sub init(pointer start, pointer top) {
         ubyte n = lsb(pagemem.init(start as uword, top as uword, page_size, MAX_PAGES))
         uword size = 1
+        ubyte i
         total_pages = n
         page_shift = 0
         while size != page_size {
             size <<= 1
             page_shift++
         }
+        ; the buffers
+        bounce = pagemem.scratch as ^^ubyte
+        put_buf = bounce + BOUNCE_SIZE
+        free_id = put_buf + BOUNCE_SIZE
+        hdr = free_id + MAX_PAGES
+        held = hdr + H_IDS
+        s_page = held + 32
+        ; texts to recover keep their pages
+        sys.memset(held, 32, 0)
+        recoverable = 0
+        session_slot = NO_SLOT
+        synced_changes = changes
+        if pagemem.persistent
+            find_texts(n)
         npages = 0
         nfree = 0
         s_count[YANK] = 0
         s_count[UNDO] = 0
-        while nfree != n {
+        i = n
+        while i != 0 {
             ; (the free pages are taken from the end: page 0 first)
-            free_id[nfree] = n - 1 - nfree
-            nfree++
+            i--
+            if held[i >> 3] & (1 << (i & 7)) == 0 {
+                free_id[nfree] = i
+                nfree++
+            }
         }
-        ; the text may have all pages but stream_min, and no more than
-        ; 64 KB of text takes (and a few, to split pages into)
+        set_text_max()
+        clear()
+    }
+
+    ; the pages the text may have: all free ones but stream_min, and no
+    ; more than 64 KB of text takes (and a few, to split pages into).  and
+    ; so the capacity.
+    private sub set_text_max() {
+        ubyte n = nfree + npages + s_count[YANK] + s_count[UNDO]
         text_max = n
         if n > stream_min
             text_max = n - stream_min
@@ -115,7 +145,6 @@ buffer {
         capacity = $fffe
         if text_max < $fffe / page_size
             capacity = text_max * page_size
-        clear()
     }
 
     ; empty the text: one empty page
@@ -946,6 +975,225 @@ buffer {
                 s_poke(UNDO, data, old)
             }
         }
+    }
+
+    ;
+    ; recovery after a crash or a reset (docs/XMEM-DESIGN.md): pagemem has
+    ; two header slots, each can describe a text: its page table, length,
+    ; cursor and the editor's data (meta).  a text found at startup waits
+    ; for recover(), and its pages are left alone.  the session writes its
+    ; own header with sync(), into a free slot, or the recovered text's, or
+    ; (if two texts wait) the older text's, which is dropped then.
+    ;
+
+    const ubyte META_SIZE = 48
+    const ubyte NO_SLOT = 255
+    const ubyte HEADER_VERSION = 1
+    ; a header: the fixed part (H_IDS bytes), then the page ids, the low
+    ; bytes of the page lengths, the high bytes, and a checksum
+    const ubyte H_STATE = 5         ; 1: in use, 0: clean
+    const ubyte H_SEQ = 6           ; the newer text has the higher one
+    const ubyte H_PAGE_SIZE = 8
+    const ubyte H_LENGTH = 10
+    const ubyte H_NPAGES = 12
+    const ubyte H_CURSOR = 13
+    const ubyte H_META = 16
+    const ubyte H_IDS = 64
+    ^^ubyte hdr                     ; H_IDS bytes
+
+    ubyte session_slot = NO_SLOT    ; the slot sync() writes, NO_SLOT: none
+    uword session_seq
+    uword synced_changes            ; changes at the last sync()
+    ubyte recoverable               ; texts waiting
+    bool[2] waiting                 ; per slot: a text waits there
+    ; (@nosplit: comparing two elements of a split array doesn't assemble,
+    ; see bugs/split_array_compare_elements.p8)
+    uword[2] @nosplit slot_seq
+    ubyte[2] slot_pages
+    ^^ubyte held                    ; (init) 32 bytes, a bit per page: a waiting text's
+    uword checksum
+
+    ; find the texts to recover and keep their pages (bits in held)
+    private sub find_texts(ubyte n) {
+        ubyte h
+        ubyte i
+        session_seq = 0
+        for h in 0 to 1 {
+            waiting[h] = read_header(h, n)
+            if waiting[h] {
+                recoverable++
+                if slot_seq[h] >= session_seq
+                    session_seq = slot_seq[h] + 1
+                pagemem.header_get(h, H_IDS, bounce, slot_pages[h])
+                for i in 0 to slot_pages[h] - 1
+                    held[bounce[i] >> 3] |= 1 << (bounce[i] & 7)
+            }
+        }
+    }
+
+    ; give the session a header slot if it has none: a free one, or the
+    ; older text's (which is dropped)
+    private sub take_slot() {
+        if session_slot != NO_SLOT
+            return
+        session_slot = 0
+        if waiting[0] {
+            session_slot = 1
+            if waiting[1] and slot_seq[0] < slot_seq[1]
+                session_slot = 0
+        }
+        drop_text(session_slot)
+    }
+
+    ; whether header slot h holds a text to recover, with pages below n
+    private sub read_header(ubyte h, ubyte n) -> bool {
+        ubyte np
+        ubyte i
+        uword piece
+        pagemem.header_get(h, 0, hdr, H_IDS)
+        if hdr[0] != 'p' or hdr[1] != '8' or hdr[2] != 'v' or hdr[3] != 'i' or hdr[4] != HEADER_VERSION
+            return false
+        np = hdr[H_NPAGES]
+        if hdr[H_STATE] != 1 or peekw(hdr + H_PAGE_SIZE) != page_size or np == 0
+            return false
+        checksum = 0
+        add_sum(hdr, H_IDS)
+        pagemem.header_get(h, H_IDS, bounce, np)
+        add_sum(bounce, np)
+        for i in 0 to np - 1 {
+            if bounce[i] >= n
+                return false
+        }
+        ; the lengths (the checksum is all they are checked with)
+        pagemem.header_get(h, H_IDS + np, bounce, np)
+        add_sum(bounce, np)
+        pagemem.header_get(h, H_IDS + 2 * np as uword, bounce, np)
+        add_sum(bounce, np)
+        pagemem.header_get(h, H_IDS + 3 * np as uword, &piece as uword, 2)
+        if piece != checksum
+            return false
+        slot_seq[h] = peekw(hdr + H_SEQ)
+        slot_pages[h] = np
+        return true
+    }
+
+    ; add count bytes at p to checksum
+    private sub add_sum(uword p, uword count) {
+        repeat count {
+            checksum = (checksum << 1) + (checksum >> 15) + @(p)
+            p++
+        }
+    }
+
+    ; header slot h no longer holds a text to recover (marked clean); a
+    ; text waiting there is dropped and its pages are free
+    private sub drop_text(ubyte h) {
+        ubyte clean = 0
+        ubyte i
+        if waiting[h] {
+            waiting[h] = false
+            recoverable--
+            pagemem.header_get(h, H_IDS, bounce, slot_pages[h])
+            for i in 0 to slot_pages[h] - 1 {
+                free_id[nfree] = bounce[i]
+                nfree++
+            }
+            set_text_max()
+        }
+        pagemem.header_put(h, H_STATE, &clean as uword, 1)
+    }
+
+    ; write the text's header (and first its pages, if they are copies),
+    ; with META_SIZE bytes of the editor's at meta, unless nothing changed
+    ; since the last time.  afterwards the text can be recovered as it is.
+    sub sync(uword meta) {
+        ubyte i
+        if not pagemem.persistent or changes == synced_changes
+            return
+        take_slot()
+        pagemem.sync()
+        hdr[0] = 'p'
+        hdr[1] = '8'
+        hdr[2] = 'v'
+        hdr[3] = 'i'
+        hdr[4] = HEADER_VERSION
+        hdr[H_STATE] = 1
+        pokew(hdr + H_SEQ, session_seq)
+        pokew(hdr + H_PAGE_SIZE, page_size)
+        pokew(hdr + H_LENGTH, bufend)
+        hdr[H_NPAGES] = npages
+        pokew(hdr + H_CURSOR, marks[0])
+        sys.memcopy(meta, hdr + H_META, META_SIZE)
+        ; the lengths: low bytes in put_buf, high bytes in bounce
+        for i in 0 to npages - 1 {
+            put_buf[i] = lsb(page_len[i])
+            bounce[i] = msb(page_len[i])
+        }
+        checksum = 0
+        add_sum(hdr, H_IDS)
+        add_sum(page_id, npages)
+        add_sum(put_buf, npages)
+        add_sum(bounce, npages)
+        pagemem.header_put(session_slot, 0, hdr, H_IDS)
+        pagemem.header_put(session_slot, H_IDS, page_id, npages)
+        pagemem.header_put(session_slot, H_IDS + npages, put_buf, npages)
+        pagemem.header_put(session_slot, H_IDS + 2 * npages as uword, bounce, npages)
+        pagemem.header_put(session_slot, H_IDS + 3 * npages as uword, &checksum as uword, 2)
+        synced_changes = changes
+    }
+
+    ; the text needn't be recovered (when the editor quits)
+    sub clean() {
+        if session_slot != NO_SLOT
+            drop_text(session_slot)
+    }
+
+    ; replace the text with the newest one waiting, and its META_SIZE bytes
+    ; of the editor's data to meta.  the cursor is where it was; the text
+    ; counts as changed.  returns false if no text waits.
+    sub recover(uword meta) -> bool {
+        ubyte h = NO_SLOT
+        ubyte np
+        ubyte i
+        if waiting[0]
+            h = 0
+        if waiting[1] and (h == NO_SLOT or slot_seq[1] > slot_seq[0])
+            h = 1
+        if h == NO_SLOT
+            return false
+        ; the session's header described the text that goes now; the
+        ; session takes the recovered text's slot
+        if session_slot != NO_SLOT
+            drop_text(session_slot)
+        session_slot = h
+        waiting[h] = false
+        recoverable--
+        ; the text's pages are free now
+        while npages != 0 {
+            npages--
+            free_id[nfree] = page_id[npages]
+            nfree++
+        }
+        pagemem.header_get(h, 0, hdr, H_IDS)
+        np = hdr[H_NPAGES]
+        pagemem.header_get(h, H_IDS, page_id, np)
+        pagemem.header_get(h, H_IDS + np, put_buf, np)
+        pagemem.header_get(h, H_IDS + 2 * np as uword, bounce, np)
+        for i in 0 to np - 1
+            page_len[i] = mkword(bounce[i], put_buf[i])
+        npages = np
+        bufend = peekw(hdr + H_LENGTH)
+        sys.memcopy(hdr + H_META, meta, META_SIZE)
+        ; (the line endings are counted again)
+        lines_eol = 0
+        forget_page()
+        set_text_max()
+        void loaded(bufend)
+        marks[0] = min(peekw(hdr + H_CURSOR), bufend)
+        modified = true
+        changes++
+        sync(meta)
+        return true
     }
 
     ;
