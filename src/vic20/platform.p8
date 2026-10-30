@@ -9,8 +9,9 @@ platform {
     ; memory for the text (the gap buffer), set by init()
     pointer textstart
     pointer texttop         ; 1 byte past the last usable byte
-    ; optional spare memory elsewhere, used for the yank buffer if it is big
-    ; enough (otherwise the yank buffer comes off the top of the text memory)
+    ; optional spare memory elsewhere, used for the yank buffer, undo log and
+    ; key buffers when they fit (otherwise they come off the top of the text
+    ; memory)
     pointer sparestart
     pointer sparetop
 

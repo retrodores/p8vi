@@ -9,14 +9,21 @@ platform {
     ; memory for the text (the gap buffer), set by init()
     pointer textstart
     pointer texttop         ; 1 byte past the last usable byte
-    ; optional spare memory elsewhere, used for the yank buffer if it is big
-    ; enough (otherwise the yank buffer comes off the top of the text memory)
+    ; optional spare memory elsewhere, used for the yank buffer, undo log and
+    ; key buffers when they fit (otherwise they come off the top of the text
+    ; memory)
     pointer sparestart
     pointer sparetop
 
     sub init() {
        textstart = sys.progend()
        texttop = $9f00
+       ; the yank buffer, undo log and key buffers go in RAM bank 1 at
+       ; $a000, which Prog8 selects at startup (and nothing here switches
+       ; away from).  They are only used through pointers, never handed to
+       ; the KERNAL, so banked RAM is fine for them.
+       sparestart = $a000
+       sparetop = $c000
        main.SCREEN_WIDTH    = txt.DEFAULT_WIDTH
        main.SCREEN_HEIGHT   = txt.DEFAULT_HEIGHT
        main.STATUS_HEIGHT   = 2
