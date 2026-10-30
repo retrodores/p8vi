@@ -29,10 +29,12 @@ main {
     const ubyte KEY_HOME        = $13
     const ubyte KEY_DEL         = $14
     const ubyte KEY_CONTROL_U   = $15
+    const ubyte KEY_CONTROL_W   = $17
     const ubyte KEY_RIGHT       = $1d
     const ubyte KEY_UP          = $91
     const ubyte KEY_LEFT        = $9d
     const ubyte KEY_TILDE       = $de   ; PETSCII has no ~, use pi (shift + up arrow)
+    const ubyte KEY_UNDERSCORE  = $a4   ; _ as typed on a C64 (commodore + @), '_' is $e4
 
     str filename = " " * 40     ; name of the file being edited, empty if none
     str cmdline = " " * 40      ; text typed after ':', '/' or '?'
@@ -309,12 +311,35 @@ main {
                     view.dirty = true
                 }
             }
+            KEY_CONTROL_W -> {
+                ; delete the word before the cursor, not past the line start
+                big_words = false
+                delete_back(max(word_back(cursor()), gapbuffer.line_start(cursor())))
+            }
+            KEY_CONTROL_U -> {
+                ; delete back to where this insert started, or the line start
+                uword start = gapbuffer.line_start(cursor())
+                if insert_start > start and insert_start < cursor()
+                    start = insert_start
+                delete_back(start)
+            }
             KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN -> insert_move()
             else -> {
                 if printable(key)
                     insert_key(key)
             }
         }
+        if insert_start > cursor()
+            insert_start = cursor()
+    }
+
+    ; delete from start up to the cursor (in the cursor line)
+    sub delete_back(uword start) {
+        if start >= cursor()
+            return
+        ; the cursor mark moves back to start by itself
+        void gapbuffer.delete_range(start, cursor())
+        view.dirty = true
     }
 
     ; cursor keys in insert and replace mode, the cursor may go to the line end
@@ -326,12 +351,17 @@ main {
         set_cursor(target)
         if key == KEY_LEFT or key == KEY_RIGHT
             goal_col = column()
+        ; typing goes on from here: a count no longer repeats it
+        insert_start = cursor()
+        insert_count = 1
     }
 
     ; like vi, leaving insert mode moves back onto the last character
     sub leave_insert() {
         mode = MODE_NAV
         status("")
+        if insert_count > 1
+            repeat_insert()
         if cursor() > gapbuffer.line_start(cursor())
             set_cursor(cursor() - 1)
         goal_col = column()
@@ -351,9 +381,44 @@ main {
         }
     }
 
+    uword insert_start      ; where the current insert started
+    uword insert_count      ; 3ifoo<Esc> inserts foo 3 times
+    bool insert_lines       ; o and O: each repeat goes on a new line
+
     sub start_insert() {
+        start_insert_n(1, false)
+    }
+
+    sub start_insert_n(uword count, bool lines) {
         mode = MODE_INSERT
         status("-- INSERT --")
+        insert_start = cursor()
+        insert_count = count
+        insert_lines = lines
+    }
+
+    ; insert the text typed since insert_start insert_count - 1 more times
+    ubyte[128] insert_text
+    sub repeat_insert() {
+        uword length = cursor() - insert_start
+        pointer text = &insert_text + 1
+        if cursor() <= insert_start or length > len(insert_text) - 1
+            return
+        void gapbuffer.copy_out(insert_start, length, text)
+        if insert_lines {
+            ; o and O put each copy on a line of its own
+            text--
+            text[0] = gapbuffer.eol
+            length++
+        }
+        repeat insert_count - 1 {
+            if not gapbuffer.insert_bytes(text, length, cursor()) {
+                status("buffer full")
+                break
+            }
+            set_cursor(cursor() + length)
+        }
+        view.dirty = true
     }
 
     ; R: typed characters replace the ones under the cursor
@@ -387,8 +452,9 @@ main {
 
     ubyte pending_op        ; 'd', 'c' or 'y' waiting for a motion, or 0
     uword op_count          ; count typed before the operator
-    ubyte pending_char      ; command waiting for a character: r f F t T Z, or 0
+    ubyte pending_char      ; command waiting for a character: r f F t T Z g, or 0
     uword char_count        ; count for the pending_char command
+    bool char_count_given
     bool count_given        ; a count was typed (G uses it as a line number)
 
     sub key_mode_nav () {
@@ -433,22 +499,22 @@ main {
         }
 
         when key {
-            'i' -> start_insert()
+            'i' -> start_insert_n(count, false)
             'a' -> {
                 if cursor() < gapbuffer.line_end(cursor())
                     set_cursor(cursor() + 1)
-                start_insert()
+                start_insert_n(count, false)
             }
             'I' -> {
                 set_cursor(first_nonblank(cursor()))
-                start_insert()
+                start_insert_n(count, false)
             }
             'A' -> {
                 set_cursor(gapbuffer.line_end(cursor()))
-                start_insert()
+                start_insert_n(count, false)
             }
-            'o' -> open_line(true)
-            'O' -> open_line(false)
+            'o' -> open_line(true, count)
+            'O' -> open_line(false, count)
             'x' -> {
                 target = min(cursor() + count, gapbuffer.line_end(cursor()))
                 apply_operator('d', cursor(), target, false)
@@ -464,21 +530,22 @@ main {
             's' -> apply_operator('c', cursor(), min(cursor() + count, gapbuffer.line_end(cursor())), false)
             'S' -> lines_operator('c', count)
             'Y' -> lines_operator('y', count)
-            'd', 'c', 'y' -> {
+            'd', 'c', 'y', '>', '<' -> {
                 pending_op = key
                 op_count = count
             }
             'p' -> put(true, count)
             'P' -> put(false, count)
-            'J' -> join_lines(max(count, 2) - 1)
+            'J' -> join_lines(max(count, 2) - 1, true)
             KEY_TILDE -> toggle_case(count)
             'R' -> {
                 mode = MODE_REPLACE
                 status("-- REPLACE --")
             }
-            'r', 'f', 'F', 't', 'T', 'Z' -> {
+            'r', 'f', 'F', 't', 'T', 'Z', 'g' -> {
                 pending_char = key
                 char_count = count
+                char_count_given = count_given
             }
             ':', '/', '?' -> start_cmdline(key)
             '.' -> {
@@ -522,7 +589,7 @@ main {
         view.dirty = true
     }
 
-    ; the character after r f F t T Z
+    ; the character after r f F t T Z g
     sub char_arg() {
         ubyte cmd = pending_char
         uword target
@@ -533,6 +600,7 @@ main {
         }
         when cmd {
             'r' -> replace_chars(key, char_count)
+            'g' -> g_command()
             'Z' -> {
                 if key == 'Z' {
                     ; ZZ is :x, write if modified and quit
@@ -562,7 +630,49 @@ main {
         }
     }
 
-    ; the key after d, c or y
+    ; gg ge gE gJ, as a motion or for a pending operator
+    sub g_command() {
+        uword target = cursor()
+        bool linewise = false
+        bool inclusive = false
+        when key {
+            'g' -> {
+                ; gg goes to the first line, ngg to line n
+                target = 0
+                if char_count_given {
+                    target = gapbuffer.line_offset(char_count - 1)
+                    if target == gapbuffer.NONE
+                        target = gapbuffer.line_start(gapbuffer.length())
+                }
+                target = first_nonblank(target)
+                linewise = true
+            }
+            'e', 'E' -> {
+                big_words = key == 'E'
+                repeat char_count
+                    target = word_end_back(target)
+                inclusive = true
+            }
+            'J' -> {
+                if pending_op == 0
+                    join_lines(max(char_count, 2) - 1, false)
+                return
+            }
+            else -> {
+                pending_op = 0
+                op_count = 0
+                return
+            }
+        }
+        if pending_op != 0 {
+            finish_operator(target, inclusive, linewise)
+        } else {
+            set_cursor(target)
+            goal_col = column()
+        }
+    }
+
+    ; the key after d, c, y, > or <
     sub operator_key(uword count) {
         ubyte op = pending_op
         uword target
@@ -573,10 +683,11 @@ main {
             lines_operator(op, count)
             return
         }
-        if key == 'f' or key == 'F' or key == 't' or key == 'T' {
-            ; the motion needs a character first
+        if key == 'f' or key == 'F' or key == 't' or key == 'T' or key == 'g' {
+            ; the motion needs another key first
             pending_char = key
             char_count = count
+            char_count_given = count_given
             return
         }
         ; cw is like ce
@@ -596,6 +707,8 @@ main {
     ; apply the pending operator from the cursor to target
     sub finish_operator(uword target, bool inclusive, bool linewise) {
         ubyte op = pending_op
+        if op == '>' or op == '<'
+            linewise = true
         uword start = cursor()
         uword end = target
         pending_op = 0
@@ -628,6 +741,10 @@ main {
         uword start = gapbuffer.line_start(first)
         uword end = gapbuffer.next_line(last)
         uword length = gapbuffer.length()
+        if op == '>' or op == '<' {
+            shift_lines(start, count_eols(start, last) + 1, op == '>')
+            return
+        }
         if op == 'c' {
             ; cc keeps an empty line to type on
             apply_operator('c', start, gapbuffer.line_end(last), true)
@@ -702,6 +819,7 @@ main {
     sub put(bool after, uword count) {
         uword c = cursor()
         uword position
+        bool added_eol = false
         if yank_len == 0
             return
         if yank_lines {
@@ -714,6 +832,7 @@ main {
                     if position != 0 and gapbuffer.get(position - 1) != gapbuffer.eol {
                         void gapbuffer.insert_char(gapbuffer.eol, position)
                         position++
+                        added_eol = true
                     }
                 }
             } else {
@@ -732,6 +851,9 @@ main {
                 break
             }
         }
+        ; the text didn't end with a line ending before, so it shouldn't now
+        if added_eol
+            void gapbuffer.delete_char(gapbuffer.length() - 1)
         view.dirty = true
         if yank_lines
             set_cursor(first_nonblank(position))
@@ -744,7 +866,7 @@ main {
     ;
 
     ; o and O
-    sub open_line(bool below) {
+    sub open_line(bool below, uword count) {
         uword position
         if below {
             position = gapbuffer.line_end(cursor())
@@ -758,11 +880,39 @@ main {
             void gapbuffer.insert_char(gapbuffer.eol, position)
         }
         view.dirty = true
-        start_insert()
+        start_insert_n(count, true)
+    }
+
+    ; > and <: shift count lines from the one starting at start by SHIFT_WIDTH
+    const ubyte SHIFT_WIDTH = 4
+    sub shift_lines(uword start, uword count, bool right) {
+        uword p = start
+        ubyte n
+        ; edits happen at and after the cursor, which keeps cur_line right
+        set_cursor(start)
+        repeat count {
+            if right {
+                ; empty lines stay empty
+                if p < gapbuffer.line_end(p)
+                    void gapbuffer.insert_bytes("        ", SHIFT_WIDTH, p)
+            } else {
+                n = 0
+                while n < SHIFT_WIDTH and gapbuffer.get(p) == ' ' {
+                    void gapbuffer.delete_char(p)
+                    n++
+                }
+            }
+            p = gapbuffer.next_line(p)
+            if p == gapbuffer.NONE
+                break
+        }
+        set_cursor(first_nonblank(start))
+        view.dirty = true
     }
 
     ; J: join count lines onto the cursor line, with one space between
-    sub join_lines(uword count) {
+    ; (gJ: as they are, without removing leading blanks or adding a space)
+    sub join_lines(uword count, bool spaces) {
         uword end
         repeat count {
             end = gapbuffer.line_end(cursor())
@@ -770,10 +920,12 @@ main {
                 break
             set_cursor(end)
             void gapbuffer.delete_char(end)
-            while gapbuffer.get(end) == ' '
-                void gapbuffer.delete_char(end)
-            if end > gapbuffer.line_start(end) and end < gapbuffer.line_end(end)
-                void gapbuffer.insert_char(' ', end)
+            if spaces {
+                while gapbuffer.get(end) == ' '
+                    void gapbuffer.delete_char(end)
+                if end > gapbuffer.line_start(end) and end < gapbuffer.line_end(end)
+                    void gapbuffer.insert_char(' ', end)
+            }
         }
         view.dirty = true
     }
@@ -1016,6 +1168,30 @@ main {
             }
             'n' -> c = search_next(search_forward)
             'N' -> c = search_next(not search_forward)
+            '*', '#' -> c = search_word(k == '*')
+            '_', KEY_UNDERSCORE -> {
+                motion_linewise = true
+                repeat count - 1 {
+                    p = gapbuffer.next_line(c)
+                    if p != gapbuffer.NONE
+                        c = p
+                }
+                c = first_nonblank(c)
+            }
+            '|' -> {
+                ; column count (the first column is 1)
+                p = gapbuffer.line_start(c)
+                limit = last_char(c)
+                if op_active
+                    limit = gapbuffer.line_end(c)
+                c = p + count - 1
+                if c > limit or c < p
+                    c = limit
+            }
+            '%' -> {
+                c = match_bracket(c)
+                motion_inclusive = true
+            }
             else -> return gapbuffer.NONE
         }
         return c
@@ -1093,6 +1269,76 @@ main {
         while p + 1 < length and char_class(gapbuffer.get(p + 1)) == class
             p++
         return p
+    }
+
+    ; ge: last character of the previous word
+    sub word_end_back(uword p) -> uword {
+        ubyte class = char_class(gapbuffer.get(p))
+        if p == 0
+            return 0
+        ; leave the word the cursor is on
+        if class != 0 {
+            while p > 0 and char_class(gapbuffer.get(p - 1)) == class
+                p--
+            if p == 0
+                return 0
+            p--
+        }
+        while p > 0 and char_class(gapbuffer.get(p)) == 0 {
+            if empty_line_at(p)
+                return p
+            p--
+        }
+        return p
+    }
+
+    ; %: the bracket matching the first ( ) [ ] at or after p in its line,
+    ; or NONE.  (PETSCII has no curly braces.)
+    sub match_bracket(uword p) -> uword {
+        uword end = gapbuffer.line_end(p)
+        uword depth = 1
+        ubyte open
+        ubyte close
+        while p < end {
+            open = gapbuffer.get(p)
+            if open == '(' or open == ')' or open == '[' or open == ']'
+                break
+            p++
+        }
+        if p >= end
+            return gapbuffer.NONE
+        when open {
+            '(' -> close = ')'
+            ')' -> close = '('
+            '[' -> close = ']'
+            else -> close = '['
+        }
+        if open == '(' or open == '[' {
+            repeat {
+                p++
+                if p >= gapbuffer.length()
+                    return gapbuffer.NONE
+                if gapbuffer.get(p) == open
+                    depth++
+                else if gapbuffer.get(p) == close {
+                    depth--
+                    if depth == 0
+                        return p
+                }
+            }
+        }
+        repeat {
+            if p == 0
+                return gapbuffer.NONE
+            p--
+            if gapbuffer.get(p) == open
+                depth++
+            else if gapbuffer.get(p) == close {
+                depth--
+                if depth == 0
+                    return p
+            }
+        }
     }
 
     ; b: start of this or the previous word
@@ -1185,10 +1431,36 @@ main {
         }
     }
 
+    ; * and #: search for the word under (or after) the cursor
+    sub search_word(bool forward) -> uword {
+        uword start = cursor()
+        uword end = gapbuffer.line_end(start)
+        big_words = false
+        while start < end and char_class(gapbuffer.get(start)) != 2
+            start++
+        if start >= end {
+            status("no word")
+            return gapbuffer.NONE
+        }
+        ; the whole word: back to its start and on to its end
+        while start > 0 and char_class(gapbuffer.get(start - 1)) == 2
+            start--
+        end = start
+        while char_class(gapbuffer.get(end)) == 2 and end - start < len(search_pat) - 1
+            end++
+        search_len = gapbuffer.copy_out(start, end - start, search_pat) as ubyte
+        search_pat[search_len] = 0
+        search_forward = forward
+        return search_from(start, forward)
+    }
+
     ; returns the next match after (or before) the cursor, wrapping
     ; around the end of the text, or NONE
     sub search_next(bool forward) -> uword {
-        uword c = cursor()
+        return search_from(cursor(), forward)
+    }
+
+    sub search_from(uword c, bool forward) -> uword {
         uword p
         if search_len == 0
             return gapbuffer.NONE
@@ -1462,6 +1734,10 @@ main {
         ubyte extra
         bool truncated = false
 
+        if not file_exists(name) {
+            status(disk_message)
+            return false
+        }
         if not diskio.f_open(name) {
             disk_error()
             return false
@@ -1521,9 +1797,11 @@ main {
         uword n1
         uword n2
         bool ok
-        ; CBM DOS can't open an existing file for writing
-        if diskio.exists(name)
-            diskio.delete(name)
+        ; CBM DOS can't open an existing file for writing, so delete it first.
+        ; (not with diskio.exists(): probing for a missing file with a read
+        ; channel hangs the 1541 after a number of tries; deleting a file
+        ; that isn't there is harmless)
+        diskio.delete(name)
         if not platform.open_write(name) {
             disk_error()
             return false
@@ -1531,6 +1809,8 @@ main {
         p1, n1, p2, n2 = gapbuffer.segments()
         ok = diskio.f_write(p1, n1) and diskio.f_write(p2, n2)
         diskio.f_close_w()
+        ; (status_code() only gets the first digit right, see
+        ; bugs/side_effect_calls_merged.p8; 0 still means 00 ok)
         if not ok or diskio.status_code() != 0 {
             disk_error()
             return false
@@ -1539,18 +1819,62 @@ main {
         return true
     }
 
-    ; drive status code from the last disk_error()
+    ; drive status code and message, from the last file_exists() or disk_error()
     ubyte disk_code
+    pointer disk_message
 
-    ; show the drive status message and remember its code.
-    ; reading the status clears it, so check disk_code afterwards, not
-    ; diskio.status_code().
-    sub disk_error() {
-        pointer msg = diskio.status()
+    ; true if the file can be opened for reading.  diskio.f_open() reads from
+    ; the file to find out, and doing that for a file that isn't there (the
+    ; drive never opens the channel) makes the 1541 stop responding after a
+    ; number of tries.  so open it and read the status from the command
+    ; channel instead.
+    sub file_exists(str name) -> bool {
+        cbm.SETNAM(strings.length(name), name)
+        cbm.SETLFS(11, diskio.drivenumber, 11)
+        void cbm.OPEN()
+        read_disk_status()
+        cbm.CLOSE(11)
+        return disk_code < 20
+    }
+
+    ; read the drive status message and its code.  reading the status clears
+    ; it, so check disk_code afterwards, not diskio.status_code().
+    ; (like diskio.status(), but that ignores a failing CHKIN and then reads
+    ; with CHRIN from the keyboard instead, eating typed keys)
+    str status_text = " " * 40
+    sub read_disk_status() {
+        ubyte n = 0
+        ubyte char
+        disk_message = status_text
+        status_text[0] = 0
+        cbm.SETNAM(0, status_text)
+        cbm.SETLFS(15, diskio.drivenumber, 15)
+        void cbm.OPEN()
+        if_cc {
+            if not cbm.CHKIN(15) {
+                while cbm.READST() == 0 and n < len(status_text) - 1 {
+                    char = cbm.CHRIN()
+                    if char == '\r' or char == '\n'
+                        break
+                    status_text[n] = char
+                    n++
+                }
+                status_text[n] = 0
+            }
+            cbm.CLRCHN()
+            cbm.CLOSE(15)
+        }
+        if status_text[0] == 0
+            void strings.copy("no drive status", status_text)
         disk_code = 255
-        if msg[0] >= '0' and msg[0] <= '9' and msg[1] >= '0' and msg[1] <= '9'
-            disk_code = (msg[0] - '0') * 10 + (msg[1] - '0')
-        status(msg)
+        if disk_message[0] >= '0' and disk_message[0] <= '9' and disk_message[1] >= '0' and disk_message[1] <= '9'
+            disk_code = (disk_message[0] - '0') * 10 + (disk_message[1] - '0')
+    }
+
+    ; read and show the drive status message
+    sub disk_error() {
+        read_disk_status()
+        status(disk_message)
     }
 }
 

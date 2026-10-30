@@ -20,6 +20,9 @@ Commodore keyboards are missing some keys vi uses, so:
 | `Esc` | `RUN/STOP` or `Ctrl` + `[` | the cx16 has a real `Esc` key |
 | `~` | `π` (`Shift` + `↑`) | PETSCII has no `~` |
 | `^` | `↑` | PETSCII puts `↑` where ASCII has `^` |
+| `_` | `C=` + `@` | |
+| `\|` | `Shift` + `-` | |
+| `{` `}` | — | not in PETSCII, so `%` matches `( )` and `[ ]` only |
 | `Backspace` | `DEL` | |
 | arrow keys | cursor keys | work in nav, insert and replace mode |
 
@@ -39,15 +42,15 @@ letters are saved as ASCII uppercase).
 | `w` `b` `e` | next word, previous word, end of word | ✅ |
 | `W` `B` `E` | the same for blank-separated WORDs | ✅ |
 | `G`, `nG` | last line, line n | ✅ |
-| `gg` | first line | ⬜ |
-| `ge` `gE` | end of previous word | ⬜ |
+| `gg`, `ngg` | first line, line n | ✅ |
+| `ge` `gE` | end of previous word / WORD | ✅ |
 | `H` `M` `L` | top, middle, bottom row of the screen | ✅ |
 | `+`, `Return`, `-` | first non-blank of next / previous line | ✅ |
-| `_` | first non-blank of the line (`n_` n-1 lines down) | ⬜ |
-| `\|`, `n\|` | column n | ⬜ |
+| `_` | first non-blank of the line (`n_` n-1 lines down) | ✅ |
+| `\|`, `n\|` | column n | ✅ |
 | `f` `F` `t` `T` + char | find char in the line forward / back, onto or before it | ✅ |
 | `;` `,` | repeat the last `f` `F` `t` `T` the same / opposite way | ✅ |
-| `%` | matching bracket | ⬜ |
+| `%` | matching `( )` or `[ ]` (the first one at or after the cursor) | ✅ |
 | `(` `)` | previous / next sentence | ⬜ |
 | `{` `}` | previous / next paragraph | ⬜ |
 
@@ -70,7 +73,7 @@ letters are saved as ASCII uppercase).
 | `o` `O` | open a new line below / above | ✅ |
 | `R` | replace mode: typing overwrites | ✅ |
 | `gi` `gI` | insert where insert mode was last left / at column 0 | ⬜ |
-| count + insert (`3ifoo<Esc>`) | repeat the inserted text | ⬜ |
+| count + insert (`3ifoo<Esc>`, `2o`) | repeat the inserted text (on new lines for `o` `O`) | ✅ |
 
 Keys in insert and replace mode:
 
@@ -80,8 +83,8 @@ Keys in insert and replace mode:
 | `Return` | new line | ✅ |
 | `DEL` | delete the character before the cursor (moves left in replace mode) | ✅ |
 | cursor keys | move without leaving insert mode | ✅ |
-| `Ctrl-W` | delete the word before the cursor | ⬜ |
-| `Ctrl-U` | delete back to the start of the insert | ⬜ |
+| `Ctrl-W` | delete the word before the cursor | ✅ |
+| `Ctrl-U` | delete back to where the insert started (or the line start) | ✅ |
 | `Ctrl-T` `Ctrl-D` | indent / unindent the line | ⬜ |
 | `Ctrl-V` + char | insert a control character literally | ⬜ |
 
@@ -100,8 +103,8 @@ Keys in insert and replace mode:
 | `r` + char | replace characters; `r` `Return` splits the line | ✅ |
 | `~` (`π`) | switch case and move right | ✅ |
 | `J` | join lines with one space | ✅ |
-| `gJ` | join lines without a space | ⬜ |
-| `>>` `<<`, `>`motion `<`motion | indent / unindent lines | ⬜ |
+| `gJ` | join lines as they are, without a space | ✅ |
+| `>>` `<<`, `>`motion `<`motion | indent / unindent lines by 4 spaces | ✅ |
 | `.`, `n.` | repeat the last change (a count replaces its count) | ✅ |
 | `u` | undo the last change (one level; `u` again redoes it, like vi) | ✅ |
 | `Ctrl-R` | redo the change `u` just undid | ✅ |
@@ -109,9 +112,10 @@ Keys in insert and replace mode:
 | `Ctrl-A` `Ctrl-X` | add to / subtract from the number under the cursor | ⬜ |
 | `g~` `gu` `gU` motion | switch / lower / upper case | ⬜ |
 
-Operators (`d`, `c`, `y`) work with every motion above that is marked ✅,
-including `f` `F` `t` `T` `;` `,` `n` `N`, and with counts before
-either part (`2d3w`).  `j` `k` `G` `H` `M` `L` `+` `-` work on whole lines.
+Operators (`d`, `c`, `y`, `>`, `<`) work with every motion above that is
+marked ✅, including `f` `F` `t` `T` `;` `,` `n` `N` `gg` `ge`, and with
+counts before either part (`2d3w`).  `j` `k` `G` `gg` `H` `M` `L` `+` `-`
+`_` work on whole lines, and `>` `<` always do.
 
 ## Copying and pasting
 
@@ -146,7 +150,7 @@ can't be undone ("too big to undo").  Loading a file empties it.
 | `/text` `?text` | search forward / back, wrapping around | ✅ |
 | `/` `?` + `Return` | repeat the last search forward / back | ✅ |
 | `n` `N` | next match in the same / opposite direction | ✅ |
-| `*` `#` | search for the word under the cursor | ⬜ |
+| `*` `#` | search forward / back for the word under the cursor (as plain text) | ✅ |
 | regular expressions | | ❌ (plain text only) |
 
 ## Marks
