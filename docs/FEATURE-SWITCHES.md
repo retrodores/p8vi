@@ -126,6 +126,18 @@ warning, which makes it look like the clean way to write a switch.)  A
 small reproducer is in `bugs/ifexpr_const_condition.p8`.  Use an `if`
 statement instead.
 
+### Sharing code with a feature
+
+A new feature often needs a few lines that are already somewhere else.
+Moving them into a helper subroutine that both places call looks
+cleaner, but the build with the feature off then pays for the helper's
+call and its variables, and gets nothing for it.  In p8vi, `:r $` needs
+`load_file()`'s "where does `:r` put the text" lines.  As a helper, they
+cost the VIC-20 18 bytes, and marking the helper `inline` didn't change
+that.  So `dir_cmd()` has its own copy, which a build without `DIR`
+leaves out.  Compare the size of a build with the feature off before and
+after (`tools/listsize.py old.list new.list`).
+
 ### Assembly routines
 
 Prog8 never removes an unused `asmsub` itself: it stays in the `.asm` file,

@@ -15,15 +15,6 @@ aren't.
   to date as text changes (`NUM_MARKS` = 4, the editor uses 2), so there
   is room for a few.
 
-## Disk
-
-- **Read the directory into the text:** `:r $`, since `$` is the
-  directory's file name on a CBM drive.  The drive sends the listing as a
-  BASIC program (block counts as line numbers), so it needs turning into
-  lines of text, or `diskio.lf_start_list()` / `lf_next_entry()` can
-  give just the file names.  `dir_cmd()` (`:@$`) already reads the
-  listing.  Off on the VIC-20.
-
 ## Known problems
 
 - **Keys typed ahead during a failed load are lost.**  For example after

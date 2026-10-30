@@ -1948,6 +1948,11 @@ main {
             status("no file name")
             return
         }
+        ; :r $ reads the directory
+        if features.DIR and name[0] == '$' {
+            dir_cmd(name, true)
+            return
+        }
         void load_file(name, true)
     }
 
@@ -2191,7 +2196,7 @@ main {
     ; its reply; :@ alone shows the drive status.  :@$ shows the directory.
     sub dos_cmd(str command) {
         if features.DIR and command[0] == '$' {
-            dir_cmd(command)
+            dir_cmd(command, false)
             return
         }
         ; opening the command channel with a name runs it as a command
@@ -2205,12 +2210,27 @@ main {
     ; :@$ - show the disk directory a screen at a time, :@$:*.txt only the
     ; files that match.  A key shows the next screen, Escape or RUN/STOP
     ; stops, and at the end a key goes back to the text.
-    sub dir_cmd(str name) {
+    ; :r $ - with insert, read it into the text below the cursor line.
+    str dir_line = " " * 40
+    sub dir_cmd(str name, bool insert) {
         ubyte rows = 0
+        ubyte n
         ubyte low
         ubyte char
         bool more = true
-        txt.cls()
+        uword start = 0
+        uword position = 0
+        if insert {
+            ; below the cursor line, as load_file() does
+            start = gapbuffer.next_line(cursor())
+            if start == gapbuffer.NONE {
+                start = gapbuffer.length()
+                if add_eol_before(start)
+                    start++
+            }
+            position = start
+        } else
+            txt.cls()
         cbm.SETNAM(strings.length(name), name)
         cbm.SETLFS(12, diskio.drivenumber, 0)
         void cbm.OPEN()
@@ -2224,25 +2244,51 @@ main {
                     ; each line: its number (the size in blocks), the text
                     ; up to a 0, then the link of the next line
                     low = cbm.CHRIN()
-                    txt.print_uw(mkword(cbm.CHRIN(), low))
-                    txt.spc()
+                    n = strings.copy(conv.str_uw(mkword(cbm.CHRIN(), low)), dir_line)
+                    dir_line[n] = ' '
+                    n++
                     repeat {
                         char = cbm.CHRIN()
                         if char == 0
                             break
-                        txt.chrout(char)
+                        ; (the text gets no control codes, like the reverse
+                        ; video of the disk name)
+                        if n < len(dir_line) - 1 and (not insert or char >= ' ') {
+                            dir_line[n] = char
+                            n++
+                        }
                     }
-                    txt.nl()
+                    ; (the drive pads the lines with spaces)
+                    while dir_line[n - 1] == ' '
+                        n--
+                    dir_line[n] = 0
                     void cbm.CHRIN()
                     void cbm.CHRIN()
-                    rows++
-                    if rows == SCREEN_HEIGHT - 1 {
-                        ; (keys are read from the keyboard, not the drive)
-                        cbm.CLRCHN()
-                        more = wait_key("more")
-                        txt.cls()
-                        rows = 0
-                        void cbm.CHKIN(12)
+                    if insert {
+                        if gapbuffer.free() <= n {
+                            more = false
+                            status("buffer full")
+                        } else {
+                            ; lines go in with a line end between them
+                            if position != start {
+                                void gapbuffer.insert_char(gapbuffer.eol, position)
+                                position++
+                            }
+                            void gapbuffer.insert(dir_line, position)
+                            position += n
+                        }
+                    } else {
+                        txt.print(dir_line)
+                        txt.nl()
+                        rows++
+                        if rows == SCREEN_HEIGHT - 1 {
+                            ; (keys are read from the keyboard, not the drive)
+                            cbm.CLRCHN()
+                            more = wait_key("more")
+                            txt.cls()
+                            rows = 0
+                            void cbm.CHKIN(12)
+                        }
                     }
                 }
             }
@@ -2251,6 +2297,16 @@ main {
         }
         ; an error (no disk, ...) is shown in place of "end"
         read_disk_status()
+        if insert {
+            ; like a file: the last line must not join the line after it
+            if position < gapbuffer.length()
+                void add_eol_before(position)
+            set_cursor(start)
+            goal_col = 0
+            if disk_code >= 20
+                status(status_text)
+            return
+        }
         if disk_code < 20
             void strings.copy("end", status_text)
         if more

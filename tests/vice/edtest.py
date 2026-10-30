@@ -192,6 +192,12 @@ FILE_SUITES = [
         ('s9', b'1TWOY\n22ZTWO\nTHREEZ\n44'),
         ('s10', b'1TWOY\nNNZTWO\nTHREEZ\n44'),
     ], b'ONE TWO ONE\nTWO ONE TWO\nTHREE ONE\nFOUR'),
+    # :r $ reads the directory below the cursor line, without the drive's
+    # padding and control codes (d1); u takes it all back (d2)
+    ('read-dir', r'1G:r $\n:w d1\nu:w d2\n', [
+        ('d1', lambda args: dir_text(args, SHORT, 1)),
+        ('d2', SHORT),
+    ]),
     # :@ drive commands: victim is written and scratched, keep is renamed
     # to moved; :@$ shows the directory and a key goes back to the text
     # (d1 still has it)
@@ -235,6 +241,18 @@ EMU = ['x64sc', '-default', '-sounddev', 'dummy', '-warp', '+autostart-warp',
        '-drive8type', '1541']
 
 
+def dir_text(args, text, after):
+    """text with the test disk's directory (the program and t.txt) read in
+    after line number after, as :r $ does"""
+    blocks = -(-os.path.getsize(args.prg) // 254)
+    lines = [b'0 "TEST            " 52 2A',
+             b'%d%s"P8VI"             PRG' % (blocks, b' ' * (5 - len(str(blocks)))),
+             b'1    "T.TXT"            SEQ',
+             b'%d BLOCKS FREE.' % (664 - blocks - 1)]
+    old = text.split(b'\n')
+    return b'\n'.join(old[:after] + lines + old[after:])
+
+
 def make_disk(d64, prg, text):
     txt = d64 + '.txt'
     with open(txt, 'wb') as f:
@@ -268,6 +286,8 @@ def run_files(args, suite):
         subprocess.run(['c1541', '-attach', d64, '-read', fname + ',s', out],
                        capture_output=True)
         got = open(out, 'rb').read() if os.path.exists(out) else None
+        if callable(want):
+            want = want(args)
         if got != want:
             ok = False
             lines.append(f'  {fname}: FAIL\n    want {want!r}\n    got  {got!r}')

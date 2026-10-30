@@ -204,6 +204,7 @@ can't be undone ("undo too big").  Loading a file empties it.
 | `ZQ` | quit discarding changes | ✅ |
 | `:e name`, `:e!` | edit another file (a new name starts empty), reload | ✅ |
 | `:r name` | read a file in below the cursor line | ✅ |
+| `:r $`, `:r $:pattern` | read the disk directory in below the cursor line, one line per file (not on the VIC-20) | ✅ |
 | `:n`, `:$`, `:.` | go to line n, the last line, the cursor line (`:$` and `:.` not on the VIC-20) | ✅ |
 | `Ctrl-G` | show line count and free memory | ✅ |
 | `:@cmd` | send a command to the drive, like `@` in the DOS wedge: `:@s:name` deletes a file, `:@r:new=old` renames one (not on the VIC-20) | ✅ |
