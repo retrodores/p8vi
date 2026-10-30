@@ -12,4 +12,6 @@ features {
     const bool ASCII = true     ; ASCII files translated to PETSCII and back, :set ascii
     const bool CRLF = true      ; CR LF line endings, :set crlf
     const bool SUBST = true     ; :s/old/new/ and line ranges (:%, :1,5, :$)
+    const bool DOS = true       ; :@ sends a command to the drive (:@s:name deletes a file)
+    const bool DIR = true       ; :@$ shows the disk directory
 }

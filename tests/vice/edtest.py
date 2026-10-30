@@ -192,6 +192,15 @@ FILE_SUITES = [
         ('s9', b'1TWOY\n22ZTWO\nTHREEZ\n44'),
         ('s10', b'1TWOY\nNNZTWO\nTHREEZ\n44'),
     ], b'ONE TWO ONE\nTWO ONE TWO\nTHREE ONE\nFOUR'),
+    # :@ drive commands: victim is written and scratched, keep is renamed
+    # to moved; :@$ shows the directory and a key goes back to the text
+    # (d1 still has it)
+    ('dos', r':w victim\n:@s:victim\n:w keep\n:@r:moved=keep\n:@$\n :w d1\n', [
+        ('victim', None),
+        ('keep', None),
+        ('moved', SHORT),
+        ('d1', SHORT),
+    ]),
     # f F t T ; as motions and with d.  f1: T at the start of the text
     # finds nothing (and must not search from the end); f5: T again right
     # after the character skips it

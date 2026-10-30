@@ -1625,6 +1625,12 @@ main {
             }
         }
 
+        ; :@ sends a command to the drive, :@$ shows the directory
+        if features.DOS and cmdline[i] == '@' {
+            dos_cmd(&cmdline + i + 1)
+            return
+        }
+
         ; :n goes to line n
         if cmdline[i] >= '0' and cmdline[i] <= '9' {
             goto_line(max(conv.str2uword(&cmdline + i), 1))
@@ -2179,6 +2185,89 @@ main {
     sub disk_error() {
         read_disk_status()
         status(status_text)
+    }
+
+    ; :@cmd - send a command to the drive (like @ in the DOS wedge) and show
+    ; its reply; :@ alone shows the drive status.  :@$ shows the directory.
+    sub dos_cmd(str command) {
+        if features.DIR and command[0] == '$' {
+            dir_cmd(command)
+            return
+        }
+        ; opening the command channel with a name runs it as a command
+        cbm.SETNAM(strings.length(command), command)
+        cbm.SETLFS(15, diskio.drivenumber, 15)
+        void cbm.OPEN()
+        cbm.CLOSE(15)
+        disk_error()
+    }
+
+    ; :@$ - show the disk directory a screen at a time, :@$:*.txt only the
+    ; files that match.  A key shows the next screen, Escape or RUN/STOP
+    ; stops, and at the end a key goes back to the text.
+    sub dir_cmd(str name) {
+        ubyte rows = 0
+        ubyte low
+        ubyte char
+        bool more = true
+        txt.cls()
+        cbm.SETNAM(strings.length(name), name)
+        cbm.SETLFS(12, diskio.drivenumber, 0)
+        void cbm.OPEN()
+        if_cc {
+            if not cbm.CHKIN(12) {
+                ; the drive sends the directory as a BASIC program: skip
+                ; its load address and the link of the first line
+                repeat 4
+                    void cbm.CHRIN()
+                while more and cbm.READST() == 0 {
+                    ; each line: its number (the size in blocks), the text
+                    ; up to a 0, then the link of the next line
+                    low = cbm.CHRIN()
+                    txt.print_uw(mkword(cbm.CHRIN(), low))
+                    txt.spc()
+                    repeat {
+                        char = cbm.CHRIN()
+                        if char == 0
+                            break
+                        txt.chrout(char)
+                    }
+                    txt.nl()
+                    void cbm.CHRIN()
+                    void cbm.CHRIN()
+                    rows++
+                    if rows == SCREEN_HEIGHT - 1 {
+                        ; (keys are read from the keyboard, not the drive)
+                        cbm.CLRCHN()
+                        more = wait_key("more")
+                        txt.cls()
+                        rows = 0
+                        void cbm.CHKIN(12)
+                    }
+                }
+            }
+            cbm.CLRCHN()
+            cbm.CLOSE(12)
+        }
+        ; an error (no disk, ...) is shown in place of "end"
+        read_disk_status()
+        if disk_code < 20
+            void strings.copy("end", status_text)
+        if more
+            void wait_key(status_text)
+        txt.cls()
+        view.refresh(true)
+    }
+
+    ; show msg on the status line and wait for a key.
+    ; returns false for Escape or RUN/STOP.
+    sub wait_key(str msg) -> bool {
+        ubyte k
+        status(msg)
+        do {
+            k = cbm.GETIN2()
+        } until k != 0
+        return k != KEY_ESCAPE and k != KEY_STOP
     }
 }
 

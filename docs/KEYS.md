@@ -206,6 +206,9 @@ can't be undone ("undo too big").  Loading a file empties it.
 | `:r name` | read a file in below the cursor line | ✅ |
 | `:n`, `:$`, `:.` | go to line n, the last line, the cursor line (`:$` and `:.` not on the VIC-20) | ✅ |
 | `Ctrl-G` | show line count and free memory | ✅ |
+| `:@cmd` | send a command to the drive, like `@` in the DOS wedge: `:@s:name` deletes a file, `:@r:new=old` renames one (not on the VIC-20) | ✅ |
+| `:@` | show the drive status (not on the VIC-20) | ✅ |
+| `:@$`, `:@$:pattern` | show the disk directory, or the files that match (`:@$:*.txt`); a key shows the next screen, Escape stops (not on the VIC-20) | ✅ |
 | `:s/old/new/`, `:s/old/new/g` | replace old with new in the cursor line: the first one, or all with `g` (not on the VIC-20) | ✅ |
 | `:%s/…`, `:5,10s/…`, `:.,$s/…` | `:s` on a range of lines: `%` all lines, `a,b` with line numbers, `.` (cursor line), `$` (last line) | ✅ |
 | line ranges for other commands (`:1,5d`, `:1,5w`) | | ⬜ |

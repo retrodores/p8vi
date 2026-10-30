@@ -17,25 +17,12 @@ aren't.
 
 ## Disk
 
-- **`:@$` shows the disk directory** of the current drive
-  (`diskio.drivenumber`), for when you don't remember a file's exact name,
-  like the `@$` of the C64 DOS wedge and JiffyDOS.  Only shown on the
-  screen, not read into the text; any key goes back to the text.
-  `diskio.directory()` prints it on all CBM targets.  Off on the VIC-20
-  (a feature switch).
-- **`:@` sends a CBM DOS command** to the current drive, as the DOS wedge
-  and fast loaders do with `@`: `:@s:file.txt` scratches (deletes)
-  `file.txt`, `:@r:new=old` renames, `:@i` initializes the disk.  The
-  drive's reply shows on the status line.  `:@` alone shows the drive
-  status, like `@` in the wedge.  `:@$` above is then the one `@` command
-  that the editor handles itself.  The editor already reads the drive status
-  on channel 15 (`read_disk_status`), so sending a command there is little
-  extra code; it might fit on the VIC-20.
 - **Read the directory into the text:** `:r $`, since `$` is the
   directory's file name on a CBM drive.  The drive sends the listing as a
   BASIC program (block counts as line numbers), so it needs turning into
   lines of text, or `diskio.lf_start_list()` / `lf_next_entry()` can
-  give just the file names.  Off on the VIC-20.
+  give just the file names.  `dir_cmd()` (`:@$`) already reads the
+  listing.  Off on the VIC-20.
 
 ## Known problems
 
