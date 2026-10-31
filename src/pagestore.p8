@@ -973,9 +973,9 @@ buffer {
                 recoverable++
                 if slot_seq[h] >= session_seq
                     session_seq = slot_seq[h] + 1
-                pagemem.header_get(h, H_IDS, bounce, slot_pages[h])
+                ; (read_header left its page ids in page_id)
                 for i in 0 to slot_pages[h] - 1
-                    held[bounce[i] >> 3] |= 1 << (bounce[i] & 7)
+                    held[page_id[i] >> 3] |= 1 << (page_id[i] & 7)
             }
         }
     }
@@ -1005,25 +1005,41 @@ buffer {
         np = hdr[H_NPAGES]
         if hdr[H_STATE] != 1 or peekw(hdr + H_PAGE_SIZE) != page_size or np == 0
             return false
+        ; the page table (into page_id: at init the text has no pages yet;
+        ; the lengths are checked with the checksum only)
         checksum = 0
         add_sum(hdr, H_IDS)
-        pagemem.header_get(h, H_IDS, bounce, np)
-        add_sum(bounce, np)
+        header_table(h, np, false)
         for i in 0 to np - 1 {
-            if bounce[i] >= n
+            if page_id[i] >= n
                 return false
         }
-        ; the lengths (the checksum is all they are checked with)
-        pagemem.header_get(h, H_IDS + np, bounce, np)
-        add_sum(bounce, np)
-        pagemem.header_get(h, H_IDS + 2 * np as uword, bounce, np)
-        add_sum(bounce, np)
         pagemem.header_get(h, H_IDS + 3 * np as uword, &piece as uword, 2)
         if piece != checksum
             return false
         slot_seq[h] = peekw(hdr + H_SEQ)
         slot_pages[h] = np
         return true
+    }
+
+    ; the page table, np pages, to header slot h (write) or from it: the
+    ; page ids (page_id), the low bytes of the lengths (put_buf) and the
+    ; high bytes (bounce), each added to checksum
+    private sub header_table(ubyte h, ubyte np, bool write) {
+        uword offset = H_IDS
+        uword p = &page_id as uword
+        repeat 3 {
+            if write
+                pagemem.header_put(h, offset, p, np)
+            else
+                pagemem.header_get(h, offset, p, np)
+            add_sum(p, np)
+            offset += np
+            if p == (&page_id as uword)
+                p = put_buf as uword
+            else
+                p = bounce as uword
+        }
     }
 
     ; add count bytes at p to checksum
@@ -1080,13 +1096,8 @@ buffer {
         }
         checksum = 0
         add_sum(hdr, H_IDS)
-        add_sum(page_id, npages)
-        add_sum(put_buf, npages)
-        add_sum(bounce, npages)
         pagemem.header_put(session_slot, 0, hdr, H_IDS)
-        pagemem.header_put(session_slot, H_IDS, page_id, npages)
-        pagemem.header_put(session_slot, H_IDS + npages, put_buf, npages)
-        pagemem.header_put(session_slot, H_IDS + 2 * npages as uword, bounce, npages)
+        header_table(session_slot, npages, true)
         pagemem.header_put(session_slot, H_IDS + 3 * npages as uword, &checksum as uword, 2)
         synced_changes = changes
     }
@@ -1125,9 +1136,7 @@ buffer {
         }
         pagemem.header_get(h, 0, hdr, H_IDS)
         np = hdr[H_NPAGES]
-        pagemem.header_get(h, H_IDS, page_id, np)
-        pagemem.header_get(h, H_IDS + np, put_buf, np)
-        pagemem.header_get(h, H_IDS + 2 * np as uword, bounce, np)
+        header_table(h, np, false)
         for i in 0 to np - 1
             page_len[i] = mkword(bounce[i], put_buf[i])
         npages = np

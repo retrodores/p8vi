@@ -2494,6 +2494,12 @@ view {
         uword cursor = main.cursor()
         uword top
         uword prev
+        ubyte k
+        ; the screen is as drawn and the text didn't change: a cursor just
+        ; off the screen moves it a few rows (the screen scrolls, the rows
+        ; that come in are drawn)
+        ; (features.SCROLL: without it the screen is drawn again)
+        bool same = features.SCROLL and not force and buffer.change_start == NONE and drawn_top == buffer.get_mark(main.MARK_TOP)
         ; cursor above the screen: its row becomes the top row
         if cursor < buffer.get_mark(main.MARK_TOP)
             buffer.set_mark(main.MARK_TOP, row_of(cursor))
@@ -2504,26 +2510,73 @@ view {
         else if buffer.change_start != NONE
             layout_changed()
         if not locate() {
-            ; cursor below the screen: its row becomes the bottom row
             top = row_of(cursor)
-            repeat main.MAX_ROW - main.MIN_ROW {
-                prev = prev_row(top)
-                if prev == NONE
-                    break
-                top = prev
+            ; a few rows below the screen: the screen moves that many
+            ; (MAX_SCROLL at most)
+            prev = top
+            if features.SCROLL and same {
+                for k in 1 to MAX_SCROLL {
+                    prev = prev_row(prev)
+                    if prev == row_start[main.MAX_ROW] {
+                        top = row_start[main.MIN_ROW + k]
+                        break
+                    }
+                }
+            }
+            if prev != row_start[main.MAX_ROW] {
+                ; cursor below the screen: its row becomes the bottom row
+                repeat main.MAX_ROW - main.MIN_ROW {
+                    prev = prev_row(top)
+                    if prev == NONE
+                        break
+                    top = prev
+                }
             }
             buffer.set_mark(main.MARK_TOP, top)
             layout()
             void locate()
         }
-        if force or buffer.get_mark(main.MARK_TOP) != drawn_top {
-            draw_all()
-            if features.SPLASH and splash
-                draw_splash()
+        top = buffer.get_mark(main.MARK_TOP)
+        if force or top != drawn_top {
+            if features.SCROLL and same and scrolled(top)
+                drawn()
+            else {
+                draw_all()
+                if features.SPLASH and splash
+                    draw_splash()
+            }
         } else if buffer.change_start != NONE
             draw_changed()
         if main.mode != main.MODE_CMD
             main.status_position()
+    }
+
+    ; most rows the screen scrolls (further, it is drawn again)
+    const ubyte MAX_SCROLL = 4
+
+    ; the screen moved 1 to MAX_SCROLL rows from what is drawn (the text is
+    ; the same): scroll it and draw the rows that came in.  returns false
+    ; if it moved further.
+    sub scrolled(uword top) -> bool {
+        ubyte k
+        ubyte r
+        for k in 1 to MAX_SCROLL {
+            if row_start[main.MIN_ROW + k] == drawn_top {
+                ; down: rows came in at the top
+                platform.scroll_rows(main.MIN_ROW, main.MAX_ROW, k, false)
+                for r in main.MIN_ROW to main.MIN_ROW + k - 1
+                    draw_row(r)
+                return true
+            }
+            if top == drawn_start[main.MIN_ROW + k] {
+                ; up: rows came in at the bottom
+                platform.scroll_rows(main.MIN_ROW, main.MAX_ROW, k, true)
+                for r in main.MAX_ROW - k + 1 to main.MAX_ROW
+                    draw_row(r)
+                return true
+            }
+        }
+        return false
     }
 
     ; returns the start of the screen row (part of a wrapped line) containing position
@@ -2699,30 +2752,15 @@ view {
         buffer.change_reset()
     }
 
-    ; draw one text row straight into screen memory (much faster than chrout)
+    ; draw one text row straight into screen memory
     sub draw_row(ubyte r) {
-        ubyte col = 0
-        ubyte i = 0
         if row_start[r] == NONE {
             ; rows past the end of the text show a - (vi uses ~, not in petscii)
-            txt.setchr(0, r, txt.petscii2scr('-'))
-            col = 1
-        } else {
-            while col < main.MIN_COL {
-                txt.setchr(col, r, SCREEN_SPACE)
-                col++
-            }
-            void buffer.copy_out(row_start[r], row_len[r], linebuf)
-            while i < row_len[r] {
-                txt.setchr(col, r, txt.petscii2scr(printable(linebuf[i])))
-                col++
-                i++
-            }
+            platform.put_row(r, 0, "-", 1)
+            return
         }
-        while col < main.SCREEN_WIDTH {
-            txt.setchr(col, r, SCREEN_SPACE)
-            col++
-        }
+        void buffer.copy_out(row_start[r], row_len[r], linebuf)
+        platform.put_row(r, main.MIN_COL, linebuf, row_len[r])
     }
 
     const ubyte SCREEN_SPACE = $20      ; screen code of a space

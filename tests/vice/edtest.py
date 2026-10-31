@@ -33,6 +33,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SHORT = b'ALPHA BETA GAMMA\n  SECOND LINE HERE\nTHIRD, WITH PUNCT!\n\nFIFTH LINE'
 LONG = b'\n'.join(b'LINE %02d ' % i + b'ABCDEFGHIJ' * (i % 4) for i in range(1, 61))
 
+# lines from empty to 2.5 rows long: rows that wrap
+WRAPPED = b'\n'.join(b'W%02d ' % i + (b'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' * 3)[:(i % 4) * 32] for i in range(40))
+
 # a mixed case ASCII file, read and written with ASCII <-> PETSCII translation
 ASCII = b'Hello World\nsnake_case | a~b\nLAST line'
 
@@ -313,6 +316,13 @@ SCREEN_SUITES = [
     ('long-page', LONG, r'\x06x'),
     ('long-join', LONG, r'40GJ'),
     ('long-dG', LONG, r'G3kdG'),
+    # one-row scrolls (features.SCROLL): down and up, also over lines that
+    # wrap over several rows
+    ('scroll-down', LONG, 'j' * 30),
+    ('scroll-up', LONG, 'G' + 'k' * 30),
+    ('scroll-mixed', LONG, 'j' * 25 + 'k' * 5 + 'j' * 4),
+    ('scroll-wrap-down', WRAPPED, 'j' * 25),
+    ('scroll-wrap-up', WRAPPED, 'G' + 'k' * 25),
 ]
 
 EMU = ['x64sc', '-default', '-sounddev', 'dummy', '-warp', '+autostart-warp',

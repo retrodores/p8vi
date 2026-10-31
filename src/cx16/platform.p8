@@ -40,6 +40,155 @@ platform {
     sub open_write(str name) -> bool {
         return diskio.f_open_w(name)
     }
+    ; put n characters of PETSCII text at text on screen row r, from column
+    ; col: as screen codes, control characters as '.'.  the columns before
+    ; col and after the text become spaces.  (into VERA's text map with an
+    ; increment of 2: the characters, not their colors)
+    asmsub put_row(ubyte r @Y, ubyte col @X, uword text @R0, ubyte n @A) clobbers(A, X, Y) {
+        %asm {{
+            sta  P8ZP_SCRATCH_B1        ; n
+            stx  _col
+            stz  cx16.VERA_CTRL
+            lda  #(txt.VERA_TEXTMATRIX >> 16) | $20
+            sta  cx16.VERA_ADDR_H
+            stz  cx16.VERA_ADDR_L
+            tya
+            clc
+            adc  #>txt.VERA_TEXTMATRIX
+            sta  cx16.VERA_ADDR_M
+            ; spaces up to col
+            lda  #$20
+            cpx  #0
+            beq  +
+-           sta  cx16.VERA_DATA0
+            dex
+            bne  -
++           lda  cx16.r0
+            sta  P8ZP_SCRATCH_W1
+            lda  cx16.r0+1
+            sta  P8ZP_SCRATCH_W1+1
+            ldy  #0
+            cpy  P8ZP_SCRATCH_B1
+            beq  _spaces
+_char
+            ; PETSCII to a screen code (like txt.petscii2scr), control
+            ; characters ($00-$1f, $80-$9f) as '.'
+            lda  (P8ZP_SCRATCH_W1),y
+            sta  P8ZP_SCRATCH_REG
+            lsr  a
+            lsr  a
+            lsr  a
+            lsr  a
+            lsr  a
+            tax
+            lda  _offsets,x
+            cmp  #1
+            bne  +
+            lda  #$2e
+            bra  _put
++           eor  P8ZP_SCRATCH_REG
+_put
+            sta  cx16.VERA_DATA0
+            iny
+            cpy  P8ZP_SCRATCH_B1
+            bne  _char
+_spaces
+            ; spaces up to the end of the row (width - col - n)
+            lda  p8b_main.p8v_SCREEN_WIDTH
+            sec
+            sbc  _col
+            sec
+            sbc  P8ZP_SCRATCH_B1
+            beq  +
+            bcc  +
+            tax
+            lda  #$20
+-           sta  cx16.VERA_DATA0
+            dex
+            bne  -
++           rts
+
+_offsets    .byte  1, 0, 64, 32, 1, 192, 128, 128   ; 1: a control character
+_col        .byte  0
+            ; !notreached!
+        }}
+    }
+
+
+    ; move screen rows first to last count rows up (up: row first+count to
+    ; first ... last to last-count) or down (first to first+count ...
+    ; last-count to last); the rows moved into aren't changed.  (VERA's
+    ; data port 0 reads a row, port 1 writes it: the characters, not their
+    ; colors)
+    asmsub scroll_rows(ubyte first @X, ubyte last @Y, ubyte count @A, bool up @Pc) clobbers(A, X, Y) {
+        %asm {{
+            sta  _count
+            stx  _first
+            sty  _last
+            bcc  _down
+            ; up: row r+count to row r, for r = first to last-count
+            tya
+            sec
+            sbc  _count
+            sta  _end
+-           txa
+            clc
+            adc  _count
+            jsr  _copy
+            cpx  _end
+            beq  _done
+            inx
+            bra  -
+_down
+            ; down: row r-count to row r, for r = last down to first+count
+            lda  _first
+            clc
+            adc  _count
+            sta  _end
+            ldx  _last
+-           txa
+            sec
+            sbc  _count
+            jsr  _copy
+            cpx  _end
+            beq  _done
+            dex
+            bra  -
+_done
+            stz  cx16.VERA_CTRL
+            rts
+_copy
+            ; row a to row x (keeps x)
+            ldy  #0
+            sty  cx16.VERA_CTRL     ; port 0: from
+            jsr  _addr
+            ldy  #1
+            sty  cx16.VERA_CTRL     ; port 1: to
+            txa
+            jsr  _addr
+            ldy  p8b_main.p8v_SCREEN_WIDTH
+-           lda  cx16.VERA_DATA0
+            sta  cx16.VERA_DATA1
+            dey
+            bne  -
+            rts
+_addr
+            ; the selected port to the start of row a, an increment of 2
+            clc
+            adc  #>txt.VERA_TEXTMATRIX
+            sta  cx16.VERA_ADDR_M
+            stz  cx16.VERA_ADDR_L
+            lda  #(txt.VERA_TEXTMATRIX >> 16) | $20
+            sta  cx16.VERA_ADDR_H
+            rts
+
+_count      .byte  0
+_first      .byte  0
+_last       .byte  0
+_end        .byte  0
+            ; !notreached!
+        }}
+    }
 }
 
 ;

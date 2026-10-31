@@ -33,22 +33,28 @@ aren't.
 
 ## Speed and size
 
-- **One-row scrolls:** scroll the screen and draw one new row, instead of
-  redrawing the screen.
+- **Scrolling** (done on the C64 and X16, `features.SCROLL`): the screen
+  scrolls when the cursor goes up to 4 rows off it, and only the rows
+  that come in are drawn; rows are drawn in assembler (`put_row`).  One
+  `j` over 2-row lines went from 274 ms to 84 ms on the C64
+  (`tests/bench/viewbench.py`).  Left: `layout()` still works out all rows
+  after a scroll (about a quarter of the time); shifting the row tables
+  instead costs about 200 bytes the X16 doesn't have.  The VIC-20 has no
+  room for the scroll code (SCROLL off) but draws rows in assembler.
 - **Gap buffer fields:** make the gap buffer's internal variables
   `private`, so the editor only uses its subroutines.
 
 - **More assembler:** the byte scans and copies are in `src/fastmem.p8`
-  (3-4 times faster; `make bench`).  Next would be the screen drawing
-  (`view.draw_row`, a `setchr` call per character) with one-row scrolls;
-  the Prog8 code around calls is what costs bytes.
+  (3-4 times faster; `make bench`), screen rows in `put_row` and
+  `scroll_rows` (platform).  The Prog8 code around calls is what costs
+  bytes.
 
 ## Memory
 
 - **Text in extended memory** (the cx16's banked RAM, a C64 REU): files
   up to 64 KB fit, with yank and undo as big, and `:recover` after a crash
   (done, `docs/XMEM-DESIGN.md`).
-- **The X16's main RAM is nearly full** (278 bytes left; the key buffers
+- **The X16's main RAM is full** (43 bytes left; the key buffers
   are in golden RAM, after the page store's buffers): the page store's
   code is big.  Parts in assembler, or more feature switches
   (`src/p8vi_cx16.p8`), before adding much there.
