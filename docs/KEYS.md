@@ -1,7 +1,8 @@
 # vi keys
 
 The vi and vim commands that are practical for this editor on 8-bit
-systems, and which are implemented.
+systems, and which are implemented.  `docs/QUICKSTART.md` is a shorter
+introduction with a cheat sheet.
 
 | Mark | Meaning |
 |------|---------|
@@ -152,8 +153,10 @@ counts before either part (`2d3w`).  `j` `k` `G` `gg` `H` `M` `L` `+` `-`
 | `"a`–`"z` | named registers | ⬜ |
 | `"A`–`"Z` | append to a named register | ❌ |
 
-The yank buffer is 1 KB (256 bytes when memory is short); bigger yanks are
-refused with "yank too big" (a delete still happens, with "not yanked").
+The yank buffer is 1 KB on the C64 and VIC-20 (256 bytes when memory is
+short), and up to 64 KB in the REU build with an REU and on the X16 (the
+page store keeps it in extended memory).  Bigger yanks are refused with
+"yank too big" (a delete still happens, with "not yanked").
 
 `.` replays the keys of the last change, typed text included, so
 `cwfoo<Esc>` then `.` changes the word under the cursor to `foo`.  As in
@@ -164,8 +167,9 @@ starts the repeated text over from there.  A change of more than 128 keys
 can't be repeated ("too long (.)").
 
 The undo log holds one change (a whole insert session counts as one).
-It is 2 KB (512 bytes when memory is short): a change that doesn't fit
-can't be undone ("undo too big").  Loading a file empties it.
+It is 2 KB on the C64 and VIC-20 (512 bytes when memory is short), and up
+to 64 KB in the REU build with an REU and on the X16: a change that
+doesn't fit can't be undone ("undo too big").  Loading a file empties it.
 
 ## Searching
 
@@ -233,9 +237,10 @@ can't be undone ("undo too big").  Loading a file empties it.
 
 ## Differences from vi
 
-* Every line ending starts a new line, so a file that ends with a line
-  ending has an empty last line (vi treats the last line ending as the end
-  of the last line).
+* On the VIC-20, every line ending starts a new line, so a file that ends
+  with a line ending has an empty last line.  The other versions treat the
+  last line ending as the end of the last line, as vi does
+  (`features.FINAL_EOL`).
 * Control characters (including tabs) are shown as `.`.
 * A file too big for memory is read only partly ("too big, cut") and can't
   be written back over itself without `:w!`.
