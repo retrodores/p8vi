@@ -41,10 +41,6 @@ aren't.
   after a scroll (about a quarter of the time); shifting the row tables
   instead costs about 200 bytes the X16 doesn't have.  The VIC-20 has no
   room for the scroll code (SCROLL off) but draws rows in assembler.
-- **Page store fields:** the gap buffer's own variables and the undo
-  log's are `private` (the editor only uses the routines); the page
-  store's (page table, streams, recovery slots) aren't yet: its tests
-  read them, so they would need a few routines for the tests first.
 
 - **More assembler:** the byte scans and copies are in `src/fastmem.p8`
   (3-4 times faster; `make bench`), screen rows in `put_row` and

@@ -22,6 +22,10 @@
 %import fastmem_platform
 
 buffer {
+    ; (variables marked private are the page store's own: use the routines.
+    ; page_size and stream_min are settings for init(); recoverable and
+    ; synced_changes are read by the editor)
+
     ; bytes per page: pagemem's, or set it before init() (the tests use
     ; small pages)
     uword page_size = pagemem.PAGE_SIZE
@@ -37,34 +41,34 @@ buffer {
 
     ; the page table: page i of the text is page page_id[i], holds
     ; page_len[i] bytes of text, page_lines[i] of them lines_eol
-    ubyte npages
-    ubyte[MAX_PAGES] page_id
-    uword[MAX_PAGES] page_len
-    uword[MAX_PAGES] page_lines
+    private ubyte npages
+    private ubyte[MAX_PAGES] page_id
+    private uword[MAX_PAGES] page_len
+    private uword[MAX_PAGES] page_lines
     ; the eol page_lines counts, 0 if they must be counted again (eol
     ; changed, or chunk() handed out the text to change)
-    ubyte lines_eol
+    private ubyte lines_eol
 
     ; the buffers below are in pagemem.scratch (on the X16 that is golden
     ; RAM, which leaves main RAM for the program): 2 * BOUNCE_SIZE +
     ; MAX_PAGES + H_IDS + 32 + 2 * STREAM_PAGES bytes
 
     ; pages not in the text (MAX_PAGES bytes)
-    ubyte nfree
-    ^^ubyte free_id
+    private ubyte nfree
+    private ^^ubyte free_id
 
     ; bytes going from one page to another pass through bounce, and bytes
     ; going from a stream into the text through put_buf (bounce is used
     ; while inserting them)
     const ubyte BOUNCE_SIZE = 128
-    ^^ubyte bounce
-    ^^ubyte put_buf
+    private ^^ubyte bounce
+    private ^^ubyte put_buf
 
     ; all pages, and how many of them the text may have: the rest is kept
     ; for the streams.  page_size is 1 << page_shift.
-    ubyte total_pages
-    ubyte text_max
-    ubyte page_shift
+    private ubyte total_pages
+    private ubyte text_max
+    private ubyte page_shift
 
     ; the streams: the yank buffer (YANK) and the undo log (UNDO), each a
     ; list of pages outside the text, s_count[s] of them at
@@ -72,24 +76,24 @@ buffer {
     const ubyte YANK = 0
     const ubyte UNDO = 1
     const ubyte STREAM_PAGES = 64
-    ubyte[2] s_count
-    ^^ubyte s_page          ; 2 * STREAM_PAGES bytes
-    uword s_word
+    private ubyte[2] s_count
+    private ^^ubyte s_page          ; 2 * STREAM_PAGES bytes
+    private uword s_word
 
     ; text that fits in all pages (at most $fffe, positions are uwords)
-    uword capacity
+    private uword capacity
 
     ; the page found last: page cur starts at position cur_start
-    ubyte cur
-    uword cur_start
+    private ubyte cur
+    private uword cur_start
 
     ; where read_room() handed out room: read_size bytes at read_off in
     ; page read_page (the rest of the page is after the room), text
     ; position read_pos
-    ubyte read_page
-    uword read_off
-    uword read_pos
-    uword read_size
+    private ubyte read_page
+    private uword read_off
+    private uword read_pos
+    private uword read_size
 
     ; use the memory from start up to (not including) top, or extended
     ; memory if there is some (pagemem decides), and empty the store
@@ -948,19 +952,19 @@ buffer {
     const ubyte H_CURSOR = 13
     const ubyte H_META = 16
     const ubyte H_IDS = 64
-    ^^ubyte hdr                     ; H_IDS bytes
+    private ^^ubyte hdr                     ; H_IDS bytes
 
-    ubyte session_slot = NO_SLOT    ; the slot sync() writes, NO_SLOT: none
-    uword session_seq
+    private ubyte session_slot = NO_SLOT    ; the slot sync() writes, NO_SLOT: none
+    private uword session_seq
     uword synced_changes            ; changes at the last sync()
     ubyte recoverable               ; texts waiting
-    bool[2] waiting                 ; per slot: a text waits there
+    private bool[2] waiting                 ; per slot: a text waits there
     ; (@nosplit: comparing two elements of a split array doesn't assemble,
     ; see bugs/split_array_compare_elements.p8)
-    uword[2] @nosplit slot_seq
-    ubyte[2] slot_pages
-    ^^ubyte held                    ; (init) 32 bytes, a bit per page: a waiting text's
-    uword checksum
+    private uword[2] @nosplit slot_seq
+    private ubyte[2] slot_pages
+    private ^^ubyte held                    ; (init) 32 bytes, a bit per page: a waiting text's
+    private uword checksum
 
     ; find the texts to recover and keep their pages (bits in held)
     private sub find_texts(ubyte n) {
@@ -1240,6 +1244,82 @@ buffer {
             k++
         }
         return line + count_eol(pagemem.map(page_id[k]), position - start)
+    }
+
+
+    ;
+    ; for the tests (the editor doesn't call these, so they are left out of
+    ; its builds)
+    ;
+
+    ; the pages the text is in
+    sub pages() -> ubyte {
+        return npages
+    }
+
+    ; the pages stream s (YANK or UNDO) has
+    sub stream_pages(ubyte s) -> ubyte {
+        return s_count[s]
+    }
+
+    ; the pages kept for texts waiting to be recovered
+    sub held_pages() -> ubyte {
+        ubyte n = 0
+        if waiting[0]
+            n += slot_pages[0]
+        if waiting[1]
+            n += slot_pages[1]
+        return n
+    }
+
+    ; the header slot the session writes (NO_SLOT: none yet)
+    sub header_slot() -> ubyte {
+        return session_slot
+    }
+
+    ; the page store's invariants: page lengths add up and fit, only an
+    ; empty text has an empty page, the line counts are right, the pages
+    ; read in order are the text get() gives, and no page is lost.
+    ; returns what is wrong, or "".
+    sub check() -> str {
+        ubyte k
+        ubyte j
+        uword start = 0
+        uword i
+        uword n
+        uword lines
+        if npages == 0
+            return "no pages"
+        for k in 0 to npages - 1 {
+            if page_len[k] > page_size
+                return "page too long"
+            if page_len[k] == 0 and npages != 1
+                return "empty page"
+            lines = 0
+            i = 0
+            while i != page_len[k] {
+                ; (a copy: get() maps other pages)
+                n = page_len[k] - i
+                if n > BOUNCE_SIZE
+                    n = BOUNCE_SIZE
+                sys.memcopy(pagemem.map(page_id[k]) + i, bounce, n)
+                for j in 0 to lsb(n) - 1 {
+                    if bounce[j] != get(start + i + j)
+                        return "page bytes"
+                    if bounce[j] == lines_eol
+                        lines++
+                }
+                i += n
+            }
+            if lines_eol != 0 and lines != page_lines[k]
+                return "page lines"
+            start += page_len[k]
+        }
+        if start != bufend
+            return "page lengths"
+        if npages + nfree + s_count[YANK] + s_count[UNDO] + held_pages() != total_pages
+            return "pages lost"
+        return ""
     }
 
 } ; end of buffer block (page store)

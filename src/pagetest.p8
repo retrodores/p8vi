@@ -27,7 +27,7 @@ main {
         ; (and the header slots)
         buffer.init(sys.progend(), sys.progend() + CAPACITY + 9 * PAGE + 2 * pagemem.HEADER_SIZE)
         buffer.yank_size = 32
-        check_uw("capacity", buffer.capacity, CAPACITY)
+        check_uw("capacity", buffer.free(), CAPACITY)
         buftests.run()
         test_pages()
         test_full_pages()
@@ -59,22 +59,22 @@ main {
     sub test_pages() {
         txt.print("pages\n")
         buffer.clear()
-        check_ub("empty", buffer.npages, 1)
+        check_ub("empty", buffer.pages(), 1)
         void buffer.insert("abcdefgh", 0)
-        check_ub("one full", buffer.npages, 1)
+        check_ub("one full", buffer.pages(), 1)
         ; appending to a full page starts a new one
         void buffer.insert("ij", 8)
-        check_ub("two", buffer.npages, 2)
+        check_ub("two", buffer.pages(), 2)
         expect("abcdefghij")
         ; inserting in the middle of a full page splits it there
         void buffer.insert("XY", 3)
         expect("abcXYdefghij")
-        check_ub("split", buffer.npages, 3)
+        check_ub("split", buffer.pages(), 3)
         ; one long insert over several pages
         buffer.clear()
         void buffer.insert("0123456789abcdefghijklmn", 0)
         expect("0123456789abcdefghijklmn")
-        check_ub("long", buffer.npages, 3)
+        check_ub("long", buffer.pages(), 3)
         void buffer.insert("<>", 12)
         expect("0123456789ab<>cdefghijklmn")
     }
@@ -86,7 +86,7 @@ main {
         ; in the first page has to move bytes along to it
         void buffer.insert("ABCDEFGHIJKLMNOPQRSTUVWXYZ012345", 0)
         check_uw("full", buffer.free(), 0)
-        check_ub("pages", buffer.npages, 4)
+        check_ub("pages", buffer.pages(), 4)
         void buffer.delete_char(31)
         check_bool("into the last page", buffer.insert_char('+', 2), true)
         expect("AB+CDEFGHIJKLMNOPQRSTUVWXYZ01234")
@@ -115,20 +115,20 @@ main {
         txt.print("merge\n")
         buffer.clear()
         void buffer.insert("ABCDEFGHIJKLMNOPQRSTUVWX", 0)
-        check_ub("three", buffer.npages, 3)
+        check_ub("three", buffer.pages(), 3)
         ; emptying a page drops it
         check_uw("drop", buffer.delete_range(8, 16), 8)
         expect("ABCDEFGHQRSTUVWX")
-        check_ub("dropped", buffer.npages, 2)
+        check_ub("dropped", buffer.pages(), 2)
         ; two small neighbours become one
         void buffer.delete_range(2, 7)
         void buffer.delete_range(5, 10)
         expect("ABHQRX")
-        check_ub("merged", buffer.npages, 1)
+        check_ub("merged", buffer.pages(), 1)
         ; deleting everything leaves one empty page
         void buffer.delete_range(0, 6)
         expect("")
-        check_ub("empty", buffer.npages, 1)
+        check_ub("empty", buffer.pages(), 1)
     }
 
     sub test_page_lines() {
@@ -207,7 +207,7 @@ main {
         uword n
         buffer.clear()
         void buffer.insert("hello world, hello pages", 0)
-        check_ub("chunks", buffer.chunks(), buffer.npages)
+        check_ub("chunks", buffer.chunks(), buffer.pages())
         p, n = buffer.chunk(0)
         check_uw("first", n, PAGE)
         check_ub("first char", @(p), 'h')
@@ -226,7 +226,7 @@ main {
         uword pos
         buffer.clear()
         model_len = 0
-        check_uw("capacity", buffer.capacity, 10 * PAGE)
+        check_uw("capacity", buffer.free(), 10 * PAGE)
         ; typing a character at a time, in different places
         for i in 0 to 69 {
             pos = (i as uword * 7) % (model_len + 1)
@@ -241,7 +241,7 @@ main {
             model_delete(3, pos)
         }
         check_model("deleted")
-        check_bool("few pages", buffer.npages <= 2, true)
+        check_bool("few pages", buffer.pages() <= 2, true)
         ; undo of a change over many pages
         buffer.undo_init(memory("undo2", 200, 0), 200)
         buffer.clear()
@@ -298,7 +298,7 @@ main {
         void buffer.insert("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRST", 0)
         ; a yank over several pages, put twice
         check_bool("yank", buffer.yank(10, 30, false), true)
-        check_ub("yank pages", buffer.s_count[buffer.YANK], 4)
+        check_ub("yank pages", buffer.stream_pages(buffer.YANK), 4)
         void buffer.delete_range(10, 56)
         expect("0123456789")
         check_bool("put", buffer.put(10), true)
@@ -418,7 +418,7 @@ main {
         check_ub("clean", buffer.recoverable, 0)
         ; a damaged header doesn't count
         save_text("sixth", 'f')
-        pagemem.header_put(buffer.session_slot, buffer.H_LENGTH, &i as uword, 1)
+        pagemem.header_put(buffer.header_slot(), buffer.H_LENGTH, &i as uword, 1)
         reinit()
         check_ub("damaged", buffer.recoverable, 0)
         check_store()
@@ -433,51 +433,12 @@ main {
         big[i] = 0
     }
 
-    ; the page store's invariants: page lengths add up, only an empty text
-    ; has an empty page, line counts, and the pages read in order are the
-    ; text that get() gives
+    ; the page store's invariants (buffer.check())
     sub check_store() {
-        ubyte k
-        uword total = 0
-        uword i
-        uword lines
-        if buffer.npages == 0
-            fail("no pages")
-        for k in 0 to buffer.npages - 1 {
-            if buffer.page_len[k] > buffer.page_size
-                fail("page too long")
-            if buffer.page_len[k] == 0 and buffer.npages != 1
-                fail("empty page")
-            ; (a copy: get() maps other pages)
-            sys.memcopy(pagemem.map(buffer.page_id[k]), pagebuf, buffer.page_len[k])
-            lines = 0
-            for i in 0 to buffer.page_len[k] - 1 {
-                if buffer.page_len[k] == 0
-                    break
-                if pagebuf[i] != buffer.get(total + i)
-                    fail("page bytes")
-                if pagebuf[i] == buffer.lines_eol
-                    lines++
-            }
-            if buffer.lines_eol != 0 and lines != buffer.page_lines[k]
-                fail("page lines")
-            total += buffer.page_len[k]
-        }
-        if total != buffer.length()
-            fail("page lengths")
-        if buffer.npages + buffer.nfree + buffer.s_count[buffer.YANK] + buffer.s_count[buffer.UNDO] + waiting_pages() != buffer.total_pages
-            fail("pages lost")
+        uword problem = buffer.check()
+        if @(problem) != 0
+            fail(problem)
     }
 
-    ubyte[PAGE] pagebuf
 
-    ; pages kept for texts to recover
-    sub waiting_pages() -> ubyte {
-        ubyte n = 0
-        if buffer.waiting[0]
-            n += buffer.slot_pages[0]
-        if buffer.waiting[1]
-            n += buffer.slot_pages[1]
-        return n
-    }
 }
