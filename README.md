@@ -132,6 +132,7 @@ The useful `make` targets are:
 | `make test-c64font` | The C64 REU build's tests on the font build, and its own (`font`) |
 | `make test-c64-screen` | Check partial redraws against full redraws in VICE (~30 s) |
 | `make size` | Memory map and room left below memtop for each build (`tools/listsize.py`) |
+| `make disk` | `build/testgap.d81`: a 1581 disk with the C64 and VIC-20 programs, `p8vi.fnt` and the sample files, for `make emu-c64`, `emu-c64reu`, `emu-c64font` and `emu-vic20` (drive 8 is a 1581) |
 | `make c64`   | Compile for the C64 and run it in VICE                    |
 | `make cx16`  | Compile for the Commander X16 and run it in x16emu        |
 | `make release` | Copy the four programs and `docs/QUICKSTART.md` to `release/` (after `make test`, `audit` and `size`): the last known good version |

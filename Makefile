@@ -17,15 +17,17 @@ else
     SEP = /
 endif
 
-# disk image settings
-DISKTYPE=d64
+# disk image settings: a 1581 disk (800 KB) for the programs and the
+# sample files, read with a 1581 drive on the C64 and the VIC-20.
+# (tests/vice/ makes its own 1541 disks)
+DISKTYPE=d81
 DISKNAME=testgap
 DISK=build/$(DISKNAME).$(DISKTYPE)
 
 # Emulator settings
 EMU_CMD=x64sc
 EMU_BASE=-default -keymap 1 -model ntsc
-EMU_DISK08=-8 $(DISK) -drive8type 1542
+EMU_DISK08=-8 $(DISK) -drive8type 1581
 #EMU_DISK10=-fs10 build -device10 1 -iecdevice10 -virtualdev10
 EMU_DISK10=
 EMU_CART=
@@ -120,10 +122,13 @@ release:	$(PROGS) test audit size
 	$(CP) build$(SEP)p8vi-vic20.prg release
 	$(CP) docs$(SEP)QUICKSTART.md release
 
-disk:	build/p8vi-c64.prg build/p8vi-c64reu.prg
+disk:	build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64font.prg build/p8vi.fnt build/p8vi-vic20.prg
 	c1541 -format $(DISKNAME),52 $(DISKTYPE) $(DISK)
 	c1541 -attach $(DISK) -write build/p8vi-c64.prg p8vi,p
 	c1541 -attach $(DISK) -write build/p8vi-c64reu.prg p8vi-reu,p
+	c1541 -attach $(DISK) -write build/p8vi-c64font.prg p8vi-font,p
+	c1541 -attach $(DISK) -write build/p8vi.fnt p8vi.fnt,p
+	c1541 -attach $(DISK) -write build/p8vi-vic20.prg p8vi-vic20,p
 	c1541 -attach $(DISK) -write samples/sampbig.txt sampbig.txt,s
 	c1541 -attach $(DISK) -write samples/sampmax.txt sampmax.txt,s
 	c1541 -attach $(DISK) -write samples/sampsmall.txt sampsmall.txt,s
@@ -136,16 +141,14 @@ emu-c64:	build/p8vi-c64.prg disk
 emu-c64reu:	build/p8vi-c64reu.prg disk
 	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/p8vi-c64reu.prg
 
-# the font build, with p8vi.fnt on the disk
-emu-c64font:	build/p8vi-c64font.prg build/p8vi.fnt disk
-	c1541 -attach $(DISK) -write build/p8vi-c64font.prg p8vi-font,p
-	c1541 -attach $(DISK) -write build/p8vi.fnt p8vi.fnt,p
+# the font build (p8vi.fnt is on the disk)
+emu-c64font:	build/p8vi-c64font.prg disk
 	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/p8vi-c64font.prg
 
 emu-cx16:	build/p8vi-cx16.prg
 	x16emu -debug -scale 2 -rtc -fsroot samples/ -run -prg build/p8vi-cx16.prg
 
-EMUVIC=xvic -default -keymap 1 -model ntsc -memory all -8 build/testgap.d64 -drive8type 1542 -monitorfont "JetBrains Mono 16"
+EMUVIC=xvic -default -keymap 1 -model ntsc -memory all -8 $(DISK) -drive8type 1581 -monitorfont "JetBrains Mono 16"
 emu-vic20:	build/p8vi-vic20.prg disk
 	$(EMUVIC) -autostartprgmode 1 build/p8vi-vic20.prg
 
