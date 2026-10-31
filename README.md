@@ -121,6 +121,7 @@ The useful `make` targets are:
 | `make size` | Memory map and room left below memtop for each build (`tools/listsize.py`) |
 | `make c64`   | Compile for the C64 and run it in VICE                    |
 | `make cx16`  | Compile for the Commander X16 and run it in x16emu        |
+| `make release` | Copy the four programs and `docs/QUICKSTART.md` to `release/` (after `make test`, `audit` and `size`): the last known good version |
 | `make clean` | Remove everything in `build/`                             |
 
 # How the AI context works
