@@ -454,17 +454,22 @@ def screen_after(args, base, port, text, keys):
                                     '-limitcycles', '40000000000'],
                              stdout=log, stderr=subprocess.STDOUT, cwd=args.work)
     try:
-        # wait in emulated time, so a busy host can't cut the run short
+        # wait in emulated time, so a busy host can't cut the run short.
+        # (a monitor that doesn't answer yet, with VICE still starting on a
+        # busy host, is asked again: once that ended the check)
         deadline = time.time() + 600
         while time.time() < deadline:
             time.sleep(1)
             reply = monitor(port, ['sw'], 10)
             if reply is None:
-                return None
+                continue
             m = re.search(r'Stopwatch:\s+(\d+)', reply[0])
             if m and int(m.group(1)) >= args.cycles:
-                reply = monitor(port, ['m 0400 07e7'], 10)
-                return screen_bytes(reply[0]) if reply else None
+                for _ in range(5):
+                    reply = monitor(port, ['m 0400 07e7'], 10)
+                    if reply:
+                        return screen_bytes(reply[0])
+                return None
         return None
     finally:
         p.kill()
