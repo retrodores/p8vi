@@ -112,6 +112,7 @@ The useful `make` targets are:
 | `make test-gap` | Text store tests (gap buffer and page store) on the virtual target |
 | `make test-c64` | Editor command tests on a C64 in VICE (`tests/vice/edtest.py`, ~10 s) |
 | `make test-c64reu` | The same on the C64 REU build (the page store), with and without an REU, and recovery after a reset (`tests/vice/rectest.py`) |
+| `make audit` | Look in the generated assembler for the silent compiler bugs found so far (`tools/asmaudit.py`) |
 | `make test-fastmem` | The 6502 byte scans and copies (`src/fastmem.p8`) against plain Prog8, in VICE |
 | `make bench` | Timings of the text store routines in VICE (`tests/bench/storebench.p8`), screenshots in `build/bench-*.png` |
 | `make test-reu` | REU detection and reset tests in VICE (`tests/reu/`) |

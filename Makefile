@@ -154,6 +154,11 @@ test-reu:	build
 	$(PCC) -quiet $(PCCARGSC64) tests/reu/reureset.p8
 	python3 tests/reu/reutest.py --build build
 
+# look in the generated assembler for the silent miscompiles found so far
+# (bugs/uword_array_eq_ubyte.p8, bugs/min_ubyte_expressions.p8)
+audit:	$(PROGS)
+	python3 tools/asmaudit.py build/p8vi-c64.asm build/p8vi-c64reu.asm build/p8vi-cx16.asm build/p8vi-vic20.asm
+
 # the 6502 fastmem routines against plain Prog8, on a C64 in VICE
 test-fastmem:	build
 	$(PCC) -quiet -srcdirs src:src/c64 -target c64 -out build tests/fastmem/fastmemtest.p8
