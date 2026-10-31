@@ -128,6 +128,7 @@ disk:	build/p8vi-c64.prg build/p8vi-c64reu.prg
 	c1541 -attach $(DISK) -write samples/sampmax.txt sampmax.txt,s
 	c1541 -attach $(DISK) -write samples/sampsmall.txt sampsmall.txt,s
 	c1541 -attach $(DISK) -write samples/sample.txt sample.txt,s
+	c1541 -attach $(DISK) -write src/c64/font.p8 font.p8,s
 
 emu-c64:	build/p8vi-c64.prg disk
 	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/p8vi-c64.prg
