@@ -40,6 +40,8 @@ PCC=prog8c-llvm
 PCCARGSC64=-srcdirs src:src/c64 -asmlist -target c64 -out build
 # the C64 REU build: src/c64reu (its store_platform) comes before src/c64
 PCCARGSC64REU=-srcdirs src:src/c64reu:src/c64 -asmlist -target c64 -out build
+# the C64 font build: the REU build with its own font (src/c64/font.p8)
+PCCARGSC64FONT=$(PCCARGSC64REU)
 PCCARGSCX16=-srcdirs src:src/cx16 -asmlist -target cx16 -out build
 PCCARGSVIC20=-srcdirs src:src/vic20 -asmlist -target config/vic20plus24.properties -out build
 PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
@@ -50,10 +52,15 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 # with the gap buffer (the most room for text in main RAM) and p8vi-c64reu
 # with the page store (for text in an REU, docs/XMEM-DESIGN.md)
 PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-vic20.prg
+# an experiment, not in the release yet: p8vi-c64font (src/p8vi_c64font.p8)
+# is p8vi-c64reu with a font that has the ASCII characters PETSCII lacks.
+# it loads the font from p8vi.fnt (make font, from FONTSRC).
+FONTPROG = build/p8vi-c64font.prg
+FONTSRC	= custchar/src/c64oscharset.p8
 SRCS	= src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/pagestore.p8 src/charset.p8 src/*/platform.p8 \
 	  src/*/store_platform.p8 src/*/pagemem_platform.p8 src/*/xmem_platform.p8 src/c64/reu.p8
 
-all: build $(PROGS)
+all: build $(PROGS) $(FONTPROG)
 
 build:
 	$(MD) build
@@ -71,6 +78,18 @@ build/p8vi-c64reu.prg: src/p8vi.p8 $(SRCS)
 	$(CP) build/p8vi.list build/p8vi-c64reu.list
 	$(CP) build/p8vi.asm build/p8vi-c64reu.asm
 	$(RM) build/p8vi.prg
+
+build/p8vi-c64font.prg: src/p8vi_c64font.p8 $(SRCS) src/c64/font.p8
+	$(PCC) $(PCCARGSC64FONT) $<
+	$(CP) build/p8vi_c64font.prg $@
+	$(CP) build/p8vi_c64font.list build/p8vi-c64font.list
+	$(CP) build/p8vi_c64font.asm build/p8vi-c64font.asm
+	$(RM) build/p8vi_c64font.prg
+
+font:	build/p8vi.fnt
+
+build/p8vi.fnt: $(FONTSRC) tools/mkfont.py
+	python3 tools/mkfont.py $(FONTSRC) $@
 
 build/p8vi-cx16.prg: src/p8vi_cx16.p8 $(SRCS)
 	$(PCC) $(PCCARGSCX16) $<
@@ -116,6 +135,12 @@ emu-c64:	build/p8vi-c64.prg disk
 emu-c64reu:	build/p8vi-c64reu.prg disk
 	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/p8vi-c64reu.prg
 
+# the font build, with p8vi.fnt on the disk
+emu-c64font:	build/p8vi-c64font.prg build/p8vi.fnt disk
+	c1541 -attach $(DISK) -write build/p8vi-c64font.prg p8vi-font,p
+	c1541 -attach $(DISK) -write build/p8vi.fnt p8vi.fnt,p
+	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/p8vi-c64font.prg
+
 emu-cx16:	build/p8vi-cx16.prg
 	x16emu -debug -scale 2 -rtc -fsroot samples/ -run -prg build/p8vi-cx16.prg
 
@@ -132,9 +157,10 @@ test-gap:	build
 # memory map of each build and the room left below memtop
 # (tools/listsize.py LIST for where the bytes go, A.list B.list to compare)
 VIC20_MIN_FREE=64
-size:	$(PROGS)
+size:	$(PROGS) $(FONTPROG)
 	python3 tools/listsize.py build/p8vi-c64.list --map
 	python3 tools/listsize.py build/p8vi-c64reu.list --map
+	python3 tools/listsize.py build/p8vi-c64font.list --map --memtop 0xc800
 	python3 tools/listsize.py build/p8vi-cx16.list --map
 	python3 tools/listsize.py build/p8vi-vic20.list --map --min-free $(VIC20_MIN_FREE)
 
@@ -150,6 +176,17 @@ test-c64reu:	build/p8vi-c64reu.prg
 	python3 tests/vice/rectest.py --prg build/p8vi-c64reu.prg
 	python3 tests/vice/edtest.py screen --prg build/p8vi-c64reu.prg --reu 512
 
+# the font build: the REU build's tests, and its own (the font suite).
+# it has its own keys for | (and } is shift + minus), its own PETSCII for
+# ASCII files and p8vi.fnt on the disk, so g-cmds, ascii and read-dir
+# don't apply
+FONT_SKIP = --skip g-cmds --skip ascii --skip read-dir
+test-c64font:	build/p8vi-c64font.prg build/p8vi.fnt
+	python3 tests/vice/edtest.py files --prg build/p8vi-c64font.prg --font build/p8vi.fnt --reu 512 --limit 3000000000 $(FONT_SKIP)
+	python3 tests/vice/edtest.py files --prg build/p8vi-c64font.prg --font build/p8vi.fnt --skip big $(FONT_SKIP)
+	python3 tests/vice/rectest.py --prg build/p8vi-c64font.prg --font build/p8vi.fnt
+	python3 tests/vice/edtest.py screen --prg build/p8vi-c64font.prg --font build/p8vi.fnt --reu 512
+
 # partial redraws must leave the same screen as a full redraw
 test-c64-screen:	build/p8vi-c64.prg
 	python3 tests/vice/edtest.py screen --prg build/p8vi-c64.prg
@@ -163,8 +200,8 @@ test-reu:	build
 
 # look in the generated assembler for the silent miscompiles found so far
 # (bugs/uword_array_eq_ubyte.p8, bugs/min_ubyte_expressions.p8)
-audit:	$(PROGS)
-	python3 tools/asmaudit.py build/p8vi-c64.asm build/p8vi-c64reu.asm build/p8vi-cx16.asm build/p8vi-vic20.asm
+audit:	$(PROGS) $(FONTPROG)
+	python3 tools/asmaudit.py build/p8vi-c64.asm build/p8vi-c64reu.asm build/p8vi-c64font.asm build/p8vi-cx16.asm build/p8vi-vic20.asm
 
 # the 6502 fastmem routines against plain Prog8, on a C64 in VICE
 test-fastmem:	build

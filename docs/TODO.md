@@ -64,6 +64,12 @@ aren't.
   program now reaches almost to `$8000`.  Room would have to come from
   features switched off, or from the 3 KB expansion at `$0400-$0fff`.
 - **Several files open at once** (multiple buffers).
+- **The font build** (`p8vi-c64font`, an experiment): a name for it that
+  doesn't suggest it runs on C64 OS; the font to ship (`FONTSRC` points
+  at the user's `custchar/` now, not in git); a fallback when `p8vi.fnt`
+  is missing (it stops with "can't load p8vi.fnt"); whether the plain C64
+  build (gap buffer) should get it too, which costs it the 2 KB above
+  `$c800`; vi's `{` and `}` paragraph motions, now that they can be typed.
 
 ## Tests
 

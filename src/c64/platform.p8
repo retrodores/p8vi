@@ -2,6 +2,7 @@
 %import strings
 %import textio
 %import cbmscreen
+%import font
 
 ;
 ; platform specific -- could merge to main
@@ -31,6 +32,13 @@ platform {
            texttop = $a000
        else
            texttop = $cfe0     ; Prog8 keeps the R0-R15 virtual registers at $cfe0-$cfff
+       ; (the font build) the text memory ends at the screen
+       if features.FONT and texttop > font.SCREEN
+           texttop = font.SCREEN
+       if features.FONT and not font.start() {
+           txt.print("can't load p8vi.fnt\n")
+           sys.exit(1)
+       }
 
        main.SCREEN_WIDTH    = txt.DEFAULT_WIDTH
        main.SCREEN_HEIGHT   = txt.DEFAULT_HEIGHT
@@ -40,6 +48,11 @@ platform {
        main.MIN_ROW         = 0
        main.MAX_ROW         = main.SCREEN_HEIGHT - main.STATUS_HEIGHT - 1
        main.STATUS_LINE     = main.SCREEN_HEIGHT - 1
+    }
+
+    ; before the program ends (the font build only)
+    sub stop() {
+        font.stop()
     }
 
     ; open a file for writing with diskio.f_write as a SEQ file.

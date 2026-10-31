@@ -13,6 +13,9 @@ screen  types keys, dumps screen memory over the VICE remote monitor, does
 Every run gets its own disk image, so runs go in parallel.  A run that hits
 the cycle limit hung.
 
+--font FNT runs the font build (p8vi-c64font) with its font file on the
+disk, and adds its tests.
+
 Keys use VICE's -keybuf syntax: \\n is RETURN, \\xNN a PETSCII byte (\\x1b Esc,
 \\xde pi for ~, \\xdd |, \\xa4 _).  Lowercase letters are PETSCII lowercase,
 which is ASCII uppercase in a file, so test texts are in uppercase ASCII.
@@ -301,6 +304,24 @@ REU_SUITES = [
     ], HUGE),
 ]
 
+# the font build (p8vi-c64font, --font): the font shows ASCII's ` { | } ~
+# for PETSCII $c0 $db $dc $dd $de, typed with the C64 OS keys (shift + *,
+# shift + plus, shift + pound, shift + minus, shift + up arrow), and \ ^ _
+# are pound, up arrow and left arrow.  f2 types them all; f3 shift + pound
+# is the | command; f4 _ is part of a word; f5 left arrow is the _ command
+FONT_TEXT = b'int main(void) {\n  a = b | c ^ ~d;\n  s = "\\n" `x` my_name;\n}\n'
+FONT_SUITES = [
+    ('font', r':w f1\nA \xa9\xdb\xdd\xde\xc0\x5c\x5e\x5f\x1b:w f2\nj06\xa9x:w f3\nj$bD:w f4\nk\x5fx:w f5\n', [
+        ('f1', FONT_TEXT),
+        ('f2', FONT_TEXT.replace(b'{\n', b'{ |{}~`\\^_\n', 1)),
+        ('f3', FONT_TEXT.replace(b'{\n', b'{ |{}~`\\^_\n', 1).replace(b'a = b', b'a =b')),
+        ('f4', FONT_TEXT.replace(b'{\n', b'{ |{}~`\\^_\n', 1).replace(b'a = b', b'a =b')
+               .replace(b'my_name;', b'')),
+        ('f5', FONT_TEXT.replace(b'{\n', b'{ |{}~`\\^_\n', 1).replace(b'a = b', b' =b')
+               .replace(b'my_name;', b'')),
+    ], FONT_TEXT),
+]
+
 # (name, text, keys)
 SCREEN_SUITES = [
     ('x', SHORT, r'x'),
@@ -341,12 +362,17 @@ def dir_text(args, text, after):
     return b'\n'.join(old[:after] + lines + old[after:])
 
 
+# the font file for the font build (--font), put on each disk
+FONT = None
+
+
 def make_disk(d64, prg, text, blocks_free=None):
     txt = d64 + '.txt'
     with open(txt, 'wb') as f:
         f.write(text)
     subprocess.run(['c1541', '-format', 'test,52', 'd64', d64, '-attach', d64,
-                    '-write', prg, 'p8vi,p', '-write', txt, 't.txt,s'],
+                    '-write', prg, 'p8vi,p', '-write', txt, 't.txt,s'] +
+                   (['-write', FONT, 'p8vi.fnt,p'] if FONT else []),
                    check=True, capture_output=True)
     if blocks_free is not None:
         # a file that fills the disk up to blocks_free blocks
@@ -466,7 +492,8 @@ def screen_after(args, base, port, text, keys):
             m = re.search(r'Stopwatch:\s+(\d+)', reply[0])
             if m and int(m.group(1)) >= args.cycles:
                 for _ in range(5):
-                    reply = monitor(port, ['m 0400 07e7'], 10)
+                    # (the font build's screen is at $c800)
+                    reply = monitor(port, ['m c800 cbe7' if FONT else 'm 0400 07e7'], 10)
                     if reply:
                         return screen_bytes(reply[0])
                 return None
@@ -513,7 +540,11 @@ def main():
     ap.add_argument('--reu', type=int, metavar='KB', help='with an REU of this size')
     ap.add_argument('--skip', action='append', default=[], metavar='SUITE',
                     help='leave this suite out (for builds with little room)')
+    ap.add_argument('--font', metavar='FNT', help='the font build: its font file, and its tests')
     args = ap.parse_args()
+    global FONT
+    if args.font:
+        FONT = os.path.abspath(args.font)
     if args.reu:
         EMU.extend(['-reu', '-reusize', str(args.reu)])
     for tool in ('x64sc', 'c1541'):
@@ -524,7 +555,7 @@ def main():
     os.makedirs(args.work, exist_ok=True)
 
     if args.kind == 'files':
-        suites = [s for s in FILE_SUITES + (REU_SUITES if args.reu else [])
+        suites = [s for s in FILE_SUITES + (REU_SUITES if args.reu else []) + (FONT_SUITES if args.font else [])
                   if (not args.names or s[0] in args.names) and s[0] not in args.skip]
         work = lambda s: run_files(args, s)
     else:

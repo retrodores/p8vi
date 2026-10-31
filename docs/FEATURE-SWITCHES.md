@@ -147,6 +147,28 @@ a `.proc` that something references.  So when you look for leftover
 feature code, check the `.list` file or the program size, not the `.asm`
 file.
 
+### A switch in assembly tables
+
+Prog8 doesn't put `const`s in the `.asm` file, so a `%asm` block can't
+test `features.X`.  When the tables of an assembly routine depend on a
+switch, define the value again for the assembler and use 64tass's `.if`:
+
+```prog8
+; in each toplevel file, after the features block
+main {
+    %option merge
+    %asm {{
+FONT = 0
+    }}
+}
+```
+
+and in the routine `.if  p8b_main.FONT == 0 ... .else ... .endif`
+(`src/charset.p8`).  Every toplevel file must define it, or 64tass stops
+with "not defined symbol".  It goes in `main`, not in `features`: Prog8
+leaves the `features` block out of the program, `%asm` and all, because
+`main` is in another module (`bugs/block_asm_dropped.p8`).
+
 ## Checking that it worked
 
 Compare the sizes of two builds, one with the switch on and one with it off:

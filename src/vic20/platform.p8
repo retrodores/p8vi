@@ -66,6 +66,10 @@ platform {
         return @(addr) == $aa
     }
 
+    ; before the program ends (nothing to undo here)
+    sub stop() {
+    }
+
     ; open a file for writing with diskio.f_write as a SEQ file.
     ; the CBM diskio.f_open_w doesn't add the type, so do that here.
     ; the drive status can't be checked until the file is closed: reading

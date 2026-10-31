@@ -36,6 +36,7 @@ later.
 | `build/p8vi-c64reu.prg` | `src/p8vi.p8` | C64 with the page store, for text in an REU |
 | `build/p8vi-cx16.prg` | `src/p8vi.p8` | Commander X16 |
 | `build/p8vi-vic20.prg` | `src/p8vi_vic20.p8` | VIC-20 with 24K or more |
+| `build/p8vi-c64font.prg` | `src/p8vi_c64font.p8` | An experiment: the C64 REU build with a font for ASCII text |
 
 The editor itself is `src/editor.p8` (with `charset.p8`,
 `src/<target>/platform.p8` and a text store, `buffer.p8` plus
@@ -52,6 +53,17 @@ features that don't fit start out off there.  `make size` shows the room
 left on each target.
 `docs/FEATURE-SWITCHES.md` explains how the switches are written so the
 compiler leaves the code out.
+
+`p8vi-c64font` (the `FONT` switch, `src/c64/font.p8`) is the REU build
+with a font that has the ASCII characters PETSCII lacks: `\ ^ _ ` { | } ~`.
+It loads the font from `p8vi.fnt` on the disk to the RAM under the
+KERNAL at `$f800` and moves the screen to `$c800`, so the program and its
+buffers end below `$c800`.  The characters are typed as in C64 OS: pound
+`\`, up arrow `^`, left arrow `_`, and with Shift: `*` for `` ` ``, `+`
+for `{`, pound for `|`, `-` for `}` and up arrow for `~`.  ASCII files are
+translated to the PETSCII codes the font shows them for.  `make font`
+makes `build/p8vi.fnt` from the font in `FONTSRC` (`tools/mkfont.py`),
+`make emu-c64font` runs it in VICE.  It is not in the release yet.
 
 # Prerequisites
 
@@ -117,6 +129,7 @@ The useful `make` targets are:
 | `make test-fastmem` | The 6502 byte scans and copies (`src/fastmem.p8`) against plain Prog8, in VICE |
 | `make bench` | Timings of the text store routines in VICE (`tests/bench/storebench.p8`), screenshots in `build/bench-*.png` |
 | `make test-reu` | REU detection and reset tests in VICE (`tests/reu/`) |
+| `make test-c64font` | The C64 REU build's tests on the font build, and its own (`font`) |
 | `make test-c64-screen` | Check partial redraws against full redraws in VICE (~30 s) |
 | `make size` | Memory map and room left below memtop for each build (`tools/listsize.py`) |
 | `make c64`   | Compile for the C64 and run it in VICE                    |

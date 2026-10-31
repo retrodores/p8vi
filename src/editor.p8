@@ -40,6 +40,10 @@ main {
     const ubyte KEY_LEFT        = $9d
     const ubyte KEY_TILDE       = $de   ; PETSCII has no ~, use pi (shift + up arrow)
     const ubyte KEY_UNDERSCORE  = $a4   ; _ as typed on a C64 (commodore + @), '_' is $e4
+    ; the font build's | and _ (src/c64/font.p8)
+    const ubyte KEY_FONT_PIPE       = $dc
+    const ubyte KEY_FONT_UNDERSCORE = $5f   ; left arrow
+    const ubyte KEY_SHIFT_POUND     = $a9   ; typed for | in the font build
 
     str filename = " " * 40     ; name of the file being edited, empty if none
 
@@ -93,6 +97,9 @@ main {
             }
             if buffer.PAGED
                 key_time = cbm.RDTIM16()
+            ; (the font build) shift + pound types | (the font's |, $dc)
+            if features.FONT and key == KEY_SHIFT_POUND
+                key = KEY_FONT_PIPE
             cursor_off()
             if key == KEY_STOP
                 key = KEY_ESCAPE
@@ -1109,6 +1116,14 @@ main {
         uword limit
         motion_linewise = false
         motion_inclusive = false
+        ; (the font build) the font's | and _ are the commands; '|' ($dd)
+        ; is its }
+        if features.FONT and k == '|'
+            k = 0
+        else if features.FONT and k == KEY_FONT_PIPE
+            k = '|'
+        else if features.FONT and k == KEY_FONT_UNDERSCORE
+            k = '_'
         when k {
             'h', KEY_LEFT, KEY_DEL -> {
                 limit = buffer.line_start(c)
@@ -1229,6 +1244,8 @@ main {
             return 0
         if big_words
             return 1
+        if features.FONT and char == KEY_FONT_UNDERSCORE
+            return 2
         if (char >= '0' and char <= '9') or char == '_' or (char >= $41 and char <= $5a) or
                 (char >= $61 and char <= $7a) or (char >= $c1 and char <= $da)
             return 2
@@ -1889,6 +1906,8 @@ main {
         ; nothing to recover after this
         if buffer.PAGED
             buffer.clean()
+        if features.FONT
+            platform.stop()
         txt.cls()
         sys.exit(0)
     }

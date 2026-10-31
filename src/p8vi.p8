@@ -17,4 +17,14 @@ features {
     const bool FINAL_EOL = true  ; a line ending at the end of a file ends the last line (no empty line after it)
     const bool SCROLL = true     ; scroll the screen one row when the cursor goes just off it (not draw it all again)
     const bool DIR = true       ; :@$ shows the disk directory
+    const bool FONT = false     ; the C64 font build: p8vi.fnt shows the ASCII characters (src/c64/font.p8)
+}
+
+; features.FONT again, for the assembler (charset.p8's tables).  In main:
+; Prog8 leaves the features block out, asm and all (bugs/block_asm_dropped.p8)
+main {
+    %option merge
+    %asm {{
+FONT = 0
+    }}
 }

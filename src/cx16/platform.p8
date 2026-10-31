@@ -34,6 +34,10 @@ platform {
        main.STATUS_LINE     = main.SCREEN_HEIGHT - 1
     }
 
+    ; before the program ends (nothing to undo here)
+    sub stop() {
+    }
+
     ; open a file for writing with diskio.f_write as a SEQ file.
     ; the cx16 diskio.f_open_w adds ",s,w" and checks the drive status itself.
     ; the file must not exist yet.

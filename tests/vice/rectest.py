@@ -9,6 +9,7 @@ clean: the same, but quit with :q! instead of the reset: then there is
        which a 1541 gives back as one CR).
 
     python3 tests/vice/rectest.py --prg build/p8vi-c64reu.prg
+    python3 tests/vice/rectest.py --prg build/p8vi-c64font.prg --font build/p8vi.fnt
 """
 
 import argparse
@@ -105,7 +106,10 @@ def main():
     ap.add_argument('--prg', default='build/p8vi-c64reu.prg')
     ap.add_argument('--work', default='build')
     ap.add_argument('--port', type=int, default=6640)
+    ap.add_argument('--font', metavar='FNT', help='the font build: its font file')
     args = ap.parse_args()
+    if args.font:
+        edtest.FONT = os.path.abspath(args.font)
     args.prg = os.path.abspath(args.prg)
     args.work = os.path.abspath(args.work)
     results = [run(args, 'crash', True), run(args, 'clean', False)]

@@ -6,7 +6,11 @@
 ;   ASCII A-Z ($41-$5a) <-> PETSCII uppercase ($c1-$da)
 ;   ASCII $c1-$da       <-> PETSCII $61-$7a (the other uppercase codes)
 ;   ASCII _ | ~         <-> PETSCII $a4 $dd $de (the keys typed for them)
-; everything else stays the same, line endings too.
+; everything else stays the same, line endings too.  The font build
+; (features.FONT, src/c64/font.p8) keeps _ and maps the characters its font
+; shows instead (its own pair table):
+;   ASCII ` { | } ~     <-> PETSCII $c0 $db $dc $dd $de
+; (\ ^ _ are the same codes in both)
 ; (in assembly, to keep the editor small enough for the VIC-20)
 
 charset {
@@ -88,9 +92,15 @@ _done
             ; per mode: TO_PETSCII, TO_ASCII, SWAP_EOL (its letters stay the same)
 _from       .byte  $41, $61, $c1,  $c1, $41, $61,  $41, $41, $41
 _to         .byte  $c1, $41, $61,  $41, $61, $c1,  $41, $41, $41
+            .if  p8b_main.FONT == 0
 _pair_top   .byte  5, 5, 7
 _pair_bottom .byte 0, 0, 6
 _pairs      .byte  $5f, $a4, $7c, $dd, $7e, $de,  $0d, $0a
+            .else
+_pair_top   .byte  9, 9, 11
+_pair_bottom .byte 0, 0, 10
+_pairs      .byte  $60, $c0, $7b, $db, $7c, $dc, $7d, $dd, $7e, $de,  $0d, $0a
+            .endif
             ; !notreached! (tables, after the rts)
         }}
     }
