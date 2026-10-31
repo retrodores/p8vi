@@ -53,6 +53,9 @@ features that don't fit start out off there.  `make size` shows the room
 left on each target.
 `docs/FEATURE-SWITCHES.md` explains how the switches are written so the
 compiler leaves the code out.
+`docs/TEXT-STORE.md` lists the files to copy to use the text stores (the
+gap buffer, or the page store with an REU or the X16's banked RAM) in
+another program.
 
 `p8vi-c64font` (the `FONT` switch, `src/c64/font.p8`) is the REU build
 with a font that has the ASCII characters PETSCII lacks: `` \ ^ _ ` { | } ~ ``.
