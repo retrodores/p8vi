@@ -55,7 +55,7 @@ left on each target.
 compiler leaves the code out.
 
 `p8vi-c64font` (the `FONT` switch, `src/c64/font.p8`) is the REU build
-with a font that has the ASCII characters PETSCII lacks: `\ ^ _ ` { | } ~`.
+with a font that has the ASCII characters PETSCII lacks: `` \ ^ _ ` { | } ~ ``.
 It loads the font from `p8vi.fnt` on the disk to the RAM under the
 KERNAL at `$f800` and moves the screen to `$c800`, so the program and its
 buffers end below `$c800`.  The characters are typed as in C64 OS: pound

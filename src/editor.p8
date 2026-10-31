@@ -2773,6 +2773,11 @@ view {
 
     ; draw one text row straight into screen memory
     sub draw_row(ubyte r) {
+        if features.FONT and row_start[r] == NONE {
+            ; the font build has vi's ~ ($de in its font)
+            platform.put_row(r, 0, "\xde", 1)
+            return
+        }
         if row_start[r] == NONE {
             ; rows past the end of the text show a - (vi uses ~, not in petscii)
             platform.put_row(r, 0, "-", 1)
