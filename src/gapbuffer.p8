@@ -28,17 +28,20 @@ buffer {
     ; (code only a page store needs can be left out with it)
     const bool PAGED = false
 
+    ; the gap buffer's own variables: private, the editor uses the
+    ; routines (the tests use gap_position(), check() and scramble_gap())
+
     ; ram address based coordinates
-    pointer ramstart  ; start of buffer ram
-    pointer ramtop    ; 1 byte past the last usable byte
+    private pointer ramstart  ; start of buffer ram
+    private pointer ramtop    ; 1 byte past the last usable byte
 
     ; zero relative buffer coordinates
-    uword gappos    ; buffer offset of the gap
+    private uword gappos    ; buffer offset of the gap
 
     ; gap buffer coordinates are ram addresses
-    pointer gapstart  ; first byte of the gap, moves
-    pointer gapend    ; last byte of the gap (inclusive), moves
-    uword gapsize     ; current size of the gap, also the free memory
+    private pointer gapstart  ; first byte of the gap, moves
+    private pointer gapend    ; last byte of the gap (inclusive), moves
+    private uword gapsize     ; current size of the gap, also the free memory
 
     ; use the memory from start up to (not including) top and empty the buffer
     sub init(pointer start, pointer top) {
@@ -592,6 +595,35 @@ done:
     ; is always ramtop since the text after the gap is kept against it.
     sub ramend() -> pointer {
         return ramstart + bufend + gapsize
+    }
+
+
+    ;
+    ; for the tests (the editor doesn't call these, so they are left out of
+    ; its builds)
+    ;
+
+    ; the gap's position in the text
+    sub gap_position() -> uword {
+        return gappos
+    }
+
+    ; fill the gap with junk, so reading gap bytes by mistake can't give
+    ; stale copies of the text
+    sub scramble_gap() {
+        if gapsize != 0
+            sys.memset(gapstart, gapsize, '#')
+    }
+
+    ; whether the invariants at the top of this file hold
+    sub check() -> bool {
+        if gapend != gapstart + gapsize - 1
+            return false
+        if bufend + gapsize != ramtop - ramstart
+            return false
+        if gapstart - ramstart != gappos
+            return false
+        return ramend() == ramtop
     }
 
 } ; end of buffer block (gap buffer)

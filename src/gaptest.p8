@@ -37,15 +37,15 @@ main {
         buffer.clear()
         void buffer.insert("hello", 0)
         void buffer.insert_char(' ', 5)
-        void buffer.insert("world", buffer.gappos)
-        check_uw("insert", buffer.gappos, 11)
+        void buffer.insert("world", buffer.gap_position())
+        check_uw("insert", buffer.gap_position(), 11)
         void buffer.insert("big ", 6)
-        check_uw("insert middle", buffer.gappos, 10)
+        check_uw("insert middle", buffer.gap_position(), 10)
         void buffer.delete_char(1)
-        check_uw("delete", buffer.gappos, 1)
+        check_uw("delete", buffer.gap_position(), 1)
         at(4)
         void buffer.set(1, 'X')
-        check_uw("set", buffer.gappos, 4)
+        check_uw("set", buffer.gap_position(), 4)
         check_uw("free", buffer.free(), CAPACITY - 14)
     }
 
@@ -55,22 +55,25 @@ main {
         void buffer.insert("abcdefgh", 0)
         gap_to(3)
         expect("abcdefgh")
-        check_uw("gappos", buffer.gappos, 3)
+        check_uw("gappos", buffer.gap_position(), 3)
         gap_to(7)
         expect("abcdefgh")
         gap_to(0)
         expect("abcdefgh")
         gap_to(500)
         expect("abcdefgh")
-        check_uw("clamped", buffer.gappos, 8)
+        check_uw("clamped", buffer.gap_position(), 8)
     }
 
 
     sub test_raw_load() {
         txt.print("raw load\n")
+        pointer p
+        uword room
         buffer.clear()
-        ; a file load straight into buffer memory
-        sys.memcopy("line one\nline two", buffer.ramstart, 17)
+        ; a file load straight into buffer memory (the gap is all of it)
+        p, room = buffer.read_room(0)
+        sys.memcopy("line one\nline two", p, 17)
         check_bool("loaded", buffer.loaded(17), true)
         expect("line one\nline two")
         check_uw("free", buffer.free(), CAPACITY - 17)
@@ -85,7 +88,6 @@ main {
         gap_to(5)
         check_ub("chunks", buffer.chunks(), 2)
         p, n = buffer.chunk(0)
-        check_bool("start", p == buffer.ramstart, true)
         check_uw("first", n, 5)
         check_ub("first char", @(p), 'h')
         p, n = buffer.chunk(1)
@@ -111,20 +113,13 @@ main {
     }
 
     sub scramble_gap() {
-        if buffer.gapsize != 0
-            sys.memset(buffer.gapstart, buffer.gapsize, '#')
+        buffer.scramble_gap()
     }
 
     ; the gap buffer's invariants
     sub check_store() {
-        if buffer.gapend != buffer.gapstart + buffer.gapsize - 1
-            buftests.fail("gapend != gapstart + gapsize - 1")
-        if buffer.bufend + buffer.gapsize != buffer.ramtop - buffer.ramstart
-            buftests.fail("bufend + gapsize != capacity")
-        if buffer.gapstart - buffer.ramstart != buffer.gappos
-            buftests.fail("gappos != gapstart")
-        if buffer.ramend() != buffer.ramtop
-            buftests.fail("ramend() != ramtop")
+        if not buffer.check()
+            buftests.fail("gap buffer invariants")
         scramble_gap()
     }
 }

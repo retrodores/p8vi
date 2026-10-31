@@ -29,7 +29,9 @@ buffer {
     ; marks are positions that move along with inserts and deletes
     const ubyte NUM_MARKS = 4
 
-    uword bufend    ; length of the text (1 past the last character)
+    private uword bufend    ; length of the text (1 past the last character)
+
+    ; (variables marked private are the store's own: use the routines)
 
     ; line ending character used by the line routines
     ubyte eol = $0d
@@ -47,7 +49,7 @@ buffer {
     uword change_start = NONE
     uword change_end
 
-    uword[NUM_MARKS] marks
+    private uword[NUM_MARKS] marks
 
     ; the yank buffer (see yank()): yank_len bytes; it can hold yank_size
     ; less one.  the gap buffer keeps it at yank_buf, the page store in its
@@ -60,11 +62,11 @@ buffer {
     ; undo_size); disabled while undo_size is 0
     pointer undo_buf
     uword undo_size
-    uword undo_len          ; bytes used
-    bool undo_new           ; the next change starts a new log
+    private uword undo_len  ; bytes used
+    private bool undo_new   ; the next change starts a new log
     bool undo_lost          ; the change didn't fit, it can't be undone
     bool undo_reversed      ; the log was undone, undoing again redoes it
-    bool undo_off           ; not logging (while undoing)
+    private bool undo_off   ; not logging (while undoing)
 
     ;
     ; change tracking
@@ -192,6 +194,11 @@ buffer {
     ; the next change starts a new undo log (call before each editor command)
     sub undo_mark() {
         undo_new = true
+    }
+
+    ; bytes in the undo log (for the tests)
+    sub undo_bytes() -> uword {
+        return undo_len
     }
 
     ; true if there is a change to undo (or redo)

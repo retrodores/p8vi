@@ -416,7 +416,7 @@ buftests {
         void buffer.insert_char('b', 4)
         void buffer.insert_char('c', 5)
         void buffer.delete_char(5)
-        check_uw("one record", buffer.undo_len, 2 + 7)
+        check_uw("one record", buffer.undo_bytes(), 2 + 7)
         expect("oneab two three")
         check_uw("undo typing", buffer.undo(), 3)
         expect("one two three")

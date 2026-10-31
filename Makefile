@@ -86,11 +86,6 @@ build/p8vi-vic20.prg: src/p8vi_vic20.p8 $(SRCS)
 	$(CP) build/p8vi_vic20.asm build/p8vi-vic20.asm
 	$(RM) build/p8vi_vic20.prg
 
-build/testcx16.prg: src/test.p8 src/buffer.p8 src/gapbuffer.p8
-	$(PCC) $(PCCARGSCX16) $<
-	$(CP) build/test.prg $@
-	$(RM) build/test.prg
-
 clean:
 	$(RM) build$(SEP)*
 
@@ -172,8 +167,9 @@ bench:	build
 	$(PCC) -quiet -srcdirs src:src/c64 -target c64 -out build tests/bench/storebench.p8
 	cd build && x64sc -default -sounddev dummy -warp -debugcart -autostartprgmode 1 -autostart storebench.prg -limitcycles 900000000 -exitscreenshot bench-gap.png >/dev/null 2>&1
 
-test:	build/testcx16.prg
-	x16emu -gif output.gif -debug -scale 2 -rtc -run -prg build/testcx16.prg
+# the text store tests on the virtual target (output compared with
+# tests/expected/)
+test:	test-gap
 
 #
 # end-of-file
