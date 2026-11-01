@@ -12,7 +12,7 @@ ifeq ($(OS),Windows_NT)
 else
     CLEAN = rm -f build/*
     CP = cp -p
-    RM = rm -f
+    RM = rm -fr
     MD = mkdir -p
     SEP = /
 endif
@@ -58,7 +58,7 @@ PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-
 # is p8vi-c64reu with a font that has the ASCII characters PETSCII lacks.
 # it loads the font from p8vi.fnt (make font, from FONTSRC).
 FONTPROG = build/p8vi-c64font.prg
-FONTSRC	= custchar/src/c64oscharset.p8
+FONTSRC	= src/c64/c64oscharset.p8
 SRCS	= src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/pagestore.p8 src/charset.p8 src/*/platform.p8 \
 	  src/*/store_platform.p8 src/*/pagemem_platform.p8 src/*/xmem_platform.p8 src/c64/reu.p8
 
@@ -81,7 +81,7 @@ build/p8vi-c64reu.prg: src/p8vi.p8 $(SRCS)
 	$(CP) build/p8vi.asm build/p8vi-c64reu.asm
 	$(RM) build/p8vi.prg
 
-build/p8vi-c64font.prg: src/p8vi_c64font.p8 $(SRCS) src/c64/font.p8
+build/p8vi-c64font.prg: src/p8vi_c64font.p8 $(SRCS) src/c64/font.p8 font
 	$(PCC) $(PCCARGSC64FONT) $<
 	$(CP) build/p8vi_c64font.prg $@
 	$(CP) build/p8vi_c64font.list build/p8vi-c64font.list
@@ -114,9 +114,11 @@ clean:
 # the last known good version, whatever build/ holds).  the quick checks
 # run first; run make test-c64, test-c64reu and test-c64-screen too before
 # a release that matters.
-release:	$(PROGS) test audit size
+release:	$(PROGS) font test audit size
 	$(MD) release
 	$(CP) build$(SEP)p8vi-c64.prg release
+	$(CP) build$(SEP)p8vi-c64font.prg release
+	$(CP) build$(SEP)p8vi.fnt release
 	$(CP) build$(SEP)p8vi-c64reu.prg release
 	$(CP) build$(SEP)p8vi-cx16.prg release
 	$(CP) build$(SEP)p8vi-vic20.prg release
