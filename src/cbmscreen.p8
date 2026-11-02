@@ -12,8 +12,17 @@ cbmscreen {
         %asm {{
             sta  P8ZP_SCRATCH_B1        ; n
             stx  _col
-            ; the row's screen address
+            ; check for mega64 40/80
+.if sys.target == 65
+            lda  c65.VIDMODE            ; load VIC register
+            and  #%10000000         ; Look only at the H640 40/80 flag
+            beq  +
             tya
+            asl  a
+            tay
+.endif
+            ; the row's screen address
++           tya
             asl  a
             tay
             lda  txt.setchr._screenrows,y
@@ -125,6 +134,16 @@ _down
             bne  -
 +           rts
 _copy
+.if sys.target == 65
+            tay
+            lda  c65.VIDMODE            ; load VIC register
+            and  #%10000000         ; Look only at the H640 40/80 flag
+            beq  +
+            tya
+            asl  a
+            tay
++           tya
+.endif
             ; row a to row x (keeps x)
             asl  a
             tay
@@ -133,6 +152,16 @@ _copy
             lda  txt.setchr._screenrows+1,y
             sta  P8ZP_SCRATCH_W1+1
             txa
+.if sys.target == 65
+            tay
+            lda  c65.VIDMODE            ; load VIC register
+            and  #%10000000         ; Look only at the H640 40/80 flag
+            beq  +
+            tya
+            asl  a
+            tay
++           tya
+.endif
             asl  a
             tay
             lda  txt.setchr._screenrows,y

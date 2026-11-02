@@ -45,6 +45,7 @@ PCCARGSC64REU=-srcdirs src:src/c64reu:src/c64 -asmlist -target c64 -out build
 # the C64 font build: the REU build with its own font (src/c64/font.p8)
 PCCARGSC64FONT=$(PCCARGSC64REU)
 PCCARGSCX16=-srcdirs src:src/cx16 -asmlist -target cx16 -out build
+PCCARGSM65=-srcdirs src:src/mega65 -asmlist -target config/mega65.properties -out build
 PCCARGSVIC20=-srcdirs src:src/vic20 -asmlist -target config/vic20plus24.properties -out build
 PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 
@@ -53,7 +54,7 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 # editor.p8.  The C64 has two builds: p8vi-c64
 # with the gap buffer (the most room for text in main RAM) and p8vi-c64reu
 # with the page store (for text in an REU, docs/XMEM-DESIGN.md)
-PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-vic20.prg
+PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-vic20.prg
 # an experiment, not in the release yet: p8vi-c64font (src/p8vi_c64font.p8)
 # is p8vi-c64reu with a font that has the ASCII characters PETSCII lacks.
 # it loads the font from p8vi.fnt (make font, from FONTSRC).
@@ -100,6 +101,13 @@ build/p8vi-cx16.prg: src/p8vi_cx16.p8 $(SRCS)
 	$(CP) build/p8vi_cx16.asm build/p8vi-cx16.asm
 	$(RM) build/p8vi_cx16.prg
 
+build/p8vi-mega65.prg: src/p8vi.p8 $(SRCS)
+	$(PCC) $(PCCARGSM65) $<
+	$(CP) build/p8vi.prg $@
+	$(CP) build/p8vi.list build/p8vi-mega65.list
+	$(CP) build/p8vi.asm build/p8vi-mega65.asm
+	$(RM) build/p8vi.prg
+
 build/p8vi-vic20.prg: src/p8vi_vic20.p8 $(SRCS)
 	$(PCC) $(PCCARGSVIC20) $<
 	$(CP) build/p8vi_vic20.prg $@
@@ -121,6 +129,7 @@ release:	$(PROGS) font test audit size
 	$(CP) build$(SEP)p8vi.fnt release
 	$(CP) build$(SEP)p8vi-c64reu.prg release
 	$(CP) build$(SEP)p8vi-cx16.prg release
+	$(CP) build$(SEP)p8vi-mega65.prg release
 	$(CP) build$(SEP)p8vi-vic20.prg release
 	$(CP) docs$(SEP)QUICKSTART.md release
 
@@ -149,6 +158,9 @@ emu-c64font:	build/p8vi-c64font.prg disk
 
 emu-cx16:	build/p8vi-cx16.prg
 	x16emu -debug -scale 2 -rtc -fsroot samples/ -run -prg build/p8vi-cx16.prg
+
+emu-mega65:	build/p8vi-mega65.prg
+	xmega65 -prg build/p8vi-mega65.prg
 
 EMUVIC=xvic -default -keymap 1 -model ntsc -memory all -8 $(DISK) -drive8type 1581 -monitorfont "JetBrains Mono 16"
 emu-vic20:	build/p8vi-vic20.prg disk
