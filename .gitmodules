@@ -1,3 +1,6 @@
 [submodule ".prog8targets"]
 	path = .prog8targets
 	url = https://github.com/gillham/prog8targets.git
+[submodule ".mega65-reference"]
+	path = .mega65-reference
+	url = https://github.com/CTalkobt/Programming_The_Mega-65.git
