@@ -22,12 +22,6 @@ platform {
     pointer sparetop
 
     sub init() {
-       ; Prog8's system init banks out the BASIC ROM, unless floats are used
-       ; (they need it) or %option no_sysinit is set.  while BASIC is banked in,
-       ; reads at $a000-$bfff return the ROM instead of the RAM underneath,
-       ; so the buffer must end there.  BASIC is visible when the LORAM and
-       ; HIRAM bits (0 and 1) of the processor port are both set.
-
        ; use "Escape + 4" to change screen size to 40x25
 ;       txt.chrout(27)
 ;       txt.chrout('4')
@@ -36,10 +30,12 @@ platform {
        txt.chrout('8')
 
        textstart = sys.progend()
-       if (@($01) & %00000011) == %00000011
-           texttop = $a000
-       else
-           texttop = $cfe0     ; Prog8 keeps the R0-R15 virtual registers at $cfe0-$cfff
+       ; in MEGA65 mode $c000-$ffff is ROM and I/O (the CPU reads the ROM,
+       ; writes go to the RAM under it), so the text memory ends at $c000
+       ; (memtop in config/mega65.properties).  (the C64 test of $01 doesn't
+       ; work here: it reads $00, and the C64's $cfe0 put the top of the text
+       ; and the yank and undo buffers in the ROM)
+       texttop = $c000
        ; (the font build) the text memory ends at the screen
        if features.FONT and texttop > font.SCREEN
            texttop = font.SCREEN

@@ -134,6 +134,9 @@ The useful `make` targets are:
 | `make test-reu` | REU detection and reset tests in VICE (`tests/reu/`) |
 | `make test-c64font` | The C64 REU build's tests on the font build, and its own (`font`) |
 | `make test-c64-screen` | Check partial redraws against full redraws in VICE (~30 s) |
+| `make test-mega65` | The VICE editor and redraw tests on a MEGA65 in xmega65, through `tools/m65harness.py` (`tests/mega65/edtest.py`, ~3 min) |
+| `make test-mega65-zp` | Which zero page bytes the MEGA65 ROM changes in KERNAL calls (`tests/mega65/zpwatch.p8`) |
+| `make test-mega65-keymap` | Measure which MEGA65 keys give which PETSCII codes (the harness's key table) |
 | `make size` | Memory map and room left below memtop for each build (`tools/listsize.py`) |
 | `make disk` | `build/testgap.d81`: a 1581 disk with the C64 and VIC-20 programs, `p8vi.fnt` and the sample files, for `make emu-c64`, `emu-c64reu`, `emu-c64font` and `emu-vic20` (drive 8 is a 1581) |
 | `make c64`   | Compile for the C64 and run it in VICE                    |

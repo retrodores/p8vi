@@ -1,0 +1,957 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright 2026 Mikael Lund aka Wombat
+#
+# Deliberately more permissive than the project around it:
+# this file is meant to be copied out and used elsewhere.
+"""Drive a MEGA65 and look at it while it runs, emulated or real.
+
+Copy this file into any project that tests MEGA65 code; it depends on nothing
+but the standard library and nothing in it is specific to one program.  What
+varies between projects is where the screen lives, what the machine is and what
+the tools are called, and those are the `Screen` dataclass and the arguments to
+`launch`.
+
+Two primitives carry everything: the serial monitor, which reads and writes any
+28-bit address while the machine runs, and the core's synthetic key slots at
+$D615, which are indistinguishable from someone pressing the key.  Both belong
+to the machine rather than to the emulator, which is why the same steps drive
+either -- `launch` starts an emulator and speaks to it through a socket, and
+`attach` speaks to a real machine down its serial port.  Everything above the
+channel is the same code.
+
+What a real machine does not give you is a known starting state: `launch`
+stages a card and boots the program, where `attach` finds the machine wherever
+it was left.
+
+A test is a list of steps:
+
+    args = add_arguments(argparse.ArgumentParser()).parse_args()
+    sys.exit(run(args, "TOOL.M65", [
+        ("key", "m"),
+        ("expect", "READY TO GO"),
+        ("type", "d2000"), ("key", "return"),
+    ], ready="MAIN MENU"))
+
+or, when the check is more than a phrase on screen, the same primitives by hand:
+
+    with launch(emulator, prg, ready="MAIN MENU") as machine:
+        cold = machine.snapshot()
+        machine.press("right")
+        after = machine.wait_until(lambda s: s.text(7) != cold.text(7))
+
+and the same against the machine on the desk:
+
+    with attach("/dev/cu.usbserial-AQ027F6E") as machine:
+        print(machine.snapshot().whole())
+
+Nothing here waits a fixed number of seconds for the machine to do something.
+`-sleepless` runs flat out and real hardware runs in real time, so a constant
+that is generous on one is an intermittent failure on the other; every wait is a
+poll against a deadline instead.
+
+Changed for p8vi (tests/mega65), November 2026:
+- a held key (shift, ctrl, MEGA) goes in the first virtual key slot, which
+  makes shifted keys work: in the second slot it had no effect;
+- `PETSCII` and `type_petscii` (step "petscii"): every code GETIN gives, as
+  measured by tests/mega65/keymap.py; `NAMED` keys with modifiers (up, left,
+  home, clear, insert, tab, help, esc), and ' & [ ] ^ for `type_text`;
+- `Screen.lowercase` and `Screen.plain_reverse` for reading the lower case
+  character set and a reversed cursor, `Snapshot.reversed`;
+- `settled(quiet=)`, a screen that has stayed the same for a while.
+"""
+
+from __future__ import annotations
+
+import argparse
+import contextlib
+import fcntl
+import os
+import re
+import select
+import signal
+import socket
+import struct
+import subprocess
+import sys
+import termios
+import time
+from collections.abc import Callable, Iterable, Sequence
+from contextlib import ExitStack, contextmanager
+from dataclasses import dataclass, field
+
+# `m <addr>` answers ":AAAAAAAA:" followed by sixteen bytes as hex, and
+# `M <addr>` answers sixteen such lines (xemu/targets/mega65/uart_monitor.c,
+# m65mon_dumpmem28; mega65-core/src/monitor/monitor.a65 line 430 for the real
+# machine, which reads the upper case form the same way).
+_LINE = re.compile(rb":([0-9A-Fa-f]{8}):([0-9A-Fa-f]{32})")
+_PER_LINE = 16
+_PER_BLOCK = _PER_LINE * 16
+
+# 20ms, the interval matrix65 uses against real hardware.  Longer is not safer:
+# keys are released after every press, so an over-long hold only delays the
+# release the scanner is waiting for.
+KEY_DELAY = 0.02
+
+POLL = 0.1
+DEFAULT_TIMEOUT = 15.0
+READY_TIMEOUT = 30.0
+
+# How long one `m` may take to answer, and how long one packet may.  The packet
+# wait must be the shorter of the two, or the socket gives up before the answer
+# does and the Failure below is unreachable.
+ANSWER_TIMEOUT = 5.0
+PACKET_TIMEOUT = 1.0
+# What the bitstream's monitor runs at.  m65's own default, and wrong here means
+# the machine answers nothing rather than answering badly.
+MONITOR_BAUD = 2000000
+
+SHIFT = 0x0F
+CTRL = 0x3A
+MEGA = 0x3D
+NO_KEY = 0x7F
+
+# Matrix position per character -- where the key sits in the keyboard matrix,
+# not its character code, so 'm' is $24 rather than $6D.
+MATRIX = {
+    "\r": 0x01,
+    "\n": 0x01,
+    "3": 0x08,
+    "w": 0x09,
+    "a": 0x0A,
+    "4": 0x0B,
+    "z": 0x0C,
+    "s": 0x0D,
+    "e": 0x0E,
+    "5": 0x10,
+    "r": 0x11,
+    "d": 0x12,
+    "6": 0x13,
+    "c": 0x14,
+    "f": 0x15,
+    "t": 0x16,
+    "x": 0x17,
+    "7": 0x18,
+    "y": 0x19,
+    "g": 0x1A,
+    "8": 0x1B,
+    "b": 0x1C,
+    "h": 0x1D,
+    "u": 0x1E,
+    "v": 0x1F,
+    "9": 0x20,
+    "i": 0x21,
+    "j": 0x22,
+    "0": 0x23,
+    "m": 0x24,
+    "k": 0x25,
+    "o": 0x26,
+    "n": 0x27,
+    "+": 0x28,
+    "p": 0x29,
+    "l": 0x2A,
+    "-": 0x2B,
+    ".": 0x2C,
+    ":": 0x2D,
+    "@": 0x2E,
+    ",": 0x2F,
+    "}": 0x30,
+    "*": 0x31,
+    ";": 0x32,
+    "=": 0x35,
+    "^": 0x36,
+    "/": 0x37,
+    "1": 0x38,
+    "_": 0x39,
+    "2": 0x3B,
+    " ": 0x3C,
+    "q": 0x3E,
+}
+
+# Characters reached by holding shift over another key.
+SHIFTED = {
+    "!": "1",
+    '"': "2",
+    "#": "3",
+    "$": "4",
+    "%": "5",
+    "&": "6",
+    "'": "7",
+    "(": "8",
+    ")": "9",
+    "?": "/",
+    "<": ",",
+    ">": ".",
+    "[": ":",
+    "]": ";",
+}
+
+# Named keys, for what a character cannot express: a position in the matrix,
+# with the key held down with it (measured with tests/mega65/keymap.py, in
+# Xemu: up and left are shift with down and right, as on a CBM keyboard).
+#
+# MEGA with TAB is left out on purpose: it opens the matrix mode debugger
+# over the display, and the keyboard then goes to it rather than to the
+# program.  Some other modifier with $40 or $41 had the same effect, and keys
+# from $42 up then gave nothing until a restart.
+NAMED = {
+    "return": (0x01, NO_KEY),
+    "f1": (0x04, NO_KEY),
+    "f3": (0x05, NO_KEY),
+    "f5": (0x06, NO_KEY),
+    "f7": (0x03, NO_KEY),
+    "down": (0x07, NO_KEY),
+    "up": (0x07, SHIFT),
+    "right": (0x02, NO_KEY),
+    "left": (0x02, SHIFT),
+    "home": (0x33, NO_KEY),
+    "clear": (0x33, SHIFT),
+    "delete": (0x00, NO_KEY),
+    "insert": (0x00, SHIFT),
+    "stop": (0x3F, NO_KEY),
+    "tab": (0x41, NO_KEY),
+    "help": (0x43, NO_KEY),
+    "esc": (0x47, NO_KEY),
+}
+
+# PETSCII code -> (matrix position, key held with it), for the codes the
+# KERNAL's GETIN gives in MEGA65 mode.  Measured in Xemu with ROM 920413 by
+# tests/mega65/keymap.py, which presses every position alone and with shift,
+# ctrl and MEGA; where several give the same code, the key alone wins, then
+# ctrl, then shift, then MEGA.  Not checked on a real machine.
+PETSCII = {
+    0x01: (0x0A, CTRL), 0x02: (0x1C, CTRL), 0x03: (0x3F, NO_KEY), 0x04: (0x12, CTRL),
+    0x05: (0x0E, CTRL), 0x06: (0x15, CTRL), 0x07: (0x1A, CTRL), 0x08: (0x1D, CTRL),
+    0x09: (0x41, NO_KEY), 0x0A: (0x22, CTRL), 0x0B: (0x25, CTRL), 0x0C: (0x2A, CTRL),
+    0x0D: (0x01, NO_KEY), 0x0E: (0x27, CTRL), 0x0F: (0x26, CTRL), 0x10: (0x44, NO_KEY),
+    0x11: (0x07, NO_KEY), 0x12: (0x11, CTRL), 0x13: (0x33, NO_KEY), 0x14: (0x00, NO_KEY),
+    0x15: (0x1E, CTRL), 0x16: (0x45, NO_KEY), 0x17: (0x09, CTRL), 0x18: (0x17, CTRL),
+    0x19: (0x46, NO_KEY), 0x1A: (0x0C, CTRL), 0x1B: (0x47, NO_KEY), 0x1C: (0x08, CTRL),
+    0x1D: (0x02, NO_KEY), 0x1E: (0x13, CTRL), 0x1F: (0x18, CTRL), 0x20: (0x3C, NO_KEY),
+    0x21: (0x38, SHIFT), 0x22: (0x3B, SHIFT), 0x23: (0x08, SHIFT), 0x24: (0x0B, SHIFT),
+    0x25: (0x10, SHIFT), 0x26: (0x13, SHIFT), 0x27: (0x18, SHIFT), 0x28: (0x1B, SHIFT),
+    0x29: (0x20, SHIFT), 0x2A: (0x31, NO_KEY), 0x2B: (0x28, NO_KEY), 0x2C: (0x2F, NO_KEY),
+    0x2D: (0x2B, NO_KEY), 0x2E: (0x2C, NO_KEY), 0x2F: (0x37, NO_KEY), 0x30: (0x23, NO_KEY),
+    0x31: (0x38, NO_KEY), 0x32: (0x3B, NO_KEY), 0x33: (0x08, NO_KEY), 0x34: (0x0B, NO_KEY),
+    0x35: (0x10, NO_KEY), 0x36: (0x13, NO_KEY), 0x37: (0x18, NO_KEY), 0x38: (0x1B, NO_KEY),
+    0x39: (0x20, NO_KEY), 0x3A: (0x2D, NO_KEY), 0x3B: (0x32, NO_KEY), 0x3C: (0x2F, SHIFT),
+    0x3D: (0x35, NO_KEY), 0x3E: (0x2C, SHIFT), 0x3F: (0x37, SHIFT), 0x40: (0x2E, NO_KEY),
+    0x41: (0x0A, NO_KEY), 0x42: (0x1C, NO_KEY), 0x43: (0x14, NO_KEY), 0x44: (0x12, NO_KEY),
+    0x45: (0x0E, NO_KEY), 0x46: (0x15, NO_KEY), 0x47: (0x1A, NO_KEY), 0x48: (0x1D, NO_KEY),
+    0x49: (0x21, NO_KEY), 0x4A: (0x22, NO_KEY), 0x4B: (0x25, NO_KEY), 0x4C: (0x2A, NO_KEY),
+    0x4D: (0x24, NO_KEY), 0x4E: (0x27, NO_KEY), 0x4F: (0x26, NO_KEY), 0x50: (0x29, NO_KEY),
+    0x51: (0x3E, NO_KEY), 0x52: (0x11, NO_KEY), 0x53: (0x0D, NO_KEY), 0x54: (0x16, NO_KEY),
+    0x55: (0x1E, NO_KEY), 0x56: (0x1F, NO_KEY), 0x57: (0x09, NO_KEY), 0x58: (0x17, NO_KEY),
+    0x59: (0x19, NO_KEY), 0x5A: (0x0C, NO_KEY), 0x5B: (0x2D, SHIFT), 0x5C: (0x30, NO_KEY),
+    0x5D: (0x32, SHIFT), 0x5E: (0x36, NO_KEY), 0x5F: (0x39, NO_KEY), 0x60: (0x39, CTRL),
+    0x7B: (0x2D, MEGA), 0x7C: (0x2C, MEGA), 0x7D: (0x32, MEGA), 0x7E: (0x2F, MEGA),
+    0x81: (0x38, MEGA), 0x83: (0x3F, SHIFT), 0x84: (0x43, NO_KEY), 0x85: (0x04, NO_KEY),
+    0x86: (0x05, NO_KEY), 0x87: (0x06, NO_KEY), 0x88: (0x03, NO_KEY), 0x89: (0x04, SHIFT),
+    0x8A: (0x05, SHIFT), 0x8B: (0x06, SHIFT), 0x8C: (0x03, SHIFT), 0x8D: (0x01, SHIFT),
+    0x90: (0x38, CTRL), 0x91: (0x07, SHIFT), 0x92: (0x23, CTRL), 0x93: (0x33, SHIFT),
+    0x94: (0x00, SHIFT), 0x95: (0x3B, MEGA), 0x96: (0x08, MEGA), 0x97: (0x0B, MEGA),
+    0x98: (0x10, MEGA), 0x99: (0x13, MEGA), 0x9A: (0x18, MEGA), 0x9B: (0x1B, MEGA),
+    0x9C: (0x10, CTRL), 0x9D: (0x02, SHIFT), 0x9E: (0x1B, CTRL), 0x9F: (0x0B, CTRL),
+    0xA0: (0x3C, SHIFT), 0xA1: (0x25, MEGA), 0xA2: (0x21, MEGA), 0xA3: (0x16, MEGA),
+    0xA4: (0x2E, MEGA), 0xA5: (0x1A, MEGA), 0xA6: (0x28, MEGA), 0xA7: (0x24, MEGA),
+    0xA8: (0x30, MEGA), 0xA9: (0x30, SHIFT), 0xAA: (0x27, MEGA), 0xAB: (0x3E, MEGA),
+    0xAC: (0x12, MEGA), 0xAD: (0x0C, MEGA), 0xAE: (0x0D, MEGA), 0xAF: (0x29, MEGA),
+    0xB0: (0x0A, MEGA), 0xB1: (0x0E, MEGA), 0xB2: (0x11, MEGA), 0xB3: (0x09, MEGA),
+    0xB4: (0x1D, MEGA), 0xB5: (0x22, MEGA), 0xB6: (0x2A, MEGA), 0xB7: (0x19, MEGA),
+    0xB8: (0x1E, MEGA), 0xB9: (0x26, MEGA), 0xBA: (0x2E, SHIFT), 0xBB: (0x15, MEGA),
+    0xBC: (0x14, MEGA), 0xBD: (0x17, MEGA), 0xBE: (0x1F, MEGA), 0xBF: (0x1C, MEGA),
+    0xC0: (0x31, SHIFT), 0xC1: (0x0A, SHIFT), 0xC2: (0x1C, SHIFT), 0xC3: (0x14, SHIFT),
+    0xC4: (0x12, SHIFT), 0xC5: (0x0E, SHIFT), 0xC6: (0x15, SHIFT), 0xC7: (0x1A, SHIFT),
+    0xC8: (0x1D, SHIFT), 0xC9: (0x21, SHIFT), 0xCA: (0x22, SHIFT), 0xCB: (0x25, SHIFT),
+    0xCC: (0x2A, SHIFT), 0xCD: (0x24, SHIFT), 0xCE: (0x27, SHIFT), 0xCF: (0x26, SHIFT),
+    0xD0: (0x29, SHIFT), 0xD1: (0x3E, SHIFT), 0xD2: (0x11, SHIFT), 0xD3: (0x0D, SHIFT),
+    0xD4: (0x16, SHIFT), 0xD5: (0x1E, SHIFT), 0xD6: (0x1F, SHIFT), 0xD7: (0x09, SHIFT),
+    0xD8: (0x17, SHIFT), 0xD9: (0x19, SHIFT), 0xDA: (0x0C, SHIFT), 0xDB: (0x28, SHIFT),
+    0xDC: (0x2B, MEGA), 0xDD: (0x2B, SHIFT), 0xDE: (0x36, SHIFT), 0xDF: (0x31, MEGA),
+}
+
+
+class Failure(Exception):
+    """A check that did not come true, with the screen as it was."""
+
+    def __init__(self, message: str, shown: str | None = None):
+        super().__init__(message)
+        self.shown = shown
+
+
+@dataclass(frozen=True)
+class Screen:
+    """Where the screen is and how wide a cell is.
+
+    Defaults suit a MEGA65 tool drawing at $B800 in 40 columns.  `cell_width_at`
+    is asked of the machine on every read rather than configured per test, since
+    one scenario can cross between an 8-bit and a 16-bit character mode -- $D054
+    bit 0 says which, so a cell is two bytes or one and a row 40 cells or 80.
+
+    `lowercase` is for the lower/upper case character set, where $01-$1A are
+    a-z and $41-$5A A-Z (the upper case set has graphics there).
+    `plain_reverse` reads a reversed character ($80-$FF), such as a cursor, as
+    the character itself, so a phrase with the cursor in it still matches;
+    `Snapshot.reversed` says where they were.
+    """
+
+    at: int = 0xB800
+    rows: int = 25
+    row_bytes: int = 80
+    cell_width_at: int = 0xFFD3054
+    lowercase: bool = False
+    plain_reverse: bool = False
+
+    @property
+    def size(self) -> int:
+        return self.rows * self.row_bytes
+
+
+# Frozen, so one instance is safe to share as the default everywhere.
+DEFAULT_SCREEN = Screen()
+
+
+@dataclass(frozen=True)
+class Snapshot:
+    """The screen as it was at one moment, decoded on demand."""
+
+    memory: bytes
+    cell_bytes: int
+    screen: Screen
+
+    @property
+    def columns(self) -> int:
+        return self.screen.row_bytes // self.cell_bytes
+
+    def codes(self, row: int) -> list[int]:
+        """The screen codes of one row -- C64 ROM charset, so A-Z are $01-$1A."""
+        base = row * self.screen.row_bytes
+        return [self.memory[base + c * self.cell_bytes] for c in range(self.columns)]
+
+    def attributes(self, row: int) -> list[int]:
+        """The high byte of each cell, which in 16-bit mode carries the tile
+        source; all zero in 8-bit mode, where a cell has no second byte."""
+        if self.cell_bytes < 2:
+            return [0] * self.columns
+        base = row * self.screen.row_bytes
+        return [self.memory[base + c * self.cell_bytes + 1] for c in range(self.columns)]
+
+    def text(self, row: int) -> str:
+        """One row as something a check can match a phrase against.  Anything
+        outside the letters and punctuation, the graphics a rule is drawn from
+        included, shows as `{XX}` rather than silently as a letter."""
+        screen = self.screen
+        return "".join(_glyph(code, screen.lowercase, screen.plain_reverse) for code in self.codes(row))
+
+    def reversed(self, row: int) -> list[int]:
+        """The columns of one row that hold a reversed character."""
+        return [c for c, code in enumerate(self.codes(row)) if code & 0x80]
+
+    def whole(self) -> str:
+        """Every row, one per line."""
+        return "\n".join(self.text(row) for row in range(self.screen.rows))
+
+    def __contains__(self, phrase: str) -> bool:
+        return phrase in self.whole()
+
+
+def _glyph(code: int, lowercase: bool = False, plain_reverse: bool = False) -> str:
+    if plain_reverse and code & 0x80:
+        code &= 0x7F
+    if 0x01 <= code <= 0x1A:
+        return chr(code - 1 + ord("a" if lowercase else "A"))
+    if lowercase and 0x41 <= code <= 0x5A:
+        return chr(code)
+    if code == 0x1B:
+        return "["
+    if code == 0x1D:
+        return "]"
+    if 0x20 <= code <= 0x3F:
+        return chr(code)
+    if code == 0x00:
+        return "@"
+    # $64 is a rule along the bottom row of the cell, which is what the charset
+    # has instead of an underscore at $1F -- see src/screencode.c.  Spelled out
+    # here so a screen dump of a FileHost author reads `grim_fandango` rather
+    # than `GRIM{64}FANDANGO`.
+    if code == 0x64:
+        return "_"
+    return f"{{{code:02X}}}"
+
+
+@dataclass
+class Result:
+    """What a run of steps came to."""
+
+    ok: bool
+    steps: int
+    failure: Failure | None = None
+    counted: dict[str, int] = field(default_factory=dict)
+
+
+class Machine:
+    """A running machine, reachable over its serial monitor.
+
+    Built by `launch` or by `attach`, or around any channel with a socket's
+    `sendall`, `recv` and `settimeout` -- which is how the step runner is tested
+    with no machine of either kind behind it.
+    """
+
+    def __init__(
+        self,
+        sock,
+        screen: Screen = DEFAULT_SCREEN,
+        symbol: Callable[[str], int] | None = None,
+    ):
+        self._sock = sock
+        self.screen = screen
+        self._symbol = symbol
+
+    def address(self, name: str) -> int:
+        """Where a name lives, through the resolver this machine was given."""
+        if self._symbol is None:
+            raise Failure(f"cannot look up {name!r}: no symbol resolver was given")
+        return self._symbol(name)
+
+    # --- the machine's memory ------------------------------------------------
+
+    def read(self, address: int, length: int) -> bytes:
+        """Memory read out of the running machine.
+
+        `M` answers sixteen lines where `m` answers one, and both spell them the
+        same way, so anything past a single line is asked for in 256-byte
+        blocks: a screen is nine requests rather than a hundred and twenty-five,
+        and each request costs two emulated frames.  Both Xemu and the MEGA65's
+        own monitor read `M` as sixteen lines, which is what lets the same reads
+        serve a real machine down a serial port -- checked against one.
+
+        Anything a line or shorter still goes through `m`.  That keeps the
+        probe of a hardware register to the byte asked for -- an `M` there would
+        pull 256 bytes of I/O with it, and reading those has side effects.
+        """
+        out = bytearray()
+        at = address
+        while len(out) < length:
+            remaining = length - len(out)
+            bulk = remaining > _PER_LINE
+            span = _PER_BLOCK if bulk else _PER_LINE
+            self._sock.sendall(f"{'M' if bulk else 'm'}{at:x}\n".encode())
+
+            deadline = time.time() + ANSWER_TIMEOUT
+            seen = b""
+            while time.time() < deadline:
+                # A monitor that has stopped answering has to end as a Failure
+                # like any other check, so the wait for one packet is shorter
+                # than the wait for the whole answer -- otherwise the socket
+                # raises first and the step it belonged to is never named.
+                try:
+                    seen += self._sock.recv(4096)
+                except TimeoutError:
+                    continue
+                rows = {int(a, 16): bytes.fromhex(h.decode()) for a, h in _LINE.findall(seen)}
+                # Taken by following the addresses rather than by counting
+                # lines, so a reply that arrives split across packets, or
+                # behind the tail of an earlier one, still assembles in order.
+                block, want = bytearray(), at
+                while want in rows and len(block) < span:
+                    block += rows[want]
+                    want += _PER_LINE
+                if len(block) >= span:
+                    out += block[:span]
+                    break
+            else:
+                raise Failure(f"no answer reading ${at:07X} after {ANSWER_TIMEOUT:g}s")
+            at += span
+        return bytes(out[:length])
+
+    def write(self, address: int, data: bytes) -> None:
+        """Set memory, to reach a state the keyboard cannot.  `s` answers
+        nothing, so read it back where it matters."""
+        for start in range(0, len(data), _PER_LINE):
+            chunk = data[start : start + _PER_LINE]
+            spelled = " ".join(f"{b:02x}" for b in chunk)
+            self._sock.sendall(f"s{address + start:x} {spelled}\n".encode())
+            time.sleep(KEY_DELAY)
+
+    # --- the keyboard --------------------------------------------------------
+
+    def press(self, what: str) -> None:
+        """One key, by name for the named keys or by character otherwise."""
+        if what in NAMED:
+            self._press_code(*NAMED[what])
+        elif len(what) == 1:
+            self.type_text(what)
+        else:
+            raise Failure(f"no such key {what!r}; named keys are {sorted(NAMED)}")
+
+    def type_text(self, text: str) -> None:
+        for char in text:
+            modifier = NO_KEY
+            if char in SHIFTED:
+                char, modifier = SHIFTED[char], SHIFT
+            lowered = char.lower()
+            if lowered.isalpha() and char.isupper():
+                modifier = SHIFT
+            if lowered not in MATRIX:
+                raise Failure(f"no matrix code for {char!r}")
+            # Released between every key rather than once at the end: two of the
+            # same character running together are otherwise one continuous
+            # press and the second is dropped, so "d2000" arrives as "D20".
+            self._press_code(MATRIX[lowered], modifier)
+
+    def type_petscii(self, data: bytes) -> None:
+        """Keys that give these PETSCII codes to the KERNAL's GETIN: control
+        codes and graphics included, as far as the PETSCII table reaches."""
+        for code in data:
+            if code not in PETSCII:
+                raise Failure(f"no key known for PETSCII ${code:02X}")
+            self._press_code(*PETSCII[code])
+
+    def _press_code(self, code: int, modifier: int = NO_KEY) -> None:
+        # A modifier goes in the first slot and the key in the second.  The
+        # other way round, the key arrives unmodified: measured in Xemu, where
+        # shift, ctrl and MEGA after the key all made no difference, and in
+        # front of it gave $C1, $01 and $B0 for A.  A key on its own stays in
+        # the first slot: in the second, $40 and up (ESC, HELP, F9...) gave
+        # nothing.
+        if modifier == NO_KEY:
+            self._sock.sendall(f"sffd3615 {code:02x}\n".encode())
+        else:
+            self._sock.sendall(f"sffd3615 {modifier:02x} {code:02x}\n".encode())
+        time.sleep(KEY_DELAY)
+        self._sock.sendall(f"sffd3615 {NO_KEY:02x} {NO_KEY:02x} {NO_KEY:02x}\n".encode())
+        time.sleep(KEY_DELAY)
+
+    # --- the screen ----------------------------------------------------------
+
+    def screen_pointer(self) -> int:
+        """Where the VIC is actually drawing from, $D060-$D063 (SCRNPTR).
+
+        Worth asking rather than inferring from what is in a screen buffer:
+        nothing clears the last one, so a freezer tool's screen is still
+        legible at $B800 long after the machine went back to BASIC, and a
+        scenario deciding where it is from the bytes it finds there decides
+        wrong.
+        """
+        raw = self.read(0xFFD3060, 4)
+        return int.from_bytes(raw[:3], "little") | ((raw[3] & 0x0F) << 24)
+
+    def freeze(self, held: float = 0.8) -> None:
+        """Freeze the machine, as holding RESTORE does.
+
+        Held rather than tapped: a tap is an NMI to whatever is running, and
+        only a hold reaches the hypervisor.  $52 in a virtual key slot holds
+        RESTORE down and $72 taps it (mega65-core virtual_to_matrix.vhdl:73),
+        which is the same register a keypress goes through.
+
+        Emulated or real, but only real hardware makes it interesting: an
+        emulator has no wire for the frozen program's tools to use.
+        """
+        self._sock.sendall(f"sffd3615 52 {NO_KEY:02x} {NO_KEY:02x}\n".encode())
+        time.sleep(held)
+        self._sock.sendall(f"sffd3615 {NO_KEY:02x} {NO_KEY:02x} {NO_KEY:02x}\n".encode())
+
+    def resume(self) -> None:
+        """Put the frozen program back, which is F3 on the freeze menu."""
+        self.press("f3")
+
+    def snapshot(self) -> Snapshot:
+        """The screen now, at whatever cell width the machine is in."""
+        wide = self.read(self.screen.cell_width_at, 1)[0] & 0x01
+        memory = self.read(self.screen.at, self.screen.size)
+        return Snapshot(memory, 2 if wide else 1, self.screen)
+
+    def settled(self, timeout: float = DEFAULT_TIMEOUT, quiet: float = 0.0) -> Snapshot:
+        """A snapshot that read the same twice, so it is one screen and not two.
+
+        With `quiet`, the screen must also have stayed the same for that many
+        seconds: two reads in a row can agree in a pause between two keys a
+        program still has to handle, and the screen then isn't finished.
+
+        A snapshot is nine monitor reads and the machine runs between them, so
+        one taken while something is redrawing can hold the old and the new at
+        once -- a count from before a list arrived, beside the list.  Rare, and
+        rare in the way that matters: it passes until the day it does not.
+
+        For a phrase, `wait_until` is enough, since the phrase either read or
+        did not.  This is for reading several fields that have to agree.
+        """
+        deadline = time.time() + timeout
+        before = self.snapshot()
+        since = time.time()
+        while True:
+            after = self.snapshot()
+            if after.memory != before.memory:
+                since = time.time()
+            elif time.time() - since >= quiet:
+                return after
+            if time.time() >= deadline:
+                raise Failure(f"the screen was still changing after {timeout:g}s", after.whole())
+            before = after
+
+    def wait_until(
+        self, wants: Callable[[Snapshot], bool], timeout: float = DEFAULT_TIMEOUT, what: str = ""
+    ) -> Snapshot:
+        """Re-read the screen until `wants` holds, and return that snapshot."""
+        deadline = time.time() + timeout
+        shot = self.snapshot()
+        while True:
+            if wants(shot):
+                return shot
+            if time.time() >= deadline:
+                raise Failure(f"{what or 'still not true'} after {timeout:g}s", shot.whole())
+            time.sleep(POLL)
+            shot = self.snapshot()
+
+    def until_ok(
+        self, check: Callable[[Snapshot], list[str]], timeout: float = DEFAULT_TIMEOUT
+    ) -> tuple[Snapshot, list[str]]:
+        """Poll until `check` finds nothing wrong; give back the screen and
+        whatever it still complained about.
+
+        For a check on a whole screen after a keypress.  Waiting for the screen
+        merely to *change* hands back a partly-drawn frame and measures that;
+        waiting for the thing about to be asserted cannot.  The complaints come
+        back rather than a bare timeout, because "the thumbnail is at (5,13)"
+        says more than "it never settled" -- and they are the ones from the
+        screen that ran out of time, not from a fresh read taken after it.
+        """
+        deadline = time.time() + timeout
+        while True:
+            shot = self.snapshot()
+            problems = check(shot)
+            if not problems or time.time() >= deadline:
+                return shot, problems
+            time.sleep(POLL)
+
+    # --- steps ---------------------------------------------------------------
+
+    def drive(self, steps: Sequence[tuple]) -> Result:
+        """Run a list of steps, and say which one did not come true.
+
+        Returns rather than printing, so a caller can be a test rather than a
+        program.  Verbs: key, type, petscii, expect, expect_row, expect_at,
+        read, poke, count.
+        A check that needs two screens compared, or a whole screen measured,
+        wants `until_ok` and the methods above rather than a step.
+        """
+        counted: dict[str, int] = {}
+        for index, step in enumerate(steps):
+            try:
+                self._step(step, counted)
+            except Failure as failed:
+                failed.args = (f"step {index} {step!r}: {failed.args[0]}",)
+                return Result(False, len(steps), failed, counted)
+        return Result(True, len(steps), None, counted)
+
+    def _step(self, step: tuple, counted: dict[str, int]) -> None:
+        verb, rest = step[0], step[1:]
+
+        def timeout(at: int) -> float:
+            return rest[at] if len(rest) > at else DEFAULT_TIMEOUT
+
+        if verb == "key":
+            self.press(rest[0])
+        elif verb == "type":
+            self.type_text(rest[0])
+        elif verb == "petscii":
+            self.type_petscii(rest[0])
+        elif verb == "expect":
+            self.wait_until(lambda s: rest[0] in s, timeout(1), f"{rest[0]!r} not on screen")
+        elif verb == "expect_row":
+            row, want = rest[0], rest[1]
+            self.wait_until(lambda s: want in s.text(row), timeout(2), f"{want!r} not in row {row}")
+        elif verb == "expect_at":
+            row, column, want = rest[0], rest[1], rest[2]
+            self.wait_until(
+                lambda s: s.text(row)[column : column + len(want)] == want,
+                timeout(3),
+                f"{want!r} not at row {row} column {column}",
+            )
+        elif verb == "read":
+            address, want = rest[0], rest[1]
+            got = self.read(address, len(want))
+            if got != want:
+                raise Failure(f"${address:07X} read {got.hex()}, wanted {want.hex()}")
+        elif verb == "poke":
+            self._poke(rest)
+        elif verb == "count":
+            self._count(rest, counted)
+        else:
+            raise Failure(f"no such step {verb!r}")
+
+    def _poke(self, rest: tuple) -> None:
+        """A byte written into the running program by symbol name.
+
+        For the state a scenario has to stage rather than provoke: a card that
+        will not come ready has no keypress and no file behind it, so the only
+        way to ask for one is to say so in the program's own memory."""
+        name, value = rest[0], rest[1]
+        self.write(self.address(name), bytes([value]))
+
+    def _count(self, rest: tuple, counted: dict[str, int]) -> None:
+        """A counter read out of the running program by symbol name.  What it
+        measures is transactions rather than time: an emulated card answers
+        instantly, so the count is the part that carries over to hardware."""
+        name, least = rest[0], (rest[1] if len(rest) > 1 else None)
+        value = int.from_bytes(self.read(self.address(name), 4), "little")
+        counted[name] = value
+        if least is not None and value < least:
+            raise Failure(f"{name} is {value}, wanted at least {least}")
+
+
+def connect(path: str, timeout: float = READY_TIMEOUT, proc=None, log: str | None = None):
+    """The monitor socket, waited for rather than slept at.
+
+    Xemu creates it early -- well under a second on an idle machine -- so a
+    fixed wait is wasted on every run, and still too short on a slower one.
+
+    `proc` is watched alongside the socket.  An emulator that died during
+    startup never creates the socket at all, and waiting out the deadline for it
+    reports a missing socket, which points at this code rather than at the
+    reason.  One known cause: several emulators started at once race over a
+    single config-template path in the user's preferences directory and the
+    losers exit, so a parallel `ctest -j` sees this and a serial run never does.
+    """
+    deadline = time.time() + timeout
+    while True:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.settimeout(PACKET_TIMEOUT)
+        try:
+            sock.connect(path)
+            return sock
+        except OSError:
+            sock.close()
+        if proc is not None and proc.poll() is not None:
+            raise Failure(f"the emulator exited with status {proc.returncode}{_tail(log)}")
+        if time.time() >= deadline:
+            raise Failure(f"no monitor socket at {path} after {timeout:g}s{_tail(log)}")
+        time.sleep(POLL)
+
+
+class SerialChannel:
+    """A MEGA65's serial monitor, wearing the three methods a socket wears.
+
+    The monitor speaks the same commands down a wire as Xemu's does down a
+    socket, so nothing above this needs to know which is behind it: `Machine`
+    asks only for `sendall`, `recv` and `settimeout`.
+
+    macOS reaches 2000000 baud through an ioctl rather than through termios,
+    the speed a bitstream uses not being one POSIX has a name for.
+
+    Usable as a context manager, and closed when it is collected either way.
+    """
+
+    _IOSSIOSPEED = 0x80045402
+    _fd = -1  # a class attribute, so __del__ has one even if os.open() raised
+
+    def __init__(self, device: str, baud: int = MONITOR_BAUD, timeout: float = PACKET_TIMEOUT):
+        self.timeout = timeout
+        self._fd = os.open(device, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+        with contextlib.ExitStack() as undo:
+            # Through close() rather than os.close, so a failure below forgets
+            # the descriptor as well as shutting it: closing it here and again
+            # from __del__ would shut whatever holds the number by then.
+            undo.callback(self.close)
+            attributes = termios.tcgetattr(self._fd)
+            # Raw: a terminal helpfully translating a monitor's bytes is a
+            # terminal corrupting them.
+            attributes[:4] = [0, 0, termios.CS8 | termios.CREAD | termios.CLOCAL, 0]
+            # tcgetattr() may return IOSSIOSPEED's numeric custom rate, which
+            # tcsetattr() refuses.  Give it a named rate before the ioctl below.
+            attributes[4] = attributes[5] = termios.B9600
+            attributes[6][termios.VMIN] = attributes[6][termios.VTIME] = 0
+            termios.tcsetattr(self._fd, termios.TCSANOW, attributes)
+            fcntl.ioctl(self._fd, self._IOSSIOSPEED, struct.pack("I", baud))
+            termios.tcflush(self._fd, termios.TCIOFLUSH)
+            undo.pop_all()
+
+    def settimeout(self, seconds: float) -> None:
+        """Named for the socket it stands in for, not for PEP 8."""
+        self.timeout = seconds
+
+    def sendall(self, data: bytes) -> None:
+        while data:
+            data = data[os.write(self._fd, data) :]
+
+    def recv(self, most: int) -> bytes:
+        """What arrived before the timeout.
+
+        Raised rather than returned empty, as a socket does: `Machine` reads
+        until it has a whole answer and tells the two apart by the exception.
+        """
+        readable, _, _ = select.select([self._fd], [], [], self.timeout)
+        if not readable:
+            raise TimeoutError("the monitor said nothing")
+        return os.read(self._fd, most)
+
+    def close(self) -> None:
+        if self._fd >= 0:
+            os.close(self._fd)
+            self._fd = -1
+
+    __del__ = close
+
+    def __enter__(self) -> "SerialChannel":
+        return self
+
+    def __exit__(self, *_) -> None:
+        self.close()
+
+
+@contextmanager
+def attach(device: str, baud: int = MONITOR_BAUD, **machine_args):
+    """A machine that is already running, reached down a wire.
+
+    Nothing is launched and nothing is staged: the card is the one in the slot,
+    and whatever is on screen is where the run starts.  That is the difference
+    from `launch`, and the reason a scenario wanting a known starting state has
+    to put the machine in one itself.
+    """
+    with SerialChannel(device, baud) as channel:
+        yield Machine(channel, **machine_args)
+
+
+def _tail(log: str | None, lines: int = 6) -> str:
+    """The last of what the emulator printed, to say why it went."""
+    if not log or not os.path.exists(log):
+        return ""
+    with open(log, encoding="utf-8", errors="replace") as handle:
+        said = [line.rstrip() for line in handle if line.strip()]
+    return "\n  " + "\n  ".join(said[-lines:]) if said else ""
+
+
+@contextmanager
+def launch(
+    emulator: str,
+    prg: str,
+    *,
+    sdimg: str | None = None,
+    screen: Screen = DEFAULT_SCREEN,
+    ready: str | Callable[[Snapshot], bool] | None = None,
+    symbol: Callable[[str], int] | None = None,
+    socket_path: str | None = None,
+    model: str = "3",
+    prgmode: str = "64",
+    extra: Iterable[str] | None = None,
+    stdout=None,
+    timeout: float = READY_TIMEOUT,
+):
+    """Boot `prg` and yield the machine, shutting the emulator down after.
+
+    `ready` is what says the program has drawn and will not drop a keypress --
+    a phrase to wait for on screen, or a predicate.  It matters because a
+    scenario usually opens by pressing a key, and a key typed before the program
+    is up is simply lost, which reads later as the screen never saying what it
+    should.
+
+    `stdout` is where the emulator's output is kept for the caller to read
+    afterwards, the hypervisor serial channel included.  Without it the output
+    still goes to a file beside the socket, since a startup failure has nowhere
+    else to explain itself.
+
+    The socket path must be short.  AF_UNIX caps near 104 characters, so it
+    cannot live under a long temporary directory.
+    """
+    path = socket_path or f"/tmp/xemu-{os.getpid()}.sock"
+    argv = [
+        emulator,
+        "-headless",
+        "-sleepless",
+        "-fastboot",
+        "-testing",
+        "-model",
+        model,
+        "-besure",
+        "-uartmon",
+        path,
+        "-prgmode",
+        prgmode,
+        "-prg",
+        prg,
+    ]
+    if sdimg:
+        argv += ["-sdimg", sdimg]
+    if extra:
+        argv += list(extra)
+
+    with ExitStack() as closing:
+        # Kept even when the caller wants none of it: when the emulator fails
+        # during startup, what it printed is the only account of why.  A file
+        # rather than a pipe -- the run ends with SIGTERM, and a pipe buffer is
+        # lost at that moment.
+        mine = stdout is None
+        keep = closing.enter_context(open(path + ".log", "w", encoding="utf-8")) if mine else stdout
+        proc = subprocess.Popen(argv, stdout=keep, stderr=subprocess.STDOUT)
+        sock = None
+        try:
+            sock = connect(path, timeout, proc, getattr(keep, "name", None))
+            machine = Machine(sock, screen=screen, symbol=symbol)
+            if ready is not None:
+                wants = ready if callable(ready) else (lambda s, r=ready: r in s)
+                machine.wait_until(wants, timeout, f"{ready!r} never appeared")
+            yield machine
+        finally:
+            # No grace before the signal, and none is needed: the emulator
+            # writes each SD sector straight through to the image file
+            # (xemu/targets/mega65/sdcard.c, sdcard_write_block), so nothing a
+            # tool wrote is still in a buffer when this arrives.  Waiting for
+            # the process below is what makes those writes visible to a caller
+            # that reads the image afterwards.
+            if sock is not None:
+                sock.close()
+            proc.send_signal(signal.SIGTERM)
+            try:
+                proc.wait(timeout=20.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+            for leftover in (path, path + ".log" if mine else None):
+                if leftover and os.path.exists(leftover):
+                    os.unlink(leftover)
+
+
+def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """The arguments every emulator test takes."""
+    parser.add_argument("--emulator", required=True)
+    parser.add_argument("--build", required=True, help="directory holding the builds")
+    parser.add_argument("--timeout", type=float, default=READY_TIMEOUT)
+    return parser
+
+
+def report_failure(failed: Failure) -> int:
+    """Say what did not come true, and show the screen when there was one."""
+    sys.stdout.write(str(failed) + "\n")
+    if failed.shown:
+        sys.stdout.write("Screen was:\n" + failed.shown + "\n")
+    return 1
+
+
+def report(result: Result) -> int:
+    """Print what happened and give back an exit status."""
+    for name in sorted(result.counted):
+        print(f"{name} = {result.counted[name]}")
+    if result.ok:
+        print(f"{result.steps} steps passed")
+        return 0
+    return report_failure(result.failure) if result.failure else 1
+
+
+def run(args: argparse.Namespace, prg: str, steps: Sequence[tuple], **launch_args) -> int:
+    """Boot `prg` from the build directory, run `steps`, and report.
+
+    Argument parsing is left outside so a project can add its own -- where the
+    card image is, which build to stage -- and work out what `launch` needs
+    before calling.  `add_arguments` supplies the three every project wants.
+
+    The Failure that `launch` itself can raise -- no socket, or the program
+    never drew -- is caught here too.  That is the commonest way an emulator
+    test fails, and it would otherwise end as a traceback rather than as the
+    report, losing the screen that says why.
+    """
+    try:
+        with launch(
+            args.emulator, os.path.join(args.build, prg), timeout=args.timeout, **launch_args
+        ) as machine:
+            return report(machine.drive(steps))
+    except Failure as failed:
+        return report_failure(failed)

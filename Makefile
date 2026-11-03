@@ -101,7 +101,7 @@ build/p8vi-cx16.prg: src/p8vi_cx16.p8 $(SRCS)
 	$(CP) build/p8vi_cx16.asm build/p8vi-cx16.asm
 	$(RM) build/p8vi_cx16.prg
 
-build/p8vi-mega65.prg: src/p8vi.p8 $(SRCS)
+build/p8vi-mega65.prg: src/p8vi.p8 $(SRCS) src/mega65/*.p8 config/mega65.properties
 	$(PCC) $(PCCARGSM65) $<
 	$(CP) build/p8vi.prg $@
 	$(CP) build/p8vi.list build/p8vi-mega65.list
@@ -173,6 +173,17 @@ test-mega65-zp:	build
 	xmega65 -headless -sleepless -besure -prg build/zpwatch.prg -prgexit \
 		-8 $(abspath $(ZPDISK)) -dumpscreen build/zpwatch.txt
 	cat build/zpwatch.txt
+
+# editor tests on a MEGA65 in xmega65 (and c1541), driven through its
+# serial monitor by tools/m65harness.py: the suites of tests/vice/edtest.py
+test-mega65:	build/p8vi-mega65.prg
+	python3 -B tests/mega65/edtest.py files
+	python3 -B tests/mega65/edtest.py screen
+
+# which keys give which PETSCII codes (the table in tools/m65harness.py)
+test-mega65-keymap:	build
+	$(PCC) -target config/mega65.properties -srcdirs tests/mega65 -out build tests/mega65/keyecho.p8
+	python3 -B tests/mega65/keymap.py --prg build/keyecho.prg
 
 EMUVIC=xvic -default -keymap 1 -model ntsc -memory all -8 $(DISK) -drive8type 1581 -monitorfont "JetBrains Mono 16"
 emu-vic20:	build/p8vi-vic20.prg disk
