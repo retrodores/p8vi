@@ -1,6 +1,7 @@
 # p8vi quick start
 
-p8vi is a vi for 8-bit Commodore computers.  If you know vi or vim you
+p8vi is a vi for 8-bit Commodore computers: the C64, VIC-20, Commander
+X16 and MEGA65.  If you know vi or vim you
 know most of it already; this guide shows what is there and which keys to
 press on a Commodore keyboard.  `docs/KEYS.md` lists every vi command with
 whether it is done.
@@ -18,9 +19,10 @@ whether it is done.
 9. [Searching and replacing](#searching-and-replacing)
 10. [Files](#files)
 11. [Disk commands](#disk-commands)
-12. [Big files, extended memory and recovery](#big-files-extended-memory-and-recovery)
-13. [What the VIC-20 version leaves out](#what-the-vic-20-version-leaves-out)
-14. [Cheat sheet](#cheat-sheet)
+12. [ASCII and PETSCII](#ascii-and-petscii)
+13. [Big files, extended memory and recovery](#big-files-extended-memory-and-recovery)
+14. [What some versions leave out](#what-some-versions-leave-out)
+15. [Cheat sheet](#cheat-sheet)
 
 ## Getting started
 
@@ -30,6 +32,10 @@ whether it is done.
 | `p8vi-c64reu.prg` | C64 with an REU | up to 64 KB (about 4 KB without an REU: use `p8vi-c64` then) |
 | `p8vi-cx16.prg` | Commander X16 | up to 64 KB (in banked RAM) |
 | `p8vi-vic20.prg` | VIC-20 with 32 KB of RAM expansion (blocks 1, 2, 3 and 5) | about 4.7 KB |
+| `p8vi-mega65.prg` | MEGA65 (in MEGA65 mode, not `GO64`) | about 6.7 KB |
+| `p8vi-mega65dma.prg` | MEGA65 | up to 64 KB (in attic RAM, or chip RAM banks 4 and 5 without it) |
+
+The MEGA65 versions are new and still being worked on.
 
 Load and run it like any program, for example on a C64:
 
@@ -37,6 +43,9 @@ Load and run it like any program, for example on a C64:
 LOAD"P8VI",8
 RUN
 ```
+
+On the MEGA65 (in its own mode, the one it starts in): `DLOAD"P8VI-MEGA65"`
+and `RUN`, or `RUN"P8VI-MEGA65"`.
 
 Then `:e name` opens a file (a name that isn't on the disk starts a new,
 empty file), and `:q` quits.  `Ctrl-G` shows how many lines there are and
@@ -62,7 +71,7 @@ Commodore keyboards lack some keys vi uses:
 
 | vi key | Type this | |
 |--------|-----------|---|
-| `Esc` | `RUN/STOP`, or `Ctrl` + `[` | the X16 also has a real `Esc` key |
+| `Esc` | `RUN/STOP`, or `Ctrl` + `[` | the X16 and the MEGA65 also have a real `Esc` key |
 | `~` | `π` (`Shift` + `↑`) | PETSCII has no `~` |
 | `^` | `↑` | |
 | `_` | `C=` + `@` | |
@@ -71,7 +80,8 @@ Commodore keyboards lack some keys vi uses:
 | arrow keys | the cursor keys | in nav, insert and replace mode |
 | `Ctrl-F` etc. | `CTRL` + `F` | |
 
-`{` and `}` don't exist in PETSCII.
+`{` and `}` don't exist in PETSCII.  On the MEGA65 an ASCII file shows
+them, and the keys type them (see [ASCII and PETSCII](#ascii-and-petscii)).
 
 A count typed before a command repeats or extends it: `3j` moves down 3
 lines, `2dd` deletes 2 lines, `d3w` deletes 3 words.
@@ -233,7 +243,7 @@ while saving.)
   They are written back the same way.
 * `:set` shows the format (for example `ascii crlf`).  `:set ascii`,
   `:set petscii`, `:set cr`, `:set lf` and `:set crlf` change how the file
-  is written.
+  is written (see [ASCII and PETSCII](#ascii-and-petscii)).
 * `:r` converts the file it reads to the text's format.
 
 A file too big for the room left is read only partly ("too big, cut").
@@ -249,9 +259,52 @@ Not on the VIC-20:
 | Command | Does |
 |---------|------|
 | `:@` | show the drive status |
-| `:@cmd` | send a command to the drive, like the DOS wedge: `:@s:name` deletes a file, `:@r:new=old` renames one |
+| `:@cmd` | send a command to the drive, like the DOS wedge: `:@s:name` deletes a file, `:@r:new=old` renames one (on the MEGA65: `:@r0:new=0:old`) |
 | `:@$`, `:@$:pattern` | show the directory, or the files that match (`:@$:*.txt`); a key shows the next screenful, `Esc` stops |
 | `:r $`, `:r $:pattern` | read the directory into the text, one line per file |
+
+`:@$` and `:r $` aren't in `p8vi-mega65dma` either.
+
+## ASCII and PETSCII
+
+Commodore computers use PETSCII, other computers ASCII.  The two agree on
+most letters, digits and punctuation, but PETSCII has graphics characters
+where ASCII has `` \ ^ _ ` { | } ~ ``, and swaps upper and lower case.  p8vi
+edits both:
+
+* **Reading.**  p8vi looks at the file and decides: ASCII files are
+  translated to PETSCII as they are read, PETSCII files are read as they
+  are.  `:set` says which it is (`ascii` or `petscii`, with the line
+  ending).
+* **Writing.**  The file is written back the way it was read: an ASCII
+  file is translated back to ASCII.
+* **Changing it.**  If p8vi guessed wrong, or you want to convert a file,
+  `:set ascii` or `:set petscii` changes how it is written (the text
+  itself stays the same).  `:set cr`, `:set lf` and `:set crlf`
+  change the line endings.  Then `:w`.
+* A new file (`:e newname`) starts as PETSCII with CR line endings.
+
+**On the MEGA65** the characters on the screen follow the file too.  For an
+ASCII file p8vi switches to the MEGA65's own character set with
+`` \ ^ _ ` { | } ~ `` in it (the one BASIC 65's `FONT A` gives), so a C
+program or a Unix file looks as it should.  For a PETSCII file it uses the
+usual Commodore set, so PETSCII graphics show as graphics.  `:set ascii`
+and `:set petscii` switch the characters at once.  When you quit, the
+Commodore set is back.
+
+In an ASCII file on the MEGA65 these keys type the ASCII characters (as in
+C64 OS):
+
+| Character | Key | | Character | Key |
+|-----------|-----|---|-----------|-----|
+| `\` | `£` | | `{` | `Shift` + `+`, or `MEGA` + `:` |
+| `^` | `↑` | | `\|` | `Shift` + `£`, or `MEGA` + `.` |
+| `_` | `←` | | `}` | `Shift` + `-`, or `MEGA` + `;` |
+| `` ` `` | `Shift` + `*` | | `~` | `Shift` + `↑`, or `MEGA` + `,` |
+
+So in an ASCII file the vi commands `|` (go to a column) and `_` are
+`Shift` + `£` and `←`.  In a PETSCII file the keys are as in the table in
+[The keyboard](#the-keyboard).
 
 ## Big files, extended memory and recovery
 
@@ -259,7 +312,14 @@ Not on the VIC-20:
 RAM: files up to 64 KB, with yank and undo as big.  The plain C64 build
 has more room without an REU, so use that one there.
 
-**Recovery after a crash or a reset** (REU build with an REU, and the X16).
+**`p8vi-mega65dma`** keeps the text in the MEGA65's attic RAM: files up to
+64 KB, with yank and undo as big.  A MEGA65 without attic RAM (the Nexys4
+FPGA boards) has 128 KB of chip RAM for it instead, which holds a 64 KB
+file but leaves less room for yank and undo.
+
+**Recovery after a crash or a reset** (REU build with an REU, and the X16;
+`p8vi-mega65dma` keeps a copy as well, but recovering it after a reset
+hasn't been tried on a MEGA65 yet).
 While you edit, p8vi keeps a copy of the text up to date in extended
 memory whenever the keyboard has been idle for half a second.  After a
 crash, or the reset button, start p8vi again: it says `:rec to recover`.
@@ -276,7 +336,7 @@ two already wait and you start a third.  `:q` doesn't leave anything to
 recover.  Switching the computer off loses the extended memory, and so the
 text.
 
-## What the VIC-20 version leaves out
+## What some versions leave out
 
 The VIC-20 version has to fit in less memory, so it has none of these:
 
@@ -289,12 +349,17 @@ The VIC-20 version has to fit in less memory, so it has none of these:
 
 The X16 version leaves out the start screen only.
 
+`p8vi-mega65dma` leaves out the start screen, `:s` replacing and line
+ranges, and `:@$` and `:r $`: its program has to fit below the room it
+needs for its text.  `p8vi-mega65` has everything.
+
 <div style="page-break-before: always"></div>
 
 ## Cheat sheet
 
 `Esc` = `RUN/STOP`.  `π` = `Shift` + `↑`.  A count before most commands:
-`3j`, `2dd`, `d3w`.  † = not on the VIC-20.
+`3j`, `2dd`, `d3w`.  † = not on the VIC-20.  ‡ = not on the VIC-20 or in
+`p8vi-mega65dma`.
 
 **Moving**
 
@@ -334,8 +399,8 @@ The X16 version leaves out the start screen only.
 |---|---|---|---|
 | `yy` `Y` `y`motion | yank | `p` `P` | put after / before |
 | `/`text `?`text | search fwd / back | `n` `N` | next / previous match |
-| `*` `#` | word under cursor | `:s/a/b/g` † | replace in line |
-| `:%s/a/b/g` † | in all lines | `:5,10s/a/b/` † | in lines 5-10 |
+| `*` `#` | word under cursor | `:s/a/b/g` ‡ | replace in line |
+| `:%s/a/b/g` ‡ | in all lines | `:5,10s/a/b/` ‡ | in lines 5-10 |
 
 **Files and more**
 
@@ -345,8 +410,8 @@ The X16 version leaves out the start screen only.
 | `:w` `:w` name | write | `:w!` | write a cut-short file |
 | `:r` name | read in | `:q` `:q!` | quit / discard |
 | `:wq` `:x` `ZZ` | write and quit | `ZQ` | quit, discard |
-| `:n` | go to line n | `:$` `:.` † | last / this line |
-| `:set` | show format | `:set ascii` / `petscii` / `cr` / `lf` / `crlf` | write format |
+| `:n` | go to line n | `:$` `:.` ‡ | last / this line |
+| `:set` | show format | `:set ascii` / `petscii` / `cr` / `lf` / `crlf` | write format (MEGA65: and the characters shown) |
 | `:@` † | drive status | `:@`cmd † | drive command |
-| `:@$` † | directory | `:r $` † | directory into text |
+| `:@$` ‡ | directory | `:r $` ‡ | directory into text |
 | `:rec` | recover after a crash (REU, X16) | `Ctrl-G` | lines and room |
