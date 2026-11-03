@@ -2068,8 +2068,13 @@ main {
                 if add_eol_before(position)
                     position++
             }
-        } else
+        } else {
             buffer.clear()
+            ; (page store) no undo log while reading: loaded() empties it
+            ; anyway, and the page store's would hold all of the file
+            if buffer.PAGED
+                buffer.undo_off = true
+        }
         start = position
         ; read the file into the room the store gives, a piece at a time
         ; (the gap buffer gives all its room at once).  the file's format
@@ -2096,6 +2101,11 @@ main {
                 crlf = m != n
                 eol = file_eol(p, m)
                 ascii = features.ASCII and charset.looks_ascii(p, m, eol == $0a)
+                ; (page store, :e) the store counts the lines as they are
+                ; read: with the file's line ending from the start, it
+                ; doesn't count them all again afterwards
+                if buffer.PAGED and not insert
+                    buffer.eol = eol
             }
             if features.ASCII and ascii
                 charset.translate(p, m, charset.TO_PETSCII)
@@ -2110,6 +2120,8 @@ main {
         if n == room and diskio.f_read(&extra, 1) == 1
             truncated = true
         diskio.f_close()
+        if buffer.PAGED
+            buffer.undo_off = false
 
         ; a line ending at the end of what was read ends its last line.
         ; (read into text, it is the text's line ending now)

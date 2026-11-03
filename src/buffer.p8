@@ -66,7 +66,11 @@ buffer {
     private bool undo_new   ; the next change starts a new log
     bool undo_lost          ; the change didn't fit, it can't be undone
     bool undo_reversed      ; the log was undone, undoing again redoes it
-    private bool undo_off   ; not logging (while undoing)
+    ; not logging: while undoing, and (the editor sets it) while reading a
+    ; file into an empty text that loaded() then makes a new one: in the
+    ; page store the log keeps what is inserted, so reading a file would
+    ; copy all of it into the log's pages first
+    bool undo_off
 
     ;
     ; change tracking

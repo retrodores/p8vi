@@ -544,6 +544,9 @@ buffer {
         uword p
         if read_size == 0
             return
+        ; (the line counts are for eol: the editor may have just set it, at
+        ; the start of reading a file into an empty text)
+        count_lines()
         if count > read_size
             count = read_size
         ; close the room: the rest of the page moves back
