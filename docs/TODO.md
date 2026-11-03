@@ -79,9 +79,13 @@ text's drive (`src/diskpage`), for fast devices (IDE64, RAMLink, CMD HD,
 SD cards).  A 39 KB file: `:e` about 25 s, `:w` about 24 s, moving and
 editing about as with an REU (VICE host directory drive).
 
-- **Faster page transfer:** a page costs about 0.2 s: the read and write
-  loops are Prog8 calling the KERNAL a byte at a time and checking the
-  status after each.  In assembler, checking once per page.
+- **Faster loading and saving:** the page transfer is in assembler now
+  (7f9c417), but that was a small part.  Sampling the PC while a 39 KB
+  file loads: the KERNAL's byte I/O about 30%, `charset.translate`
+  (ASCII to PETSCII) about a third, the page writes about 10%,
+  `diskio.f_read` about 9%.  A table for the translation (256 bytes per
+  direction) and an assembler loop for reading text files (5.9 s to 3.7 s
+  for 39 KB in a benchmark) would help every build with room for them.
 - **Scratch the swap files on quitting** (now the next start does it).
 - **A full disk:** a page write that fails isn't noticed, and text is
   lost.
