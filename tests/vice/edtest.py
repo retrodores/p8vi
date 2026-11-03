@@ -559,6 +559,8 @@ def main():
                     help='leave this suite out (for builds with little room)')
     ap.add_argument('--font', metavar='FNT', help='the font build: its font file, and its tests')
     ap.add_argument('--machine', default='c64', choices=['c64', 'pet', 'plus4'])
+    ap.add_argument('--paged', action='store_true',
+                    help='also the REU suites (more text than main RAM holds) without an REU: the disk build')
     args = ap.parse_args()
     global FONT, EMU, EXIT_POKE, SCREEN_DUMP
     machine = {'pet': PET, 'plus4': PLUS4}.get(args.machine)
@@ -576,7 +578,7 @@ def main():
     os.makedirs(args.work, exist_ok=True)
 
     if args.kind == 'files':
-        suites = [s for s in FILE_SUITES + (REU_SUITES if args.reu else []) + (FONT_SUITES if args.font else [])
+        suites = [s for s in FILE_SUITES + (REU_SUITES if args.reu or args.paged else []) + (FONT_SUITES if args.font else [])
                   if (not args.names or s[0] in args.names) and s[0] not in args.skip]
         work = lambda s: run_files(args, s)
     else:

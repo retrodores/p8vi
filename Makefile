@@ -42,6 +42,8 @@ PCC=prog8c-llvm
 PCCARGSC64=-srcdirs src:src/c64 -asmlist -target c64 -out build
 # the C64 REU build: src/c64reu (its store_platform) comes before src/c64
 PCCARGSC64REU=-srcdirs src:src/c64reu:src/c64 -asmlist -target c64 -out build
+# the C64 disk build: the page store with its pages in SEQ files on the disk
+PCCARGSC64DISK=-srcdirs src:src/diskpage:src/c64 -asmlist -target c64 -out build
 # the C64 font build: the REU build with its own font (src/c64/font.p8)
 PCCARGSC64FONT=$(PCCARGSC64REU)
 PCCARGSCX16=-srcdirs src:src/cx16 -asmlist -target cx16 -out build
@@ -58,7 +60,7 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 # editor.p8.  The C64 has two builds: p8vi-c64
 # with the gap buffer (the most room for text in main RAM) and p8vi-c64reu
 # with the page store (for text in an REU, docs/XMEM-DESIGN.md)
-PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-pet32.prg build/p8vi-plus4.prg build/p8vi-vic20.prg
+PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64disk.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-pet32.prg build/p8vi-plus4.prg build/p8vi-vic20.prg
 # an experiment, not in the release yet: p8vi-c64font (src/p8vi_c64font.p8)
 # is p8vi-c64reu with a font that has the ASCII characters PETSCII lacks.
 # it loads the font from p8vi.fnt (make font, from FONTSRC).
@@ -84,6 +86,16 @@ build/p8vi-c64reu.prg: src/p8vi.p8 $(SRCS)
 	$(CP) build/p8vi.prg $@
 	$(CP) build/p8vi.list build/p8vi-c64reu.list
 	$(CP) build/p8vi.asm build/p8vi-c64reu.asm
+	$(RM) build/p8vi.prg
+
+# the C64 disk build: the full editor with the page store, its pages in
+# SEQ files (p8vi.swp...) on the drive (src/diskpage), for IDE64, RAMLink,
+# CMD HD and the like
+build/p8vi-c64disk.prg: src/p8vi.p8 $(SRCS) src/diskpage/*.p8
+	$(PCC) $(PCCARGSC64DISK) $<
+	$(CP) build/p8vi.prg $@
+	$(CP) build/p8vi.list build/p8vi-c64disk.list
+	$(CP) build/p8vi.asm build/p8vi-c64disk.asm
 	$(RM) build/p8vi.prg
 
 build/p8vi-c64font.prg: src/p8vi_c64font.p8 $(SRCS) src/c64/font.p8 font
@@ -280,6 +292,7 @@ VIC20_MIN_FREE=64
 size:	$(PROGS) $(FONTPROG)
 	python3 tools/listsize.py build/p8vi-c64.list --map
 	python3 tools/listsize.py build/p8vi-c64reu.list --map
+	python3 tools/listsize.py build/p8vi-c64disk.list --map
 	python3 tools/listsize.py build/p8vi-c64font.list --map --memtop 0xc800
 	python3 tools/listsize.py build/p8vi-cx16.list --map
 	python3 tools/listsize.py build/p8vi-mega65.list --map --memtop 0xc000
@@ -305,6 +318,15 @@ PET_SKIP = --skip ascii --skip crlf --skip big --skip final-eol --skip read-form
 test-pet32:	build/p8vi-pet32.prg
 	python3 -B tests/vice/edtest.py files --machine pet -j 4 --prg build/p8vi-pet32.prg $(PET_SKIP)
 	python3 -B tests/vice/edtest.py screen --machine pet -j 4 --prg build/p8vi-pet32.prg
+
+# the same tests on the C64 disk build (pages in SEQ files on the 1541),
+# with the REU suites' 6 KB text (--paged).  huge and bigundo are left
+# out: their 30-64 KB of text and its pages don't fit on a 1541 disk
+# beside the program
+test-c64disk:	build/p8vi-c64disk.prg
+	python3 -B tests/vice/edtest.py files --prg build/p8vi-c64disk.prg --paged --limit 3000000000 \
+		--skip huge --skip bigundo
+	python3 -B tests/vice/edtest.py screen --prg build/p8vi-c64disk.prg
 
 # the same tests on the C64 REU build (the page store), with an REU and
 # without one (then it has 4 KB of text: not the big file suite)

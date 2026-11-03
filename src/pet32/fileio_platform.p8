@@ -7,8 +7,8 @@
 diskio {
     %option merge, no_symbol_prefixing, ignore_unused
 
-    bool read_open
-    bool write_open
+    bool iteration_in_progress
+    bool write_iteration_in_progress
 
     ; open a file for reading with f_read
     sub f_open(str name) -> bool {
@@ -17,11 +17,11 @@ diskio {
         cbm.SETLFS(READ_IO_CHANNEL, drivenumber, READ_IO_CHANNEL)
         void cbm.OPEN()
         void cbm.CHKIN(READ_IO_CHANNEL)
-        read_open = cbm.READST() == 0
+        iteration_in_progress = cbm.READST() == 0
         cbm.CLRCHN()
-        if not read_open
+        if not iteration_in_progress
             cbm.CLOSE(READ_IO_CHANNEL)
-        return read_open
+        return iteration_in_progress
     }
 
     ; read up to count bytes to p; returns how many were read (0 after an
@@ -29,7 +29,7 @@ diskio {
     sub f_read(uword p, uword count) -> uword {
         uword n = 0
         ubyte status
-        if not read_open
+        if not iteration_in_progress
             return 0
         void cbm.CHKIN(READ_IO_CHANNEL)
         while n != count {
@@ -49,10 +49,10 @@ diskio {
     }
 
     sub f_close() {
-        if read_open {
+        if iteration_in_progress {
             cbm.CLRCHN()
             cbm.CLOSE(READ_IO_CHANNEL)
-            read_open = false
+            iteration_in_progress = false
         }
     }
 
@@ -63,10 +63,10 @@ diskio {
         cbm.SETNAM(strings.length(name), name)
         cbm.SETLFS(WRITE_IO_CHANNEL, drivenumber, WRITE_IO_CHANNEL)
         void cbm.OPEN()
-        write_open = cbm.READST() == 0
-        if not write_open
+        write_iteration_in_progress = cbm.READST() == 0
+        if not write_iteration_in_progress
             cbm.CLOSE(WRITE_IO_CHANNEL)
-        return write_open
+        return write_iteration_in_progress
     }
 
     ; write count bytes from p
@@ -85,10 +85,10 @@ diskio {
     }
 
     sub f_close_w() {
-        if write_open {
+        if write_iteration_in_progress {
             cbm.CLRCHN()
             cbm.CLOSE(WRITE_IO_CHANNEL)
-            write_open = false
+            write_iteration_in_progress = false
         }
     }
 }

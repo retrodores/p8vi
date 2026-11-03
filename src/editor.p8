@@ -1005,12 +1005,17 @@ main {
     }
 
     ; move the cursor, keeping cur_line up to date by counting the line
-    ; endings passed (so the cost is the distance moved)
+    ; endings passed (so the cost is the distance moved).  the page store
+    ; keeps a count per page, so its line_number() reads one page however
+    ; far the cursor went (counting would read every page passed, from the
+    ; disk in the disk builds)
     sub set_cursor(uword position) {
         uword old = cursor()
         buffer.set_mark(MARK_CURSOR, position)
         position = cursor()
-        if position > old
+        if buffer.PAGED
+            cur_line = buffer.line_number(position)
+        else if position > old
             cur_line += count_eols(old, position)
         else if position < old
             cur_line -= count_eols(position, old)

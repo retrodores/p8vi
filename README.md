@@ -34,6 +34,7 @@ later.
 |-------|---------------|--------|
 | `build/p8vi-c64.prg` | `src/p8vi.p8` | C64 |
 | `build/p8vi-c64reu.prg` | `src/p8vi.p8` | C64 with the page store, for text in an REU |
+| `build/p8vi-c64disk.prg` | `src/p8vi.p8` | An experiment: C64 with the page store, its pages in SEQ files (`p8vi.swp...`) on the drive, for fast devices (IDE64, RAMLink, CMD HD); `src/diskpage` |
 | `build/p8vi-cx16.prg` | `src/p8vi.p8` | Commander X16 |
 | `build/p8vi-mega65.prg` | `src/p8vi_mega65.p8` | MEGA65 (MEGA65 mode), with the ASCII characters for ASCII files, in progress |
 | `build/p8vi-mega65dma.prg` | `src/p8vi_mega65dma.p8` | The same with the page store: text in attic RAM (or chip RAM banks 4 and 5) through DMA, in progress |
@@ -153,6 +154,7 @@ The useful `make` targets are:
 | `make bench` | Timings of the text store routines in VICE (`tests/bench/storebench.p8`), screenshots in `build/bench-*.png` |
 | `make test-reu` | REU detection and reset tests in VICE (`tests/reu/`) |
 | `make test-c64font` | The C64 REU build's tests on the font build, and its own (`font`) |
+| `make test-c64disk` | The VICE editor and redraw tests on the C64 disk build, on a 1541 |
 | `make test-c64-screen` | Check partial redraws against full redraws in VICE (~30 s) |
 | `make test-plus4` | The VICE editor and redraw tests on a Plus/4 (`xplus4`, `tests/vice/edtest.py --machine plus4`) |
 | `make emu-plus4` | Run the Plus/4 version in `xplus4`, with a disk of its own (`build/testplus4.d64`) |

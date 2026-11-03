@@ -11,6 +11,8 @@ platform {
     ; draw a screen row (see cbmscreen.p8)
     alias put_row = cbmscreen.put_row
     alias scroll_rows = cbmscreen.scroll_rows
+    ; the KERNAL's count of open files (for src/diskpage)
+    const uword KERNAL_OPEN_FILES = $98
 
     ; memory for the text (the gap buffer), set by init()
     pointer textstart
