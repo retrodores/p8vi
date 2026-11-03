@@ -175,6 +175,9 @@ emu-cx16:	build/p8vi-cx16.prg
 emu-mega65:	build/p8vi-mega65.prg
 	xmega65 -prg build/p8vi-mega65.prg
 
+emu-mega65dma:	build/p8vi-mega65dma.prg
+	xmega65 -prg build/p8vi-mega65dma.prg
+
 # which zero page bytes the MEGA65 ROM changes in KERNAL calls (for the
 # zp_* lists in config/mega65.properties), in xmega65 headless.  the
 # program is also on the disk as zpload, for its LOAD test.
