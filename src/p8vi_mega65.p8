@@ -1,8 +1,9 @@
 ; p8vi - a vi for 8-bit computers, written in Prog8.
 ; the MEGA65 page store build (p8vi-mega65dma): the text in chip RAM banks
-; 4 and 5, through DMA (src/mega65dma).  The program has to end with room
-; for the page cache below $c000, so optional features start out off here
-; and go on as room allows.  The editor itself is in editor.p8, the full
+; 4 and 5, through DMA (src/mega65dma), and the ROM's character set with
+; the ASCII characters PETSCII lacks (src/mega65/font.p8).  The program has
+; to end below $c000, so optional features start out off here and go on as
+; room allows.  The editor itself is in editor.p8, the full
 ; version is src/p8vi.p8.
 
 %import editor
@@ -19,7 +20,7 @@ features {
     const bool FINAL_EOL = true ; a line ending at the end of a file ends the last line (no empty line after it)
     const bool SCROLL = true    ; scroll the screen one row when the cursor goes just off it (not draw it all again)
     const bool DIR = false      ; :@$ shows the disk directory
-    const bool FONT = false     ; the C64 font build: p8vi.fnt shows the ASCII characters (src/c64/font.p8)
+    const bool FONT = true      ; the font build: a character set with the ASCII characters (src/mega65/font.p8)
 }
 
 ; features.FONT again, for the assembler (charset.p8's tables).  In main:
@@ -27,6 +28,6 @@ features {
 main {
     %option merge
     %asm {{
-FONT = 0
+FONT = 1
     }}
 }

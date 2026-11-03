@@ -37,7 +37,7 @@ later.
 | `build/p8vi-cx16.prg` | `src/p8vi.p8` | Commander X16 |
 | `build/p8vi-mega65.prg` | `src/p8vi.p8` | MEGA65 (MEGA65 mode), in progress |
 | `build/p8vi-mega65font.prg` | `src/p8vi_mega65font.p8` | MEGA65 with the ROM's character set that has the ASCII characters PETSCII lacks, in progress |
-| `build/p8vi-mega65dma.prg` | `src/p8vi_mega65.p8` | MEGA65 with the page store: text in chip RAM banks 4 and 5 through DMA, in progress |
+| `build/p8vi-mega65dma.prg` | `src/p8vi_mega65.p8` | MEGA65 with the page store (text in chip RAM banks 4 and 5 through DMA) and the font build's character set, in progress |
 | `build/p8vi-vic20.prg` | `src/p8vi_vic20.p8` | VIC-20 with 24K or more |
 | `build/p8vi-c64font.prg` | `src/p8vi_c64font.p8` | An experiment: the C64 REU build with a font for ASCII text |
 
@@ -51,7 +51,8 @@ plain build).  The X16 keeps its pages in banked RAM
 (`docs/XMEM-DESIGN.md`).  `p8vi-mega65dma` (`src/mega65dma` before
 `src/mega65`) copies its pages to and from chip RAM banks 4 and 5 with
 the DMA controller, up to 126 KB of pages; its program must end below
-`$c000`, so SUBST and DIR are off there for now.  Each toplevel file has a `features` block
+`$c000`, so SUBST and DIR are off there for now.  It has the font
+build's character set too (below).  Each toplevel file has a `features` block
 of `const bool` switches for optional features; the code of a feature that
 is off is left out of the program.  The VIC-20 program has to end below
 `$8000`, so its version leaves out features when room runs out: new
@@ -149,7 +150,7 @@ The useful `make` targets are:
 | `make test-c64-screen` | Check partial redraws against full redraws in VICE (~30 s) |
 | `make test-mega65` | The VICE editor and redraw tests on a MEGA65 in xmega65, through `tools/m65harness.py` (`tests/mega65/edtest.py`, ~3 min) |
 | `make test-mega65font` | The same on the MEGA65 font build, with the font suite |
-| `make test-mega65dma` | The same on the MEGA65 page store build (text in banks 4 and 5 through DMA), with the big-text suites |
+| `make test-mega65dma` | The same on the MEGA65 page store build (text in banks 4 and 5 through DMA, and the font), with the big-text and font suites |
 | `make test-mega65-zp` | Which zero page bytes the MEGA65 ROM changes in KERNAL calls (`tests/mega65/zpwatch.p8`) |
 | `make test-mega65-keymap` | Measure which MEGA65 keys give which PETSCII codes (the harness's key table) |
 | `make size` | Memory map and room left below memtop for each build (`tools/listsize.py`) |

@@ -120,7 +120,7 @@ build/p8vi-mega65font.prg: src/p8vi_mega65font.p8 $(SRCS) src/mega65/*.p8 config
 	$(RM) build/p8vi_mega65font.prg
 
 # the MEGA65 page store build (src/p8vi_mega65.p8, src/mega65dma): the text
-# in chip RAM banks 4 and 5, copied in and out with DMA.  optional features
+# in chip RAM banks 4 and 5, copied in and out with DMA, and the font.  optional features
 # are off while it's worked on (the program has to leave room for the page
 # cache below $c000)
 build/p8vi-mega65dma.prg: src/p8vi_mega65.p8 $(SRCS) src/mega65/*.p8 src/mega65dma/*.p8 config/mega65.properties $(wildcard libraries/mega65/*.p8)
@@ -213,14 +213,15 @@ test-mega65font:	build/p8vi-mega65font.prg
 		--skip g-cmds --skip ascii files
 	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65font.prg screen
 
-# the same on the MEGA65 page store build, with the suites for more text
-# than main RAM holds (--paged).  left out: subst and read-dir (SUBST and
-# DIR are off in this build), bigundo (30 KB of text, undo and yank need
-# more than the 126 pages of banks 4 and 5; it fails the same way on a C64
-# with a 128 KB REU)
+# the same on the MEGA65 page store build (with the font too), with the
+# suites for more text than main RAM holds (--paged) and the font suite.
+# left out: subst and read-dir (SUBST and DIR are off in this build),
+# bigundo (30 KB of text, undo and yank need more than the 126 pages of
+# banks 4 and 5; it fails the same way on a C64 with a 128 KB REU), and
+# g-cmds and ascii as for the font builds
 test-mega65dma:	build/p8vi-mega65dma.prg
-	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg --paged \
-		--skip subst --skip read-dir --skip bigundo files
+	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg --paged --font \
+		--skip subst --skip read-dir --skip bigundo --skip g-cmds --skip ascii files
 	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg screen
 
 # which keys give which PETSCII codes (the table in tools/m65harness.py)
