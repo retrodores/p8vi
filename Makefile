@@ -162,6 +162,18 @@ emu-cx16:	build/p8vi-cx16.prg
 emu-mega65:	build/p8vi-mega65.prg
 	xmega65 -prg build/p8vi-mega65.prg
 
+# which zero page bytes the MEGA65 ROM changes in KERNAL calls (for the
+# zp_* lists in config/mega65.properties), in xmega65 headless.  the
+# program is also on the disk as zpload, for its LOAD test.
+ZPDISK=build/zpwatch.d81
+test-mega65-zp:	build
+	$(PCC) -target config/mega65.properties -srcdirs tests/mega65 -out build tests/mega65/zpwatch.p8
+	c1541 -format zpwatch,01 d81 $(ZPDISK)
+	c1541 -attach $(ZPDISK) -write build/zpwatch.prg zpload,p
+	xmega65 -headless -sleepless -besure -prg build/zpwatch.prg -prgexit \
+		-8 $(abspath $(ZPDISK)) -dumpscreen build/zpwatch.txt
+	cat build/zpwatch.txt
+
 EMUVIC=xvic -default -keymap 1 -model ntsc -memory all -8 $(DISK) -drive8type 1581 -monitorfont "JetBrains Mono 16"
 emu-vic20:	build/p8vi-vic20.prg disk
 	$(EMUVIC) -autostartprgmode 1 build/p8vi-vic20.prg
