@@ -36,6 +36,14 @@ platform {
        ; work here: it reads $00, and the C64's $cfe0 put the top of the text
        ; and the yank and undo buffers in the ROM)
        texttop = $c000
+       ; spare memory for the editor's buffers: $1600-$1fdf is free in MEGA65
+       ; mode in programs that don't use the graphics commands (Prog8 keeps
+       ; R0-R15 at $1fe0).  the page store build has its scratch buffers and
+       ; a page cache slot at $1600-$1cff (src/mega65dma/pagemem_platform.p8)
+       sparestart = $1600
+       if buffer.PAGED
+           sparestart = $1d00
+       sparetop = $1fe0
        ; (the font build) the text memory ends at the screen
        if features.FONT and texttop > font.SCREEN
            texttop = font.SCREEN

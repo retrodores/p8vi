@@ -46,6 +46,8 @@ PCCARGSC64REU=-srcdirs src:src/c64reu:src/c64 -asmlist -target c64 -out build
 PCCARGSC64FONT=$(PCCARGSC64REU)
 PCCARGSCX16=-srcdirs src:src/cx16 -asmlist -target cx16 -out build
 PCCARGSM65=-srcdirs src:src/mega65 -asmlist -target config/mega65.properties -out build
+# the MEGA65 page store build: text in chip RAM banks 4 and 5 through DMA
+PCCARGSM65DMA=-srcdirs src:src/mega65dma:src/mega65 -asmlist -target config/mega65.properties -out build
 PCCARGSVIC20=-srcdirs src:src/vic20 -asmlist -target config/vic20plus24.properties -out build
 PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 
@@ -54,7 +56,7 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 # editor.p8.  The C64 has two builds: p8vi-c64
 # with the gap buffer (the most room for text in main RAM) and p8vi-c64reu
 # with the page store (for text in an REU, docs/XMEM-DESIGN.md)
-PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-vic20.prg
+PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-vic20.prg
 # an experiment, not in the release yet: p8vi-c64font (src/p8vi_c64font.p8)
 # is p8vi-c64reu with a font that has the ASCII characters PETSCII lacks.
 # it loads the font from p8vi.fnt (make font, from FONTSRC).
@@ -101,12 +103,23 @@ build/p8vi-cx16.prg: src/p8vi_cx16.p8 $(SRCS)
 	$(CP) build/p8vi_cx16.asm build/p8vi-cx16.asm
 	$(RM) build/p8vi_cx16.prg
 
-build/p8vi-mega65.prg: src/p8vi.p8 $(SRCS) src/mega65/*.p8 config/mega65.properties
+build/p8vi-mega65.prg: src/p8vi.p8 $(SRCS) src/mega65/*.p8 config/mega65.properties $(wildcard libraries/mega65/*.p8)
 	$(PCC) $(PCCARGSM65) $<
 	$(CP) build/p8vi.prg $@
 	$(CP) build/p8vi.list build/p8vi-mega65.list
 	$(CP) build/p8vi.asm build/p8vi-mega65.asm
 	$(RM) build/p8vi.prg
+
+# the MEGA65 page store build (src/p8vi_mega65.p8, src/mega65dma): the text
+# in chip RAM banks 4 and 5, copied in and out with DMA.  optional features
+# are off while it's worked on (the program has to leave room for the page
+# cache below $c000)
+build/p8vi-mega65dma.prg: src/p8vi_mega65.p8 $(SRCS) src/mega65/*.p8 src/mega65dma/*.p8 config/mega65.properties $(wildcard libraries/mega65/*.p8)
+	$(PCC) $(PCCARGSM65DMA) $<
+	$(CP) build/p8vi_mega65.prg $@
+	$(CP) build/p8vi_mega65.list build/p8vi-mega65dma.list
+	$(CP) build/p8vi_mega65.asm build/p8vi-mega65dma.asm
+	$(RM) build/p8vi_mega65.prg
 
 build/p8vi-vic20.prg: src/p8vi_vic20.p8 $(SRCS)
 	$(PCC) $(PCCARGSVIC20) $<
@@ -180,6 +193,16 @@ test-mega65:	build/p8vi-mega65.prg
 	python3 -B tests/mega65/edtest.py files
 	python3 -B tests/mega65/edtest.py screen
 
+# the same on the MEGA65 page store build, with the suites for more text
+# than main RAM holds (--paged).  left out: subst and read-dir (SUBST and
+# DIR are off in this build), bigundo (30 KB of text, undo and yank need
+# more than the 126 pages of banks 4 and 5; it fails the same way on a C64
+# with a 128 KB REU)
+test-mega65dma:	build/p8vi-mega65dma.prg
+	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg --paged \
+		--skip subst --skip read-dir --skip bigundo files
+	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg screen
+
 # which keys give which PETSCII codes (the table in tools/m65harness.py)
 test-mega65-keymap:	build
 	$(PCC) -target config/mega65.properties -srcdirs tests/mega65 -out build tests/mega65/keyecho.p8
@@ -203,6 +226,8 @@ size:	$(PROGS) $(FONTPROG)
 	python3 tools/listsize.py build/p8vi-c64reu.list --map
 	python3 tools/listsize.py build/p8vi-c64font.list --map --memtop 0xc800
 	python3 tools/listsize.py build/p8vi-cx16.list --map
+	python3 tools/listsize.py build/p8vi-mega65.list --map --memtop 0xc000
+	python3 tools/listsize.py build/p8vi-mega65dma.list --map --memtop 0xc000
 	python3 tools/listsize.py build/p8vi-vic20.list --map --min-free $(VIC20_MIN_FREE)
 
 # editor tests on a C64 in VICE (x64sc and c1541 in the PATH)

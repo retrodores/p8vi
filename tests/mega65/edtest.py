@@ -149,7 +149,10 @@ def run_files(args, suite):
     ok = True
     try:
         with edit(args, d81, keys) as m:
-            type_keys(m, petscii(':e t.txt\\n' + keys + ':q!\\n'), args.timeout)
+            type_keys(m, petscii(':e t.txt\\n' + keys), args.timeout)
+            # (not type_keys: at READY the cursor blinks, so the screen
+            # never stays the same)
+            m.type_petscii(petscii(':q!\\n'))
             m.wait_until(lambda s: 'ready.' in s.whole().lower(), args.timeout, 'no READY. after :q!')
     except h.Failure as failed:
         ok = False
@@ -211,19 +214,23 @@ def main():
     ap.add_argument('--skip', action='append', default=[], metavar='SUITE',
                     help='leave this suite out')
     ap.add_argument('--all', action='store_true', help='also the suites too big for this build')
+    ap.add_argument('--paged', action='store_true',
+                    help='the page store build: also the REU suites (more text than main RAM holds)')
     args = ap.parse_args()
     for tool in (args.emulator, 'c1541'):
         if not shutil.which(tool):
             sys.exit(f'{tool} not found in PATH')
     args.prg = os.path.abspath(args.prg)
+    if not os.path.exists(args.prg):
+        sys.exit(f'{args.prg}: no such program')
     args.work = os.path.abspath(args.work)
     os.makedirs(args.work, exist_ok=True)
     # the read-dir suite, with this disk's directory
     vice.dir_text = dir_text
 
     if args.kind == 'files':
-        suites = [mega65_suite(s) for s in vice.FILE_SUITES
-                  if args.all or args.names or s[0] not in TOO_BIG]
+        suites = [mega65_suite(s) for s in vice.FILE_SUITES + (vice.REU_SUITES if args.paged else [])
+                  if args.all or args.paged or args.names or s[0] not in TOO_BIG]
         work = run_files
     else:
         suites = vice.SCREEN_SUITES
