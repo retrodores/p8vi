@@ -100,6 +100,11 @@ main {
             ; (the font build) shift + pound types | (the font's |, $dc)
             if features.FONT and key == KEY_SHIFT_POUND
                 key = KEY_FONT_PIPE
+            ; (the font build) the MEGA65 types { | } ~ as $7b-$7e (MEGA with
+            ; : . ; ,), which show the same as $db-$de: the codes the font
+            ; build keeps them as (charset.p8 swaps $7b-$7e with $db-$de)
+            if features.FONT and key >= $7b and key <= $7e
+                key += $60
             cursor_off()
             if key == KEY_STOP
                 key = KEY_ESCAPE

@@ -56,7 +56,7 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 # editor.p8.  The C64 has two builds: p8vi-c64
 # with the gap buffer (the most room for text in main RAM) and p8vi-c64reu
 # with the page store (for text in an REU, docs/XMEM-DESIGN.md)
-PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-vic20.prg
+PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-mega65font.prg build/p8vi-vic20.prg
 # an experiment, not in the release yet: p8vi-c64font (src/p8vi_c64font.p8)
 # is p8vi-c64reu with a font that has the ASCII characters PETSCII lacks.
 # it loads the font from p8vi.fnt (make font, from FONTSRC).
@@ -109,6 +109,15 @@ build/p8vi-mega65.prg: src/p8vi.p8 $(SRCS) src/mega65/*.p8 config/mega65.propert
 	$(CP) build/p8vi.list build/p8vi-mega65.list
 	$(CP) build/p8vi.asm build/p8vi-mega65.asm
 	$(RM) build/p8vi.prg
+
+# the MEGA65 font build (src/p8vi_mega65font.p8): the gap buffer build with
+# the ROM's character set that has the ASCII characters (src/mega65/font.p8)
+build/p8vi-mega65font.prg: src/p8vi_mega65font.p8 $(SRCS) src/mega65/*.p8 config/mega65.properties $(wildcard libraries/mega65/*.p8)
+	$(PCC) $(PCCARGSM65) $<
+	$(CP) build/p8vi_mega65font.prg $@
+	$(CP) build/p8vi_mega65font.list build/p8vi-mega65font.list
+	$(CP) build/p8vi_mega65font.asm build/p8vi-mega65font.asm
+	$(RM) build/p8vi_mega65font.prg
 
 # the MEGA65 page store build (src/p8vi_mega65.p8, src/mega65dma): the text
 # in chip RAM banks 4 and 5, copied in and out with DMA.  optional features
@@ -196,6 +205,14 @@ test-mega65:	build/p8vi-mega65.prg
 	python3 -B tests/mega65/edtest.py files
 	python3 -B tests/mega65/edtest.py screen
 
+# the same on the MEGA65 font build, with the font suite.  left out, as for
+# the C64 font build: g-cmds and ascii (they type and keep PETSCII graphics,
+# which the font build reads as the ASCII characters)
+test-mega65font:	build/p8vi-mega65font.prg
+	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65font.prg --font \
+		--skip g-cmds --skip ascii files
+	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65font.prg screen
+
 # the same on the MEGA65 page store build, with the suites for more text
 # than main RAM holds (--paged).  left out: subst and read-dir (SUBST and
 # DIR are off in this build), bigundo (30 KB of text, undo and yank need
@@ -231,6 +248,7 @@ size:	$(PROGS) $(FONTPROG)
 	python3 tools/listsize.py build/p8vi-cx16.list --map
 	python3 tools/listsize.py build/p8vi-mega65.list --map --memtop 0xc000
 	python3 tools/listsize.py build/p8vi-mega65dma.list --map --memtop 0xc000
+	python3 tools/listsize.py build/p8vi-mega65font.list --map --memtop 0xc000
 	python3 tools/listsize.py build/p8vi-vic20.list --map --min-free $(VIC20_MIN_FREE)
 
 # editor tests on a C64 in VICE (x64sc and c1541 in the PATH)

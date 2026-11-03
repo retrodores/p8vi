@@ -36,6 +36,7 @@ later.
 | `build/p8vi-c64reu.prg` | `src/p8vi.p8` | C64 with the page store, for text in an REU |
 | `build/p8vi-cx16.prg` | `src/p8vi.p8` | Commander X16 |
 | `build/p8vi-mega65.prg` | `src/p8vi.p8` | MEGA65 (MEGA65 mode), in progress |
+| `build/p8vi-mega65font.prg` | `src/p8vi_mega65font.p8` | MEGA65 with the ROM's character set that has the ASCII characters PETSCII lacks, in progress |
 | `build/p8vi-mega65dma.prg` | `src/p8vi_mega65.p8` | MEGA65 with the page store: text in chip RAM banks 4 and 5 through DMA, in progress |
 | `build/p8vi-vic20.prg` | `src/p8vi_vic20.p8` | VIC-20 with 24K or more |
 | `build/p8vi-c64font.prg` | `src/p8vi_c64font.p8` | An experiment: the C64 REU build with a font for ASCII text |
@@ -72,6 +73,13 @@ for `{`, pound for `|`, `-` for `}` and up arrow for `~`.  ASCII files are
 translated to the PETSCII codes the font shows them for.  `make font`
 makes `build/p8vi.fnt` from the font in `FONTSRC` (`tools/mkfont.py`),
 `make emu-c64font` runs it in VICE.  It is not in the release yet.
+
+`p8vi-mega65font` (`src/mega65/font.p8`) needs no font file: the MEGA65
+ROM has a lower case character set with the same characters at the same
+codes (BASIC 65's `FONT A`, at `$29800`), and p8vi copies it into the
+VIC-IV's character RAM with DMA when it starts, and the C64 set
+(`$2d800`) back when it quits.  The keys are the same as on the C64, and
+MEGA with `:`, `.`, `;` and `,` types `{`, `|`, `}` and `~` too.
 
 # Prerequisites
 
@@ -140,6 +148,7 @@ The useful `make` targets are:
 | `make test-c64font` | The C64 REU build's tests on the font build, and its own (`font`) |
 | `make test-c64-screen` | Check partial redraws against full redraws in VICE (~30 s) |
 | `make test-mega65` | The VICE editor and redraw tests on a MEGA65 in xmega65, through `tools/m65harness.py` (`tests/mega65/edtest.py`, ~3 min) |
+| `make test-mega65font` | The same on the MEGA65 font build, with the font suite |
 | `make test-mega65dma` | The same on the MEGA65 page store build (text in banks 4 and 5 through DMA), with the big-text suites |
 | `make test-mega65-zp` | Which zero page bytes the MEGA65 ROM changes in KERNAL calls (`tests/mega65/zpwatch.p8`) |
 | `make test-mega65-keymap` | Measure which MEGA65 keys give which PETSCII codes (the harness's key table) |

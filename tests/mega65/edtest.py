@@ -214,6 +214,8 @@ def main():
     ap.add_argument('--skip', action='append', default=[], metavar='SUITE',
                     help='leave this suite out')
     ap.add_argument('--all', action='store_true', help='also the suites too big for this build')
+    ap.add_argument('--font', action='store_true',
+                    help='the font build: also the font suite (no font file: it uses the ROM\'s)')
     ap.add_argument('--paged', action='store_true',
                     help='the page store build: also the REU suites (more text than main RAM holds)')
     args = ap.parse_args()
@@ -230,6 +232,7 @@ def main():
 
     if args.kind == 'files':
         suites = [mega65_suite(s) for s in vice.FILE_SUITES + (vice.REU_SUITES if args.paged else [])
+                  + (vice.FONT_SUITES if args.font else [])
                   if args.all or args.paged or args.names or s[0] not in TOO_BIG]
         work = run_files
     else:

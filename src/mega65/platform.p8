@@ -44,13 +44,9 @@ platform {
        if buffer.PAGED
            sparestart = $1d00
        sparetop = $1fe0
-       ; (the font build) the text memory ends at the screen
-       if features.FONT and texttop > font.SCREEN
-           texttop = font.SCREEN
-       if features.FONT and not font.start() {
-           txt.print("can't load p8vi.fnt\n")
-           sys.exit(1)
-       }
+       ; (the font build) the ROM's character set with ASCII characters
+       if features.FONT
+           font.start()
 
        main.SCREEN_WIDTH    = txt.DEFAULT_WIDTH
        main.SCREEN_HEIGHT   = txt.DEFAULT_HEIGHT
