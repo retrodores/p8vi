@@ -237,10 +237,7 @@ free_name:
         cbm.SETLFS(LF_WRITE, diskio.drivenumber, LF_WRITE)
         void cbm.OPEN()
         cbm.CHKOUT(LF_WRITE)
-        repeat size {
-            cbm.CHROUT(@(p))
-            p++
-        }
+        void put_bytes(p, size)
         cbm.CLRCHN()
         cbm.CLOSE(LF_WRITE)
         if page_name[id] != NONE {
@@ -255,7 +252,6 @@ free_name:
     sub read_page(ubyte s) {
         ubyte id = slot_page[s]
         uword p = main_start + s * size
-        uword count = size
         if page_name[id] == NONE
             return
         reads++
@@ -265,15 +261,60 @@ free_name:
         cbm.SETLFS(LF_READ, diskio.drivenumber, LF_READ)
         void cbm.OPEN()
         void cbm.CHKIN(LF_READ)
-        while count != 0 {
-            @(p) = cbm.CHRIN()
-            p++
-            count--
-            if cbm.READST() != 0
-                break
-        }
+        void get_bytes(p, size)
         cbm.CLRCHN()
         cbm.CLOSE(LF_READ)
+    }
+
+    ; count (1 or more) bytes from the input channel to p, a byte at a time
+    ; with CHRIN; returns the status (READST) after them.  (a page file
+    ; always holds a whole page, so no status after each byte)
+    asmsub get_bytes(uword p @R0, uword count @R1) clobbers(X, Y) -> ubyte @A {
+        %asm {{
+            lda  cx16.r0
+            sta  P8ZP_SCRATCH_W1
+            lda  cx16.r0+1
+            sta  P8ZP_SCRATCH_W1+1
+-           jsr  cbm.CHRIN
+            ldy  #0
+            sta  (P8ZP_SCRATCH_W1),y
+            inc  P8ZP_SCRATCH_W1
+            bne  +
+            inc  P8ZP_SCRATCH_W1+1
++           lda  cx16.r1
+            bne  +
+            dec  cx16.r1+1
++           dec  cx16.r1
+            lda  cx16.r1
+            ora  cx16.r1+1
+            bne  -
+            jmp  cbm.READST
+        }}
+    }
+
+    ; count (1 or more) bytes from p to the output channel, a byte at a
+    ; time with CHROUT; returns the status (READST) after them
+    asmsub put_bytes(uword p @R0, uword count @R1) clobbers(X, Y) -> ubyte @A {
+        %asm {{
+            lda  cx16.r0
+            sta  P8ZP_SCRATCH_W1
+            lda  cx16.r0+1
+            sta  P8ZP_SCRATCH_W1+1
+-           ldy  #0
+            lda  (P8ZP_SCRATCH_W1),y
+            jsr  cbm.CHROUT
+            inc  P8ZP_SCRATCH_W1
+            bne  +
+            inc  P8ZP_SCRATCH_W1+1
++           lda  cx16.r1
+            bne  +
+            dec  cx16.r1+1
++           dec  cx16.r1
+            lda  cx16.r1
+            ora  cx16.r1+1
+            bne  -
+            jmp  cbm.READST
+        }}
     }
 
     ; copy count bytes from src to header slot h at offset, or (get) from

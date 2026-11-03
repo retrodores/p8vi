@@ -1090,8 +1090,14 @@ buffer {
     ; since the last time.  afterwards the text can be recovered as it is.
     sub sync(uword meta) {
         ubyte i
-        if not pagemem.persistent or changes == synced_changes
+        if changes == synced_changes
             return
+        if not pagemem.persistent {
+            ; nothing is kept, but the editor asks when the keys stop, and
+            ; would ask again on every pass of its key loop
+            synced_changes = changes
+            return
+        }
         take_slot()
         pagemem.sync()
         hdr[0] = 'p'
