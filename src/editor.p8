@@ -1613,6 +1613,8 @@ main {
             buffer.yank_buf = take_memory(buffer.yank_size)
             buffer.undo_buf = take_memory(buffer.undo_size)
         }
+        if buffer.WRITE_BACK and features.ASCII
+            save_buf = take_memory(SAVE_BUF_SIZE)
         rec_keys = take_memory(REPEAT_SIZE)
         dot_keys = take_memory(REPEAT_SIZE)
         insert_text = take_memory(INSERT_SIZE)
@@ -2212,16 +2214,39 @@ main {
     ; for translate_text(): write the text to the open file
     const ubyte WRITE_TEXT = 255
 
+    ; (page store with pages written back: buffer.WRITE_BACK) an ASCII text
+    ; is translated for writing a piece at a time here, so its pages aren't
+    ; changed: translating them in place and back would make each one be
+    ; written back twice (to the disk in the disk build).  set up in init()
+    const ubyte SAVE_BUF_SIZE = 64
+    pointer save_buf
+
     ; translate the whole text, how is one of charset's modes, or write it
-    ; to the open file (WRITE_TEXT; returns false if that fails)
+    ; to the open file (WRITE_TEXT; returns false if that fails).
+    ; (buffer.WRITE_BACK) writing an ASCII text translates it on the way
     sub translate_text(ubyte how) -> bool {
         pointer p
         uword n
+        uword k
         ubyte i
         for i in 0 to buffer.chunks() - 1 {
-            p, n = buffer.chunk(i)
+            ; (writing doesn't change the pages: not marked changed)
+            if buffer.WRITE_BACK and how == WRITE_TEXT
+                p, n = buffer.chunk_read(i)
+            else
+                p, n = buffer.chunk(i)
             if how == WRITE_TEXT {
-                if not write_text(p, n)
+                if buffer.WRITE_BACK and features.ASCII and ascii_file {
+                    while n != 0 {
+                        k = min(n, SAVE_BUF_SIZE)
+                        sys.memcopy(p, save_buf, k)
+                        charset.translate(save_buf, k, charset.TO_ASCII)
+                        if not write_text(save_buf, k)
+                            return false
+                        p += k
+                        n -= k
+                    }
+                } else if not write_text(p, n)
                     return false
             } else
                 charset.translate(p, n, how)
@@ -2270,15 +2295,16 @@ main {
             disk_error()
             return false
         }
-        ; an ASCII file is translated for writing, and back afterwards
-        if features.ASCII and ascii_file
+        ; an ASCII file is translated for writing, and back afterwards.
+        ; (buffer.WRITE_BACK: on the way, translate_text() does it)
+        if features.ASCII and ascii_file and not buffer.WRITE_BACK
             void translate_text(charset.TO_ASCII)
         ok = translate_text(WRITE_TEXT)
         ; the line ending the text doesn't keep (see final_eol)
         if features.FINAL_EOL and ok and final_eol
             ok = write_text(&buffer.eol, 1)
         diskio.f_close_w()
-        if features.ASCII and ascii_file
+        if features.ASCII and ascii_file and not buffer.WRITE_BACK
             void translate_text(charset.TO_PETSCII)
         ; (not diskio.status_code(): it only gets the first digit right,
         ; see bugs/side_effect_calls_merged.p8)

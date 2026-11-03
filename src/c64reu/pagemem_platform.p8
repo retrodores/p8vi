@@ -16,6 +16,9 @@ pagemem {
     const uword NO_PAGE = $ffff
     ; bytes per page
     const uword PAGE_SIZE = 1024
+    ; changed pages are copies that have to be written back (the editor
+    ; avoids changing pages it only reads: buffer.WRITE_BACK)
+    const bool WRITE_BACK = true
     ; most pages the page store has room for
     const ubyte MAX_PAGES = 255
     ; SCRATCH_SIZE bytes for the page store's buffers

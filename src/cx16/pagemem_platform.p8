@@ -13,6 +13,8 @@ pagemem {
     ; bytes per page (the X16 is fast enough to shift 2 KB pages, and the
     ; page table, in main RAM, can be smaller)
     const uword PAGE_SIZE = 2048
+    ; (pages are used in place: changing one costs nothing more)
+    const bool WRITE_BACK = false
     ; most pages the page store has room for (its tables are in main RAM)
     const ubyte MAX_PAGES = 128
     ; SCRATCH_SIZE bytes for the page store's buffers (608 with 128 pages):

@@ -78,7 +78,9 @@ target only needs its own `pagemem_platform.p8` with the same routines:
 `init(start, top, page_size, max_pages) -> pages`, `map(id) -> address`
 (valid until the next `map()`), `changed()`, `sync()`, `header_put()` and
 `header_get()` (the recovery headers), plus `persistent`, `PAGE_SIZE`,
-`MAX_PAGES`, `scratch` and `SCRATCH_SIZE`.  `docs/XMEM-DESIGN.md` explains
+`MAX_PAGES`, `scratch`, `SCRATCH_SIZE` and `WRITE_BACK` (true if a
+changed page is a copy that has to be written back: an REU, DMA, the
+disk; false if pages are used in place, as in the X16's banked RAM).  `docs/XMEM-DESIGN.md` explains
 the design.
 
 Not used by p8vi: `src/c64/xmem_platform.p8`, `src/c64/reucompat.p8`
@@ -119,7 +121,7 @@ X16's banking calls on the C64, from an earlier plan (`docs/REU.md`).
 | `insert_char()`, `insert_bytes()`, `delete_nchar()` | the basic changes |
 | `read_room(pos)`, `read_done(n)`, `loaded(n)` | loading a file straight into the store, then marking it as a new unmodified text |
 | `copy_out(pos, n, dest)` | bytes out, for drawing |
-| `chunks()`, `chunk(i)` | the text in pieces in memory (two for the gap buffer), for saving and translating |
+| `chunks()`, `chunk(i)`, `chunk_read(i)` | the text in pieces in memory (two for the gap buffer), for translating, and (`chunk_read`, which doesn't mark a page changed) for saving |
 | `find_next()`, `find_prev()`, `line_offset(line)`, `line_number(pos)` | |
 | `yank(start, n, lines)`, `put(pos)`, `undo()` | the yank buffer and undo |
 | `PAGED = false`; `sync()`, `clean()`, `recover()` | empty: no recovery |
@@ -140,6 +142,10 @@ It has the same routines as the gap buffer, and these differences:
 - **A pointer is valid only until the store is used again.**
   `read_room()` gives room in one page, so a file is read in several
   pieces.  `chunks()` and `chunk(i)` give one piece per page.
+- **`chunk(i)` marks the page changed**, since the caller may change
+  it; `chunk_read(i)` doesn't, so reading through the text (saving)
+  doesn't make every page be written back.  `WRITE_BACK` (from
+  `pagemem`) says whether that matters.
 - **Recovery** (when `pagemem.persistent`):
   - `sync(meta)` saves the text's header and `META_SIZE` (48) bytes of
     your own (file name, settings).  p8vi calls it when no key has come
@@ -157,8 +163,9 @@ The store doesn't read files, draw or take keys.  p8vi's `editor.p8` is
 an example of all of these:
 - **Loading:** `clear()`, then `read_room()` / `read_done()` until the
   file ends, then `loaded(n)` (`load_file()`).
-- **Saving:** `chunk(i)` for each piece (`translate_text()`,
-  `write_text()`).
+- **Saving:** `chunk_read(i)` for each piece (`translate_text()`,
+  `write_text()`).  With `WRITE_BACK`, an ASCII file is translated a
+  piece at a time into a small buffer on the way, not in the pages.
 - **Drawing:** `copy_out()` per line, with `change_start` and
   `change_end` to skip what didn't change.
 - **Commands:** `undo_mark()` before each command.  The cursor goes in

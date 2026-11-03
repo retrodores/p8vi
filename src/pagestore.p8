@@ -32,6 +32,9 @@ buffer {
     ; a page store: read_room() gives one page at a time, so a file is read
     ; in pieces, and a delete over several pages is logged a page at a time
     const bool PAGED = true
+    ; changed pages are written back (to an REU, the disk...), so the editor
+    ; avoids changing pages it only reads (pagemem.WRITE_BACK)
+    const bool WRITE_BACK = pagemem.WRITE_BACK
     ; most pages the store can have (the text's, the streams' and free
     ; ones together); page ids are 0 to MAX_PAGES - 1
     const ubyte MAX_PAGES = pagemem.MAX_PAGES
@@ -644,6 +647,13 @@ buffer {
         pagemem.changed()
         lines_eol = 0
         return p, page_len[n]
+    }
+
+    ; the same, for reading only (saving): the page isn't marked changed,
+    ; so it isn't written back (to the REU, or the disk in the disk build)
+    ; and the line counts stay
+    sub chunk_read(ubyte n) -> pointer, uword {
+        return pagemem.map(page_id[n]), page_len[n]
     }
 
     ;

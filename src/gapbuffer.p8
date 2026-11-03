@@ -27,6 +27,7 @@ buffer {
     ; so a file is read in one piece, and a delete is logged in one piece.
     ; (code only a page store needs can be left out with it)
     const bool PAGED = false
+    const bool WRITE_BACK = false   ; (see the page store)
 
     ; the gap buffer's own variables: private, the editor uses the
     ; routines (the tests use gap_position(), check() and scramble_gap())
@@ -426,6 +427,10 @@ buffer {
             return ramstart, gappos
         return gapend + 1, bufend - gappos
     }
+
+    ; (for reading only: the same here, the page store's doesn't mark the
+    ; page changed)
+    alias chunk_read = chunk
 
     ;
     ; searching
