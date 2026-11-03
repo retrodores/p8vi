@@ -61,6 +61,10 @@ main {
     ubyte cmd_prompt            ; ':', '/' or '?'
     bool cut_short              ; the file did not fit, so saving it over itself loses text
     bool ascii_file             ; the file is ASCII: translated to PETSCII when read, back when written
+    ; (the font build) the font's ASCII characters are shown, and the keys
+    ; type them.  on the MEGA65 the font follows ascii_file: a PETSCII file
+    ; gets the C64's characters back (ascii_mode())
+    bool font_ascii
     ubyte line_ending           ; the file's ENDING_*; CRLF is CR in memory
     ; the file ends with a line ending.  like vi, the text doesn't keep it
     ; (it ends the last line, it doesn't start an empty one): reading takes
@@ -98,12 +102,12 @@ main {
             if buffer.PAGED
                 key_time = cbm.RDTIM16()
             ; (the font build) shift + pound types | (the font's |, $dc)
-            if features.FONT and key == KEY_SHIFT_POUND
+            if features.FONT and font_ascii and key == KEY_SHIFT_POUND
                 key = KEY_FONT_PIPE
             ; (the font build) the MEGA65 types { | } ~ as $7b-$7e (MEGA with
             ; : . ; ,), which show the same as $db-$de: the codes the font
             ; build keeps them as (charset.p8 swaps $7b-$7e with $db-$de)
-            if features.FONT and key >= $7b and key <= $7e
+            if features.FONT and font_ascii and key >= $7b and key <= $7e
                 key += $60
             cursor_off()
             if key == KEY_STOP
@@ -1123,7 +1127,7 @@ main {
         motion_inclusive = false
         ; (the font build) the font's | and _ are the commands; '|' ($dd)
         ; is its }
-        if features.FONT and k == '|'
+        if features.FONT and font_ascii and k == '|'
             k = 0
         else if features.FONT and k == KEY_FONT_PIPE
             k = '|'
@@ -1249,7 +1253,7 @@ main {
             return 0
         if big_words
             return 1
-        if features.FONT and char == KEY_FONT_UNDERSCORE
+        if features.FONT and font_ascii and char == KEY_FONT_UNDERSCORE
             return 2
         if (char >= '0' and char <= '9') or char == '_' or (char >= $41 and char <= $5a) or
                 (char >= $61 and char <= $7a) or (char >= $c1 and char <= $da)
@@ -1611,7 +1615,14 @@ main {
         txt.cls()
         filename[0] = 0
         new_text()
+        ascii_mode()
         view.splash = features.SPLASH
+    }
+
+    ; (the font build) show the font for ascii_file's kind of text
+    inline sub ascii_mode() {
+        if features.FONT
+            font_ascii = platform.font_mode(ascii_file)
     }
 
     ; returns size bytes of the platform's spare memory if there is room,
@@ -1937,6 +1948,7 @@ main {
             new_text()
             cut_short = false
             ascii_file = false
+            ascii_mode()
             line_ending = ENDING_CR
             status("new file")
         }
@@ -1964,6 +1976,7 @@ main {
                 if ascii_file != (i == 1)
                     buffer.modified = true
                 ascii_file = i == 1
+                ascii_mode()
             }
         }
         void strings.copy(set_options[ascii_file as ubyte], status_text)
@@ -2117,6 +2130,7 @@ main {
             buffer.eol = eol
             final_eol = features.FINAL_EOL and last_eol
             ascii_file = ascii
+            ascii_mode()
             line_ending = ENDING_CR
             if eol == $0a
                 line_ending = ENDING_LF
@@ -2170,6 +2184,7 @@ main {
         void strings.copy(meta, filename)
         line_ending = meta[META_ENDING]
         ascii_file = meta[META_ASCII] != 0
+        ascii_mode()
         buffer.eol = meta[META_EOL]
         final_eol = meta[META_FINAL_EOL] != 0
         cur_line = buffer.line_number(cursor())
@@ -2778,7 +2793,7 @@ view {
 
     ; draw one text row straight into screen memory
     sub draw_row(ubyte r) {
-        if features.FONT and row_start[r] == NONE {
+        if features.FONT and main.font_ascii and row_start[r] == NONE {
             ; the font build has vi's ~ ($de in its font)
             platform.put_row(r, 0, "\xde", 1)
             return

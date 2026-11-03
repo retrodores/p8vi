@@ -38,6 +38,11 @@ platform {
     sub stop() {
     }
 
+    ; (font builds only; there is none here)
+    sub font_mode(bool ascii) -> bool {
+        return false
+    }
+
     ; open a file for writing with diskio.f_write as a SEQ file.
     ; the cx16 diskio.f_open_w adds ",s,w" and checks the drive status itself.
     ; the file must not exist yet.

@@ -70,6 +70,11 @@ platform {
     sub stop() {
     }
 
+    ; (font builds only; there is none here)
+    sub font_mode(bool ascii) -> bool {
+        return false
+    }
+
     ; open a file for writing with diskio.f_write as a SEQ file.
     ; the CBM diskio.f_open_w doesn't add the type, so do that here.
     ; the drive status can't be checked until the file is closed: reading

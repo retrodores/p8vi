@@ -44,9 +44,6 @@ platform {
        if buffer.PAGED
            sparestart = $1d00
        sparetop = $1fe0
-       ; (the font build) the ROM's character set with ASCII characters
-       if features.FONT
-           font.start()
 
        main.SCREEN_WIDTH    = txt.DEFAULT_WIDTH
        main.SCREEN_HEIGHT   = txt.DEFAULT_HEIGHT
@@ -60,7 +57,14 @@ platform {
 
     ; before the program ends (the font build only)
     sub stop() {
-        font.stop()
+        font.show(false)
+    }
+
+    ; (the font build) show the ROM's character set with the ASCII
+    ; characters for ASCII text, the C64's for PETSCII; returns ascii
+    sub font_mode(bool ascii) -> bool {
+        font.show(ascii)
+        return ascii
     }
 
     ; open a file for writing with diskio.f_write as a SEQ file.

@@ -1,25 +1,23 @@
 ; p8vi - a vi for 8-bit computers, written in Prog8.
-; the MEGA65 page store build (p8vi-mega65dma): the text in chip RAM banks
-; 4 and 5, through DMA (src/mega65dma), and the ROM's character set with
-; the ASCII characters PETSCII lacks (src/mega65/font.p8).  The program has
-; to end below $c000, so optional features start out off here and go on as
-; room allows.  The editor itself is in editor.p8, the full
-; version is src/p8vi.p8.
+; the MEGA65 version (p8vi-mega65): the full editor with the gap buffer,
+; and the MEGA65 ROM's character set that has the ASCII characters PETSCII
+; lacks for ASCII files (src/mega65/font.p8).  src/p8vi_mega65dma.p8 is the
+; page store version.  The editor itself is in editor.p8.
 
 %import editor
 %zeropage basicsafe
 
 ; which optional features the build has (code for the ones that are off
-; is left out of the program).  make size checks the room left.
+; is left out of the program)
 features {
-    const bool SPLASH = true   ; the start screen
-    const bool ASCII = true    ; ASCII files translated to PETSCII and back, :set ascii
-    const bool CRLF = true     ; CR LF line endings, :set crlf
-    const bool SUBST = false    ; :s/old/new/ and line ranges (:%, :1,5, :$)
-    const bool DOS = true      ; :@ sends a command to the drive (:@s:name deletes a file)
-    const bool FINAL_EOL = true ; a line ending at the end of a file ends the last line (no empty line after it)
-    const bool SCROLL = true    ; scroll the screen one row when the cursor goes just off it (not draw it all again)
-    const bool DIR = false      ; :@$ shows the disk directory
+    const bool SPLASH = true    ; the start screen
+    const bool ASCII = true     ; ASCII files translated to PETSCII and back, :set ascii
+    const bool CRLF = true      ; CR LF line endings, :set crlf
+    const bool SUBST = true     ; :s/old/new/ and line ranges (:%, :1,5, :$)
+    const bool DOS = true       ; :@ sends a command to the drive (:@s:name deletes a file)
+    const bool FINAL_EOL = true  ; a line ending at the end of a file ends the last line (no empty line after it)
+    const bool SCROLL = true     ; scroll the screen one row when the cursor goes just off it (not draw it all again)
+    const bool DIR = true       ; :@$ shows the disk directory
     const bool FONT = true      ; the font build: a character set with the ASCII characters (src/mega65/font.p8)
 }
 

@@ -55,6 +55,13 @@ platform {
         font.stop()
     }
 
+    ; (the font build) show the font for ASCII or for PETSCII text; returns
+    ; true if its ASCII characters are shown.  the C64's font stays (the
+    ; character ROM can't be seen from the VIC bank the font is in)
+    sub font_mode(bool ascii) -> bool {
+        return true
+    }
+
     ; open a file for writing with diskio.f_write as a SEQ file.
     ; the CBM diskio.f_open_w doesn't add the type, so do that here.
     ; the drive status can't be checked until the file is closed: reading
