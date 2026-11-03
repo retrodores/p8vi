@@ -48,6 +48,7 @@ PCCARGSCX16=-srcdirs src:src/cx16 -asmlist -target cx16 -out build
 PCCARGSM65=-srcdirs src:src/mega65 -asmlist -target config/mega65.properties -out build
 # the MEGA65 page store build: text in chip RAM banks 4 and 5 through DMA
 PCCARGSM65DMA=-srcdirs src:src/mega65dma:src/mega65 -asmlist -target config/mega65.properties -out build
+PCCARGSPET32=-srcdirs src:src/pet32 -asmlist -target pet32 -out build
 PCCARGSVIC20=-srcdirs src:src/vic20 -asmlist -target config/vic20plus24.properties -out build
 PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 
@@ -56,7 +57,7 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 # editor.p8.  The C64 has two builds: p8vi-c64
 # with the gap buffer (the most room for text in main RAM) and p8vi-c64reu
 # with the page store (for text in an REU, docs/XMEM-DESIGN.md)
-PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-vic20.prg
+PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-pet32.prg build/p8vi-vic20.prg
 # an experiment, not in the release yet: p8vi-c64font (src/p8vi_c64font.p8)
 # is p8vi-c64reu with a font that has the ASCII characters PETSCII lacks.
 # it loads the font from p8vi.fnt (make font, from FONTSRC).
@@ -123,6 +124,15 @@ build/p8vi-mega65dma.prg: src/p8vi_mega65dma.p8 $(SRCS) src/mega65/*.p8 src/mega
 	$(CP) build/p8vi_mega65dma.list build/p8vi-mega65dma.list
 	$(CP) build/p8vi_mega65dma.asm build/p8vi-mega65dma.asm
 	$(RM) build/p8vi_mega65dma.prg
+
+# the PET (a 32 KB PET with BASIC 4, Prog8's pet32 target): the gap buffer,
+# with the VIC-20's features and no ASCII or CR LF files, for room for text
+build/p8vi-pet32.prg: src/p8vi_pet32.p8 $(SRCS) src/pet32/*.p8
+	$(PCC) $(PCCARGSPET32) $<
+	$(CP) build/p8vi_pet32.prg $@
+	$(CP) build/p8vi_pet32.list build/p8vi-pet32.list
+	$(CP) build/p8vi_pet32.asm build/p8vi-pet32.asm
+	$(RM) build/p8vi_pet32.prg
 
 build/p8vi-vic20.prg: src/p8vi_vic20.p8 $(SRCS)
 	$(PCC) $(PCCARGSVIC20) $<
@@ -223,6 +233,16 @@ test-mega65-keymap:	build
 	$(PCC) -target config/mega65.properties -srcdirs tests/mega65 -out build tests/mega65/keyecho.p8
 	python3 -B tests/mega65/keymap.py --prg build/keyecho.prg
 
+# the PET: a 4032 with an IEEE-488 2031 drive (it takes .d64 images); its
+# own disk, with files small enough for its 3.3 KB of text
+PETDISK=build/testpet.d64
+emu-pet32:	build/p8vi-pet32.prg
+	c1541 -format testpet,52 d64 $(PETDISK)
+	c1541 -attach $(PETDISK) -write build/p8vi-pet32.prg p8vi,p
+	c1541 -attach $(PETDISK) -write src/c64/font.p8 font.p8,s
+	c1541 -attach $(PETDISK) -write README.md readme.md,s
+	xpet -default -model 4032 -drive8type 2031 -8 $(PETDISK) -autostart $(PETDISK)
+
 EMUVIC=xvic -default -keymap 1 -model ntsc -memory all -8 $(DISK) -drive8type 1581 -monitorfont "JetBrains Mono 16"
 emu-vic20:	build/p8vi-vic20.prg disk
 	$(EMUVIC) -autostartprgmode 1 build/p8vi-vic20.prg
@@ -243,11 +263,21 @@ size:	$(PROGS) $(FONTPROG)
 	python3 tools/listsize.py build/p8vi-cx16.list --map
 	python3 tools/listsize.py build/p8vi-mega65.list --map --memtop 0xc000
 	python3 tools/listsize.py build/p8vi-mega65dma.list --map --memtop 0xc000
+	python3 tools/listsize.py build/p8vi-pet32.list --map --memtop 0x8000
 	python3 tools/listsize.py build/p8vi-vic20.list --map --min-free $(VIC20_MIN_FREE)
 
 # editor tests on a C64 in VICE (x64sc and c1541 in the PATH)
 test-c64:	build/p8vi-c64.prg
 	python3 tests/vice/edtest.py files --prg build/p8vi-c64.prg
+
+# the same tests on the PET (VICE's xpet, a 4032 with a 2031 drive).  left
+# out, for the features it doesn't have: ascii, crlf, big, final-eol,
+# read-format, find (ASCII and CR LF files), subst, dos, read-dir
+PET_SKIP = --skip ascii --skip crlf --skip big --skip final-eol --skip read-format --skip find \
+	--skip subst --skip dos --skip read-dir
+test-pet32:	build/p8vi-pet32.prg
+	python3 -B tests/vice/edtest.py files --machine pet -j 4 --prg build/p8vi-pet32.prg $(PET_SKIP)
+	python3 -B tests/vice/edtest.py screen --machine pet -j 4 --prg build/p8vi-pet32.prg
 
 # the same tests on the C64 REU build (the page store), with an REU and
 # without one (then it has 4 KB of text: not the big file suite)

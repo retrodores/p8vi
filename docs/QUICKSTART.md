@@ -1,7 +1,7 @@
 # p8vi quick start
 
-p8vi is a vi for 8-bit Commodore computers: the C64, VIC-20, Commander
-X16 and MEGA65.  If you know vi or vim you
+p8vi is a vi for 8-bit Commodore computers: the C64, VIC-20, PET,
+Commander X16 and MEGA65.  If you know vi or vim you
 know most of it already; this guide shows what is there and which keys to
 press on a Commodore keyboard.  `docs/KEYS.md` lists every vi command with
 whether it is done.
@@ -32,10 +32,11 @@ whether it is done.
 | `p8vi-c64reu.prg` | C64 with an REU | up to 64 KB (about 4 KB without an REU: use `p8vi-c64` then) |
 | `p8vi-cx16.prg` | Commander X16 | up to 64 KB (in banked RAM) |
 | `p8vi-vic20.prg` | VIC-20 with 32 KB of RAM expansion (blocks 1, 2, 3 and 5) | about 4.7 KB |
+| `p8vi-pet32.prg` | PET 4032 (32 KB, BASIC 4, 40 columns) | about 3.3 KB |
 | `p8vi-mega65.prg` | MEGA65 (in MEGA65 mode, not `GO64`) | about 6.7 KB |
 | `p8vi-mega65dma.prg` | MEGA65 | up to 64 KB (in attic RAM, or chip RAM banks 4 and 5 without it) |
 
-The MEGA65 versions are new and still being worked on.
+The MEGA65 and PET versions are new and still being worked on.
 
 Load and run it like any program, for example on a C64:
 
@@ -82,6 +83,13 @@ Commodore keyboards lack some keys vi uses:
 
 `{` and `}` don't exist in PETSCII.  On the MEGA65 an ASCII file shows
 them, and the keys type them (see [ASCII and PETSCII](#ascii-and-petscii)).
+
+**The PET** has no `CTRL` or `C=` key.  `RVS` types `Ctrl-R` (redo), and
+the cursor keys, `HOME` and `RUN/STOP` work as above, but `Ctrl-F`,
+`Ctrl-B`, `Ctrl-D`, `Ctrl-U`, `Ctrl-W`, `Ctrl-G` and `Ctrl-L` can't be
+typed yet: move with `G`, `nG`, `H`, `M`, `L` and the cursor keys
+instead.  On the PET a disk problem such as no drive stops p8vi with a
+BASIC error (`?DEVICE NOT PRESENT`), and the text is lost.
 
 A count typed before a command repeats or extends it: `3j` moves down 3
 lines, `2dd` deletes 2 lines, `d3w` deletes 3 words.
@@ -347,6 +355,11 @@ The VIC-20 version has to fit in less memory, so it has none of these:
 * a file that ends with a line ending shows an empty last line (the other
   versions treat it as the end of the last line, like vi)
 
+The PET version has to fit in 32 KB with its text.  It leaves out what
+the VIC-20 version leaves out, and ASCII and CR LF files too: files are
+read and written as they are, and `:set ascii` and `:set crlf` aren't
+there.  It is for the 4032 (40 columns) for now.
+
 The X16 version leaves out the start screen only.
 
 `p8vi-mega65dma` leaves out the start screen, `:s` replacing and line
@@ -358,8 +371,8 @@ needs for its text.  `p8vi-mega65` has everything.
 ## Cheat sheet
 
 `Esc` = `RUN/STOP`.  `π` = `Shift` + `↑`.  A count before most commands:
-`3j`, `2dd`, `d3w`.  † = not on the VIC-20.  ‡ = not on the VIC-20 or in
-`p8vi-mega65dma`.
+`3j`, `2dd`, `d3w`.  † = not on the VIC-20 or the PET.  ‡ = not on the
+VIC-20 or the PET, or in `p8vi-mega65dma`.
 
 **Moving**
 

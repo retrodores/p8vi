@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Editor tests on a C64 in VICE (x64sc with a true-drive 1541).
+"""Editor tests on a C64 in VICE (x64sc with a true-drive 1541), or with
+--machine pet on a PET 4032 (xpet with an IEEE-488 2031 drive).
 
     edtest.py [--prg build/p8vi-c64.prg] [--work build] [-j N] [files|screen] [name...]
 
@@ -348,6 +349,16 @@ SCREEN_SUITES = [
 
 EMU = ['x64sc', '-default', '-sounddev', 'dummy', '-warp', '+autostart-warp',
        '-drive8type', '1541']
+# a write here (the -debugcart) quits VICE: $d7ff on the C64
+EXIT_POKE = 'poke 55295,0'
+# where the screen is, for the screen tests
+SCREEN_DUMP = 'm 0400 07e7'
+# the PET (--machine pet): a 4032 with a 2031, the IEEE-488 drive that
+# takes .d64 images like the 1541; its debug cartridge is at $8bff, its
+# screen at $8000
+PET = {'EMU': ['xpet', '-default', '-model', '4032', '-sounddev', 'dummy', '-warp',
+               '+autostart-warp', '-drive8type', '2031'],
+       'EXIT_POKE': 'poke 35839,0', 'SCREEN_DUMP': 'm 8000 83e7'}
 
 
 def dir_text(args, text, after):
@@ -391,7 +402,7 @@ def run_files(args, suite):
     d64 = base + '.d64'
     make_disk(d64, args.prg, text[0] if text else SHORT, text[1] if len(text) > 1 else None)
     # :q! back to BASIC, then a write to $d7ff (the -debugcart) quits VICE
-    keybuf = ':e t.txt\\n' + keys + ':q!\\npoke 55295,0\\n'
+    keybuf = ':e t.txt\\n' + keys + ':q!\\n' + EXIT_POKE + '\\n'
     with open(base + '.log', 'wb') as log:
         subprocess.run(EMU + ['-debugcart', '-8', d64, '-autostart', d64,
                               '-keybuf', keybuf, '-limitcycles', str(args.limit),
@@ -493,7 +504,7 @@ def screen_after(args, base, port, text, keys):
             if m and int(m.group(1)) >= args.cycles:
                 for _ in range(5):
                     # (the font build's screen is at $c800)
-                    reply = monitor(port, ['m c800 cbe7' if FONT else 'm 0400 07e7'], 10)
+                    reply = monitor(port, ['m c800 cbe7' if FONT else SCREEN_DUMP], 10)
                     if reply:
                         return screen_bytes(reply[0])
                 return None
@@ -541,13 +552,16 @@ def main():
     ap.add_argument('--skip', action='append', default=[], metavar='SUITE',
                     help='leave this suite out (for builds with little room)')
     ap.add_argument('--font', metavar='FNT', help='the font build: its font file, and its tests')
+    ap.add_argument('--machine', default='c64', choices=['c64', 'pet'])
     args = ap.parse_args()
-    global FONT
+    global FONT, EMU, EXIT_POKE, SCREEN_DUMP
+    if args.machine == 'pet':
+        EMU, EXIT_POKE, SCREEN_DUMP = PET['EMU'], PET['EXIT_POKE'], PET['SCREEN_DUMP']
     if args.font:
         FONT = os.path.abspath(args.font)
     if args.reu:
         EMU.extend(['-reu', '-reusize', str(args.reu)])
-    for tool in ('x64sc', 'c1541'):
+    for tool in (EMU[0], 'c1541'):
         if not shutil.which(tool):
             sys.exit(f'{tool} (VICE) not found in PATH')
     args.prg = os.path.abspath(args.prg)

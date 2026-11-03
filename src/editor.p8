@@ -1596,7 +1596,8 @@ main {
         ; and undo log in its own pages, as big as there is room)
         buffer.undo_size = 2048
         buffer.yank_size = 1024
-        if platform.texttop - platform.textstart < 4096 {
+        ; (less than 8 KB: a VIC-20 without block 5, a PET)
+        if platform.texttop - platform.textstart < 8192 {
             buffer.yank_size = 256
             buffer.undo_size = 512
         }

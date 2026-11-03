@@ -37,6 +37,7 @@ later.
 | `build/p8vi-cx16.prg` | `src/p8vi.p8` | Commander X16 |
 | `build/p8vi-mega65.prg` | `src/p8vi_mega65.p8` | MEGA65 (MEGA65 mode), with the ASCII characters for ASCII files, in progress |
 | `build/p8vi-mega65dma.prg` | `src/p8vi_mega65dma.p8` | The same with the page store: text in attic RAM (or chip RAM banks 4 and 5) through DMA, in progress |
+| `build/p8vi-pet32.prg` | `src/p8vi_pet32.p8` | PET 4032 (32 KB, BASIC 4), with the VIC-20's features and no ASCII or CR LF files: 3.3 KB of text, in progress |
 | `build/p8vi-vic20.prg` | `src/p8vi_vic20.p8` | VIC-20 with 24K or more |
 | `build/p8vi-c64font.prg` | `src/p8vi_c64font.p8` | An experiment: the C64 REU build with a font for ASCII text |
 
@@ -152,6 +153,8 @@ The useful `make` targets are:
 | `make test-reu` | REU detection and reset tests in VICE (`tests/reu/`) |
 | `make test-c64font` | The C64 REU build's tests on the font build, and its own (`font`) |
 | `make test-c64-screen` | Check partial redraws against full redraws in VICE (~30 s) |
+| `make test-pet32` | The VICE editor and redraw tests on a PET 4032 (`xpet`, `tests/vice/edtest.py --machine pet`), without the suites for the features it leaves out |
+| `make emu-pet32` | Run the PET version in `xpet`, with a disk of its own (`build/testpet.d64`) |
 | `make test-mega65` | The VICE editor and redraw tests on a MEGA65 in xmega65, through `tools/m65harness.py` (`tests/mega65/edtest.py`, ~3 min) |
 | `make test-mega65dma` | The same on the MEGA65 page store build, with the big-text and font suites, in attic RAM and (as on a Nexys4 board) without it |
 | `make test-mega65-zp` | Which zero page bytes the MEGA65 ROM changes in KERNAL calls (`tests/mega65/zpwatch.p8`) |
