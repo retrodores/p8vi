@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Editor tests on a C64 in VICE (x64sc with a true-drive 1541), or with
---machine pet on a PET 4032 (xpet with an IEEE-488 2031 drive).
+--machine pet on a PET 4032 (xpet with an IEEE-488 2031 drive), or with
+--machine plus4 on a Plus/4 (xplus4 with a 1541).
 
     edtest.py [--prg build/p8vi-c64.prg] [--work build] [-j N] [files|screen] [name...]
 
@@ -359,6 +360,11 @@ SCREEN_DUMP = 'm 0400 07e7'
 PET = {'EMU': ['xpet', '-default', '-model', '4032', '-sounddev', 'dummy', '-warp',
                '+autostart-warp', '-drive8type', '2031'],
        'EXIT_POKE': 'poke 35839,0', 'SCREEN_DUMP': 'm 8000 83e7'}
+# the Plus/4 (--machine plus4): its debug cartridge is at $fdcf, its screen
+# at $0c00
+PLUS4 = {'EMU': ['xplus4', '-default', '-sounddev', 'dummy', '-warp', '+autostart-warp',
+                 '-drive8type', '1541'],
+         'EXIT_POKE': 'poke 64975,0', 'SCREEN_DUMP': 'm 0c00 0fe7'}
 
 
 def dir_text(args, text, after):
@@ -552,11 +558,12 @@ def main():
     ap.add_argument('--skip', action='append', default=[], metavar='SUITE',
                     help='leave this suite out (for builds with little room)')
     ap.add_argument('--font', metavar='FNT', help='the font build: its font file, and its tests')
-    ap.add_argument('--machine', default='c64', choices=['c64', 'pet'])
+    ap.add_argument('--machine', default='c64', choices=['c64', 'pet', 'plus4'])
     args = ap.parse_args()
     global FONT, EMU, EXIT_POKE, SCREEN_DUMP
-    if args.machine == 'pet':
-        EMU, EXIT_POKE, SCREEN_DUMP = PET['EMU'], PET['EXIT_POKE'], PET['SCREEN_DUMP']
+    machine = {'pet': PET, 'plus4': PLUS4}.get(args.machine)
+    if machine:
+        EMU, EXIT_POKE, SCREEN_DUMP = machine['EMU'], machine['EXIT_POKE'], machine['SCREEN_DUMP']
     if args.font:
         FONT = os.path.abspath(args.font)
     if args.reu:

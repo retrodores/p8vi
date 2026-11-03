@@ -1,6 +1,6 @@
 # p8vi quick start
 
-p8vi is a vi for 8-bit Commodore computers: the C64, VIC-20, PET,
+p8vi is a vi for 8-bit Commodore computers: the C64, VIC-20, PET, Plus/4,
 Commander X16 and MEGA65.  If you know vi or vim you
 know most of it already; this guide shows what is there and which keys to
 press on a Commodore keyboard.  `docs/KEYS.md` lists every vi command with
@@ -32,11 +32,12 @@ whether it is done.
 | `p8vi-c64reu.prg` | C64 with an REU | up to 64 KB (about 4 KB without an REU: use `p8vi-c64` then) |
 | `p8vi-cx16.prg` | Commander X16 | up to 64 KB (in banked RAM) |
 | `p8vi-vic20.prg` | VIC-20 with 32 KB of RAM expansion (blocks 1, 2, 3 and 5) | about 4.7 KB |
+| `p8vi-plus4.prg` | Plus/4 | about 24.6 KB |
 | `p8vi-pet32.prg` | PET 4032 (32 KB, BASIC 4, 40 columns) | about 3.3 KB |
 | `p8vi-mega65.prg` | MEGA65 (in MEGA65 mode, not `GO64`) | about 6.7 KB |
 | `p8vi-mega65dma.prg` | MEGA65 | up to 64 KB (in attic RAM, or chip RAM banks 4 and 5 without it) |
 
-The MEGA65 and PET versions are new and still being worked on.
+The MEGA65, PET and Plus/4 versions are new and still being worked on.
 
 Load and run it like any program, for example on a C64:
 
@@ -360,7 +361,8 @@ the VIC-20 version leaves out, and ASCII and CR LF files too: files are
 read and written as they are, and `:set ascii` and `:set crlf` aren't
 there.  It is for the 4032 (40 columns) for now.
 
-The X16 version leaves out the start screen only.
+The X16 version leaves out the start screen only, and the Plus/4 version
+nothing.
 
 `p8vi-mega65dma` leaves out the start screen, `:s` replacing and line
 ranges, and `:@$` and `:r $`: its program has to fit below the room it

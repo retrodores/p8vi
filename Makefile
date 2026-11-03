@@ -48,6 +48,7 @@ PCCARGSCX16=-srcdirs src:src/cx16 -asmlist -target cx16 -out build
 PCCARGSM65=-srcdirs src:src/mega65 -asmlist -target config/mega65.properties -out build
 # the MEGA65 page store build: text in chip RAM banks 4 and 5 through DMA
 PCCARGSM65DMA=-srcdirs src:src/mega65dma:src/mega65 -asmlist -target config/mega65.properties -out build
+PCCARGSPLUS4=-srcdirs src:src/plus4 -asmlist -target config/plus4.properties -out build
 PCCARGSPET32=-srcdirs src:src/pet32 -asmlist -target pet32 -out build
 PCCARGSVIC20=-srcdirs src:src/vic20 -asmlist -target config/vic20plus24.properties -out build
 PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
@@ -57,7 +58,7 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 # editor.p8.  The C64 has two builds: p8vi-c64
 # with the gap buffer (the most room for text in main RAM) and p8vi-c64reu
 # with the page store (for text in an REU, docs/XMEM-DESIGN.md)
-PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-pet32.prg build/p8vi-vic20.prg
+PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-pet32.prg build/p8vi-plus4.prg build/p8vi-vic20.prg
 # an experiment, not in the release yet: p8vi-c64font (src/p8vi_c64font.p8)
 # is p8vi-c64reu with a font that has the ASCII characters PETSCII lacks.
 # it loads the font from p8vi.fnt (make font, from FONTSRC).
@@ -124,6 +125,15 @@ build/p8vi-mega65dma.prg: src/p8vi_mega65dma.p8 $(SRCS) src/mega65/*.p8 src/mega
 	$(CP) build/p8vi_mega65dma.list build/p8vi-mega65dma.list
 	$(CP) build/p8vi_mega65dma.asm build/p8vi-mega65dma.asm
 	$(RM) build/p8vi_mega65dma.prg
+
+# the Plus/4 (src/p8vi_plus4.p8, src/plus4): the full editor and the gap
+# buffer, running with the RAM in up to $fc00 (src/plus4/rammode.p8)
+build/p8vi-plus4.prg: src/p8vi_plus4.p8 $(SRCS) src/plus4/*.p8 config/plus4.properties $(wildcard libraries/plus4/*.p8)
+	$(PCC) $(PCCARGSPLUS4) $<
+	$(CP) build/p8vi_plus4.prg $@
+	$(CP) build/p8vi_plus4.list build/p8vi-plus4.list
+	$(CP) build/p8vi_plus4.asm build/p8vi-plus4.asm
+	$(RM) build/p8vi_plus4.prg
 
 # the PET (a 32 KB PET with BASIC 4, Prog8's pet32 target): the gap buffer,
 # with the VIC-20's features and no ASCII or CR LF files, for room for text
@@ -243,6 +253,17 @@ emu-pet32:	build/p8vi-pet32.prg
 	c1541 -attach $(PETDISK) -write README.md readme.md,s
 	xpet -default -model 4032 -drive8type 2031 -8 $(PETDISK) -autostart $(PETDISK)
 
+# the Plus/4 with the test disk's samples (a 1541 .d64 of its own: the
+# test disk is a 1581, which the Plus/4 can also use, but this keeps it simple)
+P4DISK=build/testplus4.d64
+emu-plus4:	build/p8vi-plus4.prg
+	c1541 -format testplus4,52 d64 $(P4DISK)
+	c1541 -attach $(P4DISK) -write build/p8vi-plus4.prg p8vi,p
+	c1541 -attach $(P4DISK) -write samples/sample.txt sample.txt,s
+	c1541 -attach $(P4DISK) -write samples/sampmax.txt sampmax.txt,s
+	c1541 -attach $(P4DISK) -write src/c64/font.p8 font.p8,s
+	xplus4 -default -drive8type 1541 -8 $(P4DISK) -autostart $(P4DISK)
+
 EMUVIC=xvic -default -keymap 1 -model ntsc -memory all -8 $(DISK) -drive8type 1581 -monitorfont "JetBrains Mono 16"
 emu-vic20:	build/p8vi-vic20.prg disk
 	$(EMUVIC) -autostartprgmode 1 build/p8vi-vic20.prg
@@ -264,11 +285,17 @@ size:	$(PROGS) $(FONTPROG)
 	python3 tools/listsize.py build/p8vi-mega65.list --map --memtop 0xc000
 	python3 tools/listsize.py build/p8vi-mega65dma.list --map --memtop 0xc000
 	python3 tools/listsize.py build/p8vi-pet32.list --map --memtop 0x8000
+	python3 tools/listsize.py build/p8vi-plus4.list --map --memtop 0xfc00
 	python3 tools/listsize.py build/p8vi-vic20.list --map --min-free $(VIC20_MIN_FREE)
 
 # editor tests on a C64 in VICE (x64sc and c1541 in the PATH)
 test-c64:	build/p8vi-c64.prg
 	python3 tests/vice/edtest.py files --prg build/p8vi-c64.prg
+
+# the same tests on the Plus/4 (VICE's xplus4 with a 1541)
+test-plus4:	build/p8vi-plus4.prg
+	python3 -B tests/vice/edtest.py files --machine plus4 -j 4 --prg build/p8vi-plus4.prg
+	python3 -B tests/vice/edtest.py screen --machine plus4 -j 4 --prg build/p8vi-plus4.prg
 
 # the same tests on the PET (VICE's xpet, a 4032 with a 2031 drive).  left
 # out, for the features it doesn't have: ascii, crlf, big, final-eol,
