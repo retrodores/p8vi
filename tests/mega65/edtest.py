@@ -136,7 +136,7 @@ def type_keys(m, keys, timeout):
 
 def edit(args, d81, keys):
     """p8vi started, t.txt edited with keys; yields the machine"""
-    return h.launch(args.emulator, args.prg, prgmode='65', screen=SCREEN,
+    return h.launch(args.emulator, args.prg, prgmode='65', screen=SCREEN, model=args.model,
                     extra=['-8', d81], ready=started, timeout=args.timeout)
 
 
@@ -214,6 +214,8 @@ def main():
     ap.add_argument('--skip', action='append', default=[], metavar='SUITE',
                     help='leave this suite out')
     ap.add_argument('--all', action='store_true', help='also the suites too big for this build')
+    ap.add_argument('--model', default='3',
+                    help='xemu -model: the model ID at $d629 (3: R3; 64: a Nexys4, no attic RAM)')
     ap.add_argument('--font', action='store_true',
                     help='the font build: also the font suite (no font file: it uses the ROM\'s)')
     ap.add_argument('--paged', action='store_true',

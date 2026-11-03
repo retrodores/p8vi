@@ -12,7 +12,7 @@
 ; which optional features the build has (code for the ones that are off
 ; is left out of the program).  make size checks the room left.
 features {
-    const bool SPLASH = true   ; the start screen
+    const bool SPLASH = false   ; the start screen (off: the room went to attic RAM detection)
     const bool ASCII = true    ; ASCII files translated to PETSCII and back, :set ascii
     const bool CRLF = true     ; CR LF line endings, :set crlf
     const bool SUBST = false    ; :s/old/new/ and line ranges (:%, :1,5, :$)

@@ -114,8 +114,9 @@ build/p8vi-mega65.prg: src/p8vi_mega65.p8 $(SRCS) src/mega65/*.p8 config/mega65.
 	$(RM) build/p8vi_mega65.prg
 
 # p8vi-mega65dma (src/p8vi_mega65dma.p8, src/mega65dma): the page store,
-# the text in chip RAM banks 4 and 5, copied in and out with DMA.  the
-# program has to end below $c000, so some features are off
+# the text in attic RAM, or chip RAM banks 4 and 5 without it, copied in
+# and out with DMA.  the program has to end below $c000, so some features
+# are off
 build/p8vi-mega65dma.prg: src/p8vi_mega65dma.p8 $(SRCS) src/mega65/*.p8 src/mega65dma/*.p8 config/mega65.properties $(wildcard libraries/mega65/*.p8)
 	$(PCC) $(PCCARGSM65DMA) $<
 	$(CP) build/p8vi_mega65dma.prg $@
@@ -202,15 +203,18 @@ test-mega65:	build/p8vi-mega65.prg
 	python3 -B tests/mega65/edtest.py --font $(FONT_SKIP_M65) files
 	python3 -B tests/mega65/edtest.py screen
 
-# the same on the MEGA65 page store build (with the font too), with the
-# suites for more text than main RAM holds (--paged) and the font suite.
-# left out: subst and read-dir (SUBST and DIR are off in this build),
-# bigundo (30 KB of text, undo and yank need more than the 126 pages of
-# banks 4 and 5; it fails the same way on a C64 with a 128 KB REU), and
-# g-cmds and ascii as above
+# the same on the MEGA65 page store build, with the suites for more text
+# than main RAM holds (--paged) and the font suite: the pages in attic RAM
+# (xemu has it).  left out: subst and read-dir (SUBST and DIR are off in
+# this build), and g-cmds and ascii as above.  then some of them as on a
+# Nexys4 board (model ID $40), without attic RAM: the pages in banks 4 and
+# 5 (not bigundo: 30 KB of text, undo and yank need more than their 126
+# pages; it fails the same way on a C64 with a 128 KB REU)
 test-mega65dma:	build/p8vi-mega65dma.prg
 	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg --paged --font \
-		--skip subst --skip read-dir --skip bigundo $(FONT_SKIP_M65) files
+		--skip subst --skip read-dir $(FONT_SKIP_M65) files
+	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg --paged --model 64 \
+		files delete-put undo pages huge
 	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg screen
 
 # which keys give which PETSCII codes (the table in tools/m65harness.py)

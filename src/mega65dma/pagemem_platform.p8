@@ -2,9 +2,11 @@
 
 ;
 ; pagemem for the MEGA65 page store build (p8vi-mega65dma): the page
-; store's pages are in chip RAM banks 4 and 5 (128 KB), page_size bytes
-; each, and are copied with DMA into one of up to SLOTS cache slots in main
-; RAM to be used, as in the C64 REU build (src/c64reu/pagemem_platform.p8).
+; store's pages are in attic RAM (256 KB of it from $8000000) if the
+; MEGA65 has it, otherwise in chip RAM banks 4 and 5 (128 KB), page_size
+; bytes each, and are copied with DMA into one of up to SLOTS cache slots
+; in main RAM to be used, as in the C64 REU build
+; (src/c64reu/pagemem_platform.p8).
 ; The least recently used slot is written back first if it was changed.
 ; Only the last page mapped is sure to stay in its slot.
 ;
@@ -12,9 +14,12 @@
 ; ($1600-$1fdf: the scratch buffers, slot 0, then the editor's key
 ; buffers), so there is always one; the others come from the memory after
 ; the program, as many as fit.  The page store copies between pages through
-; its scratch buffers, so one slot is enough to work.  Bank 4 starts with two
-; header slots of HEADER_SIZE bytes (to find the text again after a reset,
-; docs/XMEM-DESIGN.md); the pages come after them.
+; its scratch buffers, so one slot is enough to work.  The memory starts
+; with two header slots of HEADER_SIZE bytes (to find the text again after
+; a reset, docs/XMEM-DESIGN.md); the pages come after them.
+;
+; Attic RAM: release boards, the development kit and xemu have it; the
+; Nexys4 boards that can run the MEGA65 core don't (attic_present()).
 ;
 ; Why not the $a000-$bfff window and cx16.rambank(): MAP's upper four
 ; blocks share one offset, so while $a000 shows another bank the KERNAL
@@ -22,7 +27,8 @@
 ; program would have to end below $a000.  DMA leaves the map alone.
 ;
 ; Banks 4 and 5 are free while BASIC 65 isn't running (its graphics
-; commands use them).
+; commands use them).  BASIC 65 doesn't use attic RAM; some resident
+; utilities might.
 ;
 pagemem {
     const uword NO_PAGE = $ffff
@@ -40,9 +46,13 @@ pagemem {
     ; program as far as there is room (nslots)
     const ubyte SLOTS = 4
     const uword HEADER_SIZE = 1024
-    ; the chip RAM banks for the pages
-    const ubyte FIRST_BANK = 4
-    const ubyte BANKS = 2
+    ; where the pages are: megabyte, first 64 KB bank, banks.  attic RAM
+    ; ($8000000: megabyte $80) or chip RAM banks 4 and 5
+    const ubyte ATTIC_MB = $80
+    bool attic
+    ubyte ext_mb
+    ubyte ext_bank
+    ubyte ext_banks
 
     uword size              ; bytes per page
     ubyte nslots            ; cache slots in use
@@ -63,12 +73,21 @@ pagemem {
     ubyte[SLOTS] slot_used  ; when it was mapped last (clock)
     ubyte clock
 
-    ; the pages in banks 4 and 5, with slot 0 at LOW_SLOT and up to SLOTS-1
-    ; more slots in main RAM from start to top.  returns how many pages there
-    ; are (at most max_pages).
+    ; the pages in attic RAM or banks 4 and 5, with slot 0 at LOW_SLOT and up
+    ; to SLOTS-1 more slots in main RAM from start to top.  returns how many
+    ; pages there are (at most max_pages).
     sub init(uword start, uword top, uword page_size, ubyte max_pages) -> uword {
         uword n
         ubyte i
+        attic = attic_present()
+        ext_mb = 0
+        ext_bank = 4
+        ext_banks = 2
+        if attic {
+            ext_mb = ATTIC_MB
+            ext_bank = 0
+            ext_banks = 4
+        }
         size = page_size
         main_start = start
         n = (top - start) / size
@@ -77,7 +96,7 @@ pagemem {
             nslots = lsb(n) + 1
         per_bank = $8000 / size * 2
         first_page = 2 * HEADER_SIZE / size
-        n = BANKS * per_bank - first_page
+        n = ext_banks * per_bank - first_page
         for i in 0 to SLOTS - 1 {
             slot_page[i] = NO_SLOT_PAGE
             slot_dirty[i] = false
@@ -87,6 +106,31 @@ pagemem {
             n = max_pages
         last_id = NO_PAGE
         return n
+    }
+
+    ; is there attic RAM?  not on the Nexys4 boards (model IDs $40-$42 at
+    ; $d629, in the MEGA65 I/O personality, which BASIC 65 selects).  on any
+    ; other board a byte is written to it and read back, twice.  the byte
+    ; goes to $8000000 + scratch: a board that ignored the megabyte would
+    ; write it to scratch in chip RAM (not in use yet), and that shows.
+    ubyte probe
+    sub attic_present() -> bool {
+        ubyte pattern = $a5
+        if @($d629) >= $40 and @($d629) <= $42
+            return false
+        repeat 2 {
+            @(scratch) = pattern ^ $ff
+            probe = pattern
+            dma.far(0, &probe, 0, ATTIC_MB, scratch, 0, 1)
+            if @(scratch) != pattern ^ $ff
+                return false
+            probe = 0
+            dma.far(ATTIC_MB, scratch, 0, 0, &probe, 0, 1)
+            if probe != pattern
+                return false
+            pattern = $5a
+        }
+        return true
     }
 
     ; where slot s is
@@ -126,28 +170,28 @@ found:
         return last_addr
     }
 
-    ; copy slot s to (out) or from its page in the banks
+    ; copy slot s to (out) or from its page
     sub transfer(ubyte s, bool out) {
         uword page = slot_page[s] as uword + first_page
         uword slot = slot_addr(s)
         uword addr = (page % per_bank) * size
-        ubyte bank = FIRST_BANK + lsb(page / per_bank)
+        ubyte bank = ext_bank + lsb(page / per_bank)
         if out
-            dma.copy(slot, 0, addr, bank, size)
+            dma.far(0, slot, 0, ext_mb, addr, bank, size)
         else
-            dma.copy(addr, bank, slot, 0, size)
+            dma.far(ext_mb, addr, bank, 0, slot, 0, size)
     }
 
     ; copy count bytes from src to header slot h at offset, or (get) from
-    ; there to dest.  (at the start of bank 4)
+    ; there to dest.  (at the start of the pages' memory)
     sub header_put(ubyte h, uword offset, uword src, uword count) {
         if count != 0
-            dma.copy(src, 0, h * HEADER_SIZE + offset, FIRST_BANK, count)
+            dma.far(0, src, 0, ext_mb, h * HEADER_SIZE + offset, ext_bank, count)
     }
 
     sub header_get(ubyte h, uword offset, uword dest, uword count) {
         if count != 0
-            dma.copy(h * HEADER_SIZE + offset, FIRST_BANK, dest, 0, count)
+            dma.far(ext_mb, h * HEADER_SIZE + offset, ext_bank, 0, dest, 0, count)
     }
 
     ; the page mapped last was written to
