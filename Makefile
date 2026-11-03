@@ -146,6 +146,7 @@ release:	$(PROGS) font test audit size
 	$(CP) build$(SEP)p8vi-c64reu.prg release
 	$(CP) build$(SEP)p8vi-cx16.prg release
 	$(CP) build$(SEP)p8vi-mega65.prg release
+	$(CP) build$(SEP)p8vi-mega65dma.prg release
 	$(CP) build$(SEP)p8vi-vic20.prg release
 	$(CP) docs$(SEP)QUICKSTART.md release
 
