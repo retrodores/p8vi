@@ -559,6 +559,8 @@ def main():
                     help='leave this suite out (for builds with little room)')
     ap.add_argument('--font', metavar='FNT', help='the font build: its font file, and its tests')
     ap.add_argument('--machine', default='c64', choices=['c64', 'pet', 'plus4'])
+    ap.add_argument('--jiffydos', action='store_true',
+                    help="the C64 with JiffyDOS: VICE's jiffykernal and jiffy1541II ROMs (in VICE's ROM directories)")
     ap.add_argument('--paged', action='store_true',
                     help='also the REU suites (more text than main RAM holds) without an REU: the disk build')
     args = ap.parse_args()
@@ -570,6 +572,8 @@ def main():
         FONT = os.path.abspath(args.font)
     if args.reu:
         EMU.extend(['-reu', '-reusize', str(args.reu)])
+    if args.jiffydos:
+        EMU.extend(['-kernal', 'jiffykernal', '-dos1541', 'jiffy1541II', '-dos1541II', 'jiffy1541II'])
     for tool in (EMU[0], 'c1541'):
         if not shutil.which(tool):
             sys.exit(f'{tool} (VICE) not found in PATH')

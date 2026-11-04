@@ -76,8 +76,11 @@ aren't.
 
 The page store with its pages in SEQ files, `p8vi.swp...`, on the
 text's drive (`src/diskpage`), for fast devices (IDE64, RAMLink, CMD HD,
-SD cards).  A 39 KB file: `:e` about 25 s, `:w` about 24 s, moving and
-editing about as with an REU (VICE host directory drive).
+SD cards).  A 39 KB file, `:e` / `:w`: about 25 s / 22 s on VICE's host
+directory drive; 154 s / 122 s on a 1581 with JiffyDOS (254 s to load
+without); about 4 minutes to load on a 1541 with JiffyDOS, most of it the
+37 page writes (a directory search, the BAM and 5 blocks each).  Moving
+and editing then go about as with an REU.
 
 - **Faster loading and saving:** the page transfer is in assembler now
   (7f9c417), but that was a small part.  Sampling the PC while a 39 KB
@@ -88,7 +91,9 @@ editing about as with an REU (VICE host directory drive).
   for 39 KB in a benchmark) would help every build with room for them.
 - **Scratch the swap files on quitting** (now the next start does it).
 - **A full disk:** a page write that fails isn't noticed, and text is
-  lost.
+  lost.  On a 1541 a 39 KB file filled the disk when saved: the program,
+  the file, its pages and the copy being written don't fit in 664 blocks
+  (the save said "72, disk full" and left the file as it was).
 - **Recovery after a crash:** the swap files survive one; it needs the
   recovery headers in a file.
 - **Other targets:** the driver only needs the KERNAL's file calls and
