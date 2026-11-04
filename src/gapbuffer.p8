@@ -28,6 +28,8 @@ buffer {
     ; (code only a page store needs can be left out with it)
     const bool PAGED = false
     const bool WRITE_BACK = false   ; (see the page store)
+    const bool failed = false       ; (see the page store)
+    const bool CAN_FAIL = false
 
     ; the gap buffer's own variables: private, the editor uses the
     ; routines (the tests use gap_position(), check() and scramble_gap())

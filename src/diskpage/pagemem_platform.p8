@@ -23,6 +23,18 @@
 ; platform.KERNAL_OPEN_FILES.  Built with src/diskpage before the
 ; target's directory (-srcdirs src:src/diskpage:src/c64).
 ;
+; A full disk: init() offers the page store only as many pages as the
+; free blocks hold (BLOCKS_PER_PAGE each: the page, its old copy until it
+; is scratched, and room for a safe save of the text), so the store says
+; "buffer full" (or "too big, cut") before the disk is full.  If a page
+; write fails anyway (other files filled the disk), the garbage is
+; scratched and the write tried again; failing that, the page stays in
+; its slot, changed, and failed is set: the editor says "swap disk full"
+; (buffer.failed).  changed() keeps one slot unchanged (it writes another
+; changed page out), so the text can be read through and saved; and while
+; failed, the page store makes no changes (pagemem.retry() first tries to
+; write the changed pages again), so that slot stays free.
+;
 ; At the start the page files of an earlier session are scratched
 ; (p8vi.swp*: not p8vi.p*, which would take p8vi.prg or p8vi.p8 too).
 ; Not yet: recovery after a crash (persistent is false), and
@@ -46,6 +58,13 @@ pagemem {
     ; up to SLOTS cache slots in main RAM, as many as there is room for
     const ubyte SLOTS = 4
     const bool persistent = false
+    ; a page couldn't be written (the disk is full): until one can again
+    const bool CAN_FAIL = true
+    bool failed
+    ; free blocks per page offered: the page (5 blocks for 1 KB), its old
+    ; copy, and the text's copy in a safe save
+    const ubyte BLOCKS_PER_PAGE = 15
+    const uword BLOCKS_KEPT = 4
 
     const ubyte LF_WRITE = 4
     const ubyte LF_READ = 5
@@ -110,7 +129,55 @@ pagemem {
             max_pages = MAX_PAGES
         if nslots == 0
             return 0
+        ; as many pages as the free blocks hold, and at least as many as
+        ; the slots (those never have to go to the disk)
+        n = blocks_free()
+        if n != $ffff {
+            if n > BLOCKS_KEPT
+                n = (n - BLOCKS_KEPT) / BLOCKS_PER_PAGE
+            else
+                n = 0
+            if n < nslots
+                n = nslots
+            if n < max_pages
+                max_pages = lsb(n)
+        }
         return max_pages
+    }
+
+    ; the free blocks on the drive, $ffff if the directory can't be read:
+    ; the number of the directory's last line ("blocks free"), listing
+    ; only p8vi.swp* (scratched just before: just the header and that)
+    sub blocks_free() -> uword {
+        uword free = $ffff
+        uword number
+        filename[NAME_AT - 2] = '$'
+        filename[NAME_AT - 1] = ':'
+        filename[ID_AT] = '*'
+        cbm.SETNAM(NAME_AT + 9, filename)
+        cbm.SETLFS(LF_READ, diskio.drivenumber, 0)
+        void cbm.OPEN()
+        void cbm.CHKIN(LF_READ)
+        ; the load address, then lines: a link, a number, text, 0
+        void cbm.CHRIN()
+        void cbm.CHRIN()
+        while cbm.READST() == 0 {
+            void cbm.CHRIN()
+            void cbm.CHRIN()
+            if cbm.READST() != 0
+                break
+            number = cbm.CHRIN()
+            number |= (cbm.CHRIN() as uword) << 8
+            while cbm.CHRIN() != 0 {
+                if cbm.READST() != 0
+                    break
+            }
+            free = number
+        }
+        cbm.CLRCHN()
+        cbm.CLOSE(LF_READ)
+        filename[NAME_AT - 2] = 's'
+        return free
     }
 
     ; the address of page id until the next map()
@@ -129,10 +196,26 @@ pagemem {
             if clock - slot_used[s] > clock - slot_used[oldest]
                 oldest = s
         }
-        ; no: into the least recently used slot
+        ; no: into the least recently used slot.  (failed: an unchanged one
+        ; at once, without trying a write that fails)
         s = oldest
-        if slot_dirty[s]
-            write_page(s)
+        if failed and slot_dirty[s] {
+            for s in 0 to nslots - 1 {
+                if not slot_dirty[s]
+                    goto clean_slot
+            }
+            s = oldest
+        }
+        if slot_dirty[s] and not write_page(s) {
+            ; (the disk is full) keep it: another slot that isn't changed;
+            ; with every slot changed, this page is lost (failed says so)
+            for s in 0 to nslots - 1 {
+                if not slot_dirty[s]
+                    goto clean_slot
+            }
+            s = oldest
+        }
+clean_slot:
         slot_page[s] = id
         slot_dirty[s] = false
         read_page(s)
@@ -211,12 +294,25 @@ found:
         cbm.CLOSE(LF_CMD)
     }
 
-    ; write slot s to its page's file, under a name it isn't using
-    sub write_page(ubyte s) {
+    ; write slot s to its page's file, under a name it isn't using.  false
+    ; if that failed (the disk is full): failed is set
+    sub write_page(ubyte s) -> bool {
+        if try_write(s)
+            return true
+        ; the failed file is garbage: scratch it and the rest, and try again
+        ; (if no file is open)
+        scratch_garbage()
+        if not any_garbage and try_write(s)
+            return true
+        failed = true
+        return false
+    }
+
+    sub try_write(ubyte s) -> bool {
         writes++
         ubyte id = slot_page[s]
         ubyte n = page_name[id]
-        ubyte i
+        ubyte status
         uword p = main_start + s * size
         scratch_garbage()
         ; the next name that is neither its file nor garbage
@@ -237,14 +333,23 @@ free_name:
         cbm.SETLFS(LF_WRITE, diskio.drivenumber, LF_WRITE)
         void cbm.OPEN()
         cbm.CHKOUT(LF_WRITE)
-        void put_bytes(p, size)
+        status = put_bytes(p, size)
         cbm.CLRCHN()
         cbm.CLOSE(LF_WRITE)
+        status |= cbm.READST()
+        if status != 0 {
+            ; not written (a full disk leaves an unclosed file): garbage
+            page_garbage[id] |= 1 << n
+            any_garbage = true
+            return false
+        }
         if page_name[id] != NONE {
             page_garbage[id] |= 1 << page_name[id]
             any_garbage = true
         }
         page_name[id] = n
+        failed = false
+        return true
     }
 
     ; read slot s from its page's file (a page that was never written has
@@ -325,19 +430,36 @@ free_name:
     sub header_get(ubyte h, uword offset, uword dest, uword count) {
     }
 
-    ; the page mapped last was written to
+    ; the page mapped last was written to.  one slot is kept unchanged
+    ; (another changed page is written out), so a page can always be read
+    ; in (to save the text) even when the disk is full
     sub changed() {
+        ubyte s
+        ubyte oldest = NONE
         slot_dirty[last_slot] = true
+        for s in 0 to nslots - 1 {
+            if not slot_dirty[s]
+                return
+            if s != last_slot and (oldest == NONE or clock - slot_used[s] > clock - slot_used[oldest])
+                oldest = s
+        }
+        if oldest != NONE and write_page(oldest)
+            slot_dirty[oldest] = false
+    }
+
+    ; (failed) write the changed pages again; returns true if that worked
+    ; (the editor's changes go on then)
+    sub retry() -> bool {
+        sync()
+        return not failed
     }
 
     ; write changed pages back
     sub sync() {
         ubyte s
         for s in 0 to nslots - 1 {
-            if slot_dirty[s] {
-                write_page(s)
+            if slot_dirty[s] and write_page(s)
                 slot_dirty[s] = false
-            }
         }
     }
 }

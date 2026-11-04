@@ -35,6 +35,10 @@ buffer {
     ; changed pages are written back (to an REU, the disk...), so the editor
     ; avoids changing pages it only reads (pagemem.WRITE_BACK)
     const bool WRITE_BACK = pagemem.WRITE_BACK
+    ; a page couldn't be written back (the disk build's disk is full): the
+    ; editor tells the user to save the text
+    alias failed = pagemem.failed
+    const bool CAN_FAIL = pagemem.CAN_FAIL
     ; most pages the store can have (the text's, the streams' and free
     ; ones together); page ids are 0 to MAX_PAGES - 1
     const ubyte MAX_PAGES = pagemem.MAX_PAGES
@@ -429,9 +433,16 @@ buffer {
 
     ; overwrite the character at offset (for overtype / replace).
     ; returns false past the end of the text.
+    ; (the disk build) a changed page couldn't be written back: no changes
+    ; until one can (pagemem.retry() tries again), as they would need the
+    ; slots the changed pages hold
+    private sub stuck() -> bool {
+        return pagemem.failed and not pagemem.retry()
+    }
+
     sub set(uword offset, ubyte value) -> bool {
         uword p
-        if offset >= bufend
+        if offset >= bufend or stuck()
             return false
         log_change('s', offset, 1)
         p = page_at(offset)
@@ -459,7 +470,7 @@ buffer {
     sub insert_bytes(pointer src, uword count, uword position) -> bool {
         uword n
         uword p
-        if count > capacity - bufend
+        if count > capacity - bufend or stuck()
             return false
         if count == 0
             return true
@@ -499,7 +510,7 @@ buffer {
         uword offset
         uword p
         read_size = 0
-        if bufend == capacity
+        if bufend == capacity or stuck()
             return 0, 0
         if position > bufend
             position = bufend
@@ -577,6 +588,8 @@ buffer {
         uword left
         uword n
         uword p
+        if stuck()
+            return 0
         if position >= bufend
             return 0
         if count > bufend - position
@@ -645,7 +658,10 @@ buffer {
     }
 
     sub chunk(ubyte n) -> pointer, uword {
-        uword p = pagemem.map(page_id[n])
+        uword p
+        if stuck()
+            return pagemem.scratch, 0
+        p = pagemem.map(page_id[n])
         ; (the caller may change the bytes, line endings too)
         pagemem.changed()
         lines_eol = 0
@@ -756,7 +772,7 @@ buffer {
     sub yank(uword start, uword count, bool lines) -> bool {
         uword done = 0
         uword n
-        if count > yank_size - 1 or not s_size(YANK, count + 1)
+        if count > yank_size - 1 or stuck() or not s_size(YANK, count + 1)
             return false
         while done != count {
             n = count - done
@@ -779,7 +795,7 @@ buffer {
     sub put(uword position) -> bool {
         uword done = 0
         uword n
-        if yank_len > capacity - bufend
+        if yank_len > capacity - bufend or stuck()
             return false
         while done != yank_len {
             n = yank_len - done
@@ -882,6 +898,8 @@ buffer {
         uword at
         uword count
         uword position
+        if stuck()
+            return NONE
         if not can_undo()
             return NONE
         undo_off = true

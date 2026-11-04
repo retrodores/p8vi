@@ -52,7 +52,7 @@ aren't.
 - **Text in extended memory** (the cx16's banked RAM, a C64 REU): files
   up to 64 KB fit, with yank and undo as big, and `:recover` after a crash
   (done, `docs/XMEM-DESIGN.md`).
-- **The X16's main RAM is full** (126 bytes left; the key buffers
+- **The X16's main RAM is full** (110 bytes left; the key buffers
   are in golden RAM, after the page store's buffers): the page store's
   code is big.  Parts in assembler, or more feature switches
   (`src/p8vi_cx16.p8`), before adding much there.
@@ -90,10 +90,18 @@ and editing then go about as with an REU.
   direction) and an assembler loop for reading text files (5.9 s to 3.7 s
   for 39 KB in a benchmark) would help every build with room for them.
 - **Scratch the swap files on quitting** (now the next start does it).
-- **A full disk:** a page write that fails isn't noticed, and text is
-  lost.  On a 1541 a 39 KB file filled the disk when saved: the program,
-  the file, its pages and the copy being written don't fit in 664 blocks
-  (the save said "72, disk full" and left the file as it was).
+- **A full disk** (done): the page count is sized from the blocks free
+  at start (4 kept), a failed page write is caught (`READST` after the
+  close), its splat file scratched and the write tried again.  While no
+  page can be written p8vi keeps one clean page slot, refuses changes
+  ("swap disk full"; moving and saving still work) and tries again on the
+  next change, so deleting files on the drive (`:@s:...`) lets editing go
+  on.  Tested on a full 1541: nothing lost or reordered beyond the
+  refused changes.  Refused changes are slow on a 1541 (each one tries a
+  write, a few seconds with JiffyDOS).
+- **A stray character on the status line after `:w`** (`!`, `"`, `#`,
+  `$`... one more per save, and the position moves one column right).  In
+  v0.2 too, so old; seen in the disk build, not yet looked at elsewhere.
 - **Recovery after a crash:** the swap files survive one; it needs the
   recovery headers in a file.
 - **Other targets:** the driver only needs the KERNAL's file calls and

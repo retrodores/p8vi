@@ -65,6 +65,7 @@ main {
     ; type them.  on the MEGA65 the font follows ascii_file: a PETSCII file
     ; gets the C64's characters back (ascii_mode())
     bool font_ascii
+    bool swap_full              ; (the disk build) "swap disk full" is shown
     ubyte line_ending           ; the file's ENDING_*; CRLF is CR in memory
     ; the file ends with a line ending.  like vi, the text doesn't keep it
     ; (it ends the last line, it doesn't start an empty one): reading takes
@@ -115,6 +116,18 @@ main {
             record_before()
             handle_key()
             record_after()
+            ; (the disk build) a page couldn't be written: the disk is full,
+            ; and the page is only in memory until the text is saved
+            if buffer.CAN_FAIL {
+                if buffer.failed {
+                    status("swap disk full")
+                    swap_full = true
+                } else if swap_full {
+                    ; there is room again
+                    status("")
+                    swap_full = false
+                }
+            }
             if repeat_requested
                 replay()
             ; the start screen stays up while a ':' command is typed

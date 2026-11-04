@@ -16,6 +16,12 @@ pagemem {
     ; changed pages are copies that have to be written back (the editor
     ; avoids changing pages it only reads: buffer.WRITE_BACK)
     const bool WRITE_BACK = true
+    ; (a page can't fail to be written here: see src/diskpage)
+    const bool CAN_FAIL = false
+    const bool failed = false
+    sub retry() -> bool {
+        return true
+    }
     ; most pages the page store has room for
     const ubyte MAX_PAGES = 255
     ; SCRATCH_SIZE bytes for the page store's buffers

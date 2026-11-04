@@ -15,6 +15,12 @@ pagemem {
     const uword PAGE_SIZE = 2048
     ; (pages are used in place: changing one costs nothing more)
     const bool WRITE_BACK = false
+    ; (a page can't fail to be written here: see src/diskpage)
+    const bool CAN_FAIL = false
+    const bool failed = false
+    sub retry() -> bool {
+        return true
+    }
     ; most pages the page store has room for (its tables are in main RAM)
     const ubyte MAX_PAGES = 128
     ; SCRATCH_SIZE bytes for the page store's buffers (608 with 128 pages):
