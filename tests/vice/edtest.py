@@ -350,6 +350,9 @@ SCREEN_SUITES = [
 
 EMU = ['x64sc', '-default', '-sounddev', 'dummy', '-warp', '+autostart-warp',
        '-drive8type', '1541']
+# --jiffydos: VICE's JiffyDOS ROMs, in its ROM directories (as the
+# Makefile's emulator targets use them)
+JIFFYDOS = ['-kernal', 'jiffykernal', '-dos1541', 'jiffy1541II', '-dos1541II', 'jiffy1541II']
 # a write here (the -debugcart) quits VICE: $d7ff on the C64
 EXIT_POKE = 'poke 55295,0'
 # where the screen is, for the screen tests
@@ -573,7 +576,7 @@ def main():
     if args.reu:
         EMU.extend(['-reu', '-reusize', str(args.reu)])
     if args.jiffydos:
-        EMU.extend(['-kernal', 'jiffykernal', '-dos1541', 'jiffy1541II', '-dos1541II', 'jiffy1541II'])
+        EMU.extend(JIFFYDOS)
     for tool in (EMU[0], 'c1541'):
         if not shutil.which(tool):
             sys.exit(f'{tool} (VICE) not found in PATH')

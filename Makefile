@@ -351,6 +351,36 @@ test-c64font:	build/p8vi-c64font.prg build/p8vi.fnt
 test-c64-screen:	build/p8vi-c64.prg
 	python3 tests/vice/edtest.py screen --prg build/p8vi-c64.prg
 
+# the same C64 tests with JiffyDOS (VICE's jiffykernal and jiffy1541II
+# ROMs, in its ROM directories, as EMU_KERNAL and EMU_DOS above), to
+# compare with the ones above
+JIFFY = --jiffydos
+test-c64-jiffydos:	build/p8vi-c64.prg
+	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64.prg
+
+test-c64-screen-jiffydos:	build/p8vi-c64.prg
+	python3 -B tests/vice/edtest.py screen $(JIFFY) --prg build/p8vi-c64.prg
+
+test-c64reu-jiffydos:	build/p8vi-c64reu.prg
+	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64reu.prg --reu 512 --limit 3000000000
+	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64reu.prg --skip big
+	python3 -B tests/vice/rectest.py $(JIFFY) --prg build/p8vi-c64reu.prg
+	python3 -B tests/vice/edtest.py screen $(JIFFY) --prg build/p8vi-c64reu.prg --reu 512
+
+test-c64font-jiffydos:	build/p8vi-c64font.prg build/p8vi.fnt
+	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64font.prg --font build/p8vi.fnt --reu 512 --limit 3000000000 $(FONT_SKIP)
+	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64font.prg --font build/p8vi.fnt --skip big $(FONT_SKIP)
+	python3 -B tests/vice/rectest.py $(JIFFY) --prg build/p8vi-c64font.prg --font build/p8vi.fnt
+	python3 -B tests/vice/edtest.py screen $(JIFFY) --prg build/p8vi-c64font.prg --font build/p8vi.fnt --reu 512
+
+test-c64disk-jiffydos:	build/p8vi-c64disk.prg
+	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64disk.prg --paged --limit 3000000000 \
+		--skip huge --skip bigundo
+	python3 -B tests/vice/edtest.py screen $(JIFFY) --prg build/p8vi-c64disk.prg
+
+# all the C64 tests with JiffyDOS
+test-jiffydos:	test-c64-jiffydos test-c64-screen-jiffydos test-c64reu-jiffydos test-c64font-jiffydos test-c64disk-jiffydos
+
 # REU tests on a C64 in VICE: detection finds every size and leaves the
 # REU's memory alone, and the REU keeps its memory over a reset
 test-reu:	build

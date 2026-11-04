@@ -128,6 +128,14 @@ and editing then go about as with an REU.
   C64, the PET (`--machine pet`) and the Plus/4 (`--machine plus4`).
 - **cx16 tests.**  x16emu can only type keys by pasting text with `-bas`,
   so tests there are done by hand so far.
+- **Intermittent failures with JiffyDOS** (`make test-jiffydos`): in 2
+  of 3 full runs, suites of the REU and font builds failed (an extra byte
+  at the end of a file read in, lines missing after a put, a hang), and
+  in 1 of 10 runs of three suites; the stock ROMs had none in 10.  Not
+  reproduced in 55 later runs on a quieter machine, so maybe host load
+  or another test run at the same time (the runner's files in `build/`
+  have fixed names, vt-<suite>.*).  The disk and plain C64 builds passed
+  every time.
 - **Intermittent failures:** in 2 of 6 full PET screen runs one suite
   failed (not the same one); the MEGA65 runner fails with "no answer"
   when the machine is very busy (its monitor reads time out after 5 s).

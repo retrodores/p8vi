@@ -107,7 +107,10 @@ def main():
     ap.add_argument('--work', default='build')
     ap.add_argument('--port', type=int, default=6640)
     ap.add_argument('--font', metavar='FNT', help='the font build: its font file')
+    ap.add_argument('--jiffydos', action='store_true', help="the C64 with JiffyDOS (edtest.py's --jiffydos)")
     args = ap.parse_args()
+    if args.jiffydos:
+        edtest.EMU.extend(edtest.JIFFYDOS)
     if args.font:
         edtest.FONT = os.path.abspath(args.font)
     args.prg = os.path.abspath(args.prg)
