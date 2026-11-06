@@ -73,7 +73,8 @@ def run_reset(args):
         end = time.time() + 60
         while time.time() < end:
             reply = monitor(port, 'm 0400 040e')
-            m = re.search(r'>C:0400\s+((?:[0-9a-f]{2}\s+)+)', reply)
+            # (not the text column after the bytes: see edtest.screen_bytes)
+            m = re.search(r'>C:0400\s+([0-9a-f]{2}(?: {1,2}[0-9a-f]{2})*)', reply)
             if m and bytes.fromhex(m.group(1).replace(' ', '')) == written:
                 break
             time.sleep(2)

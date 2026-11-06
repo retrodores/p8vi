@@ -483,7 +483,9 @@ def monitor(port, cmds, timeout):
 def screen_bytes(reply):
     b = bytearray()
     for line in reply.splitlines():
-        m = re.match(r'.*>C:([0-9a-f]{4})\s+((?:[0-9a-f]{2}\s+)+)', line)
+        # the bytes are 1 or 2 spaces apart; the text column follows 3 or
+        # more spaces after them (and "a1  " there must not read as a byte)
+        m = re.match(r'.*>C:([0-9a-f]{4})\s+([0-9a-f]{2}(?: {1,2}[0-9a-f]{2})*)', line)
         if m:
             b += bytes.fromhex(m.group(2).replace(' ', ''))
     return bytes(b[:1000])
