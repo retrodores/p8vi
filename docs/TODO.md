@@ -99,9 +99,6 @@ and editing then go about as with an REU.
   on.  Tested on a full 1541: nothing lost or reordered beyond the
   refused changes.  Refused changes are slow on a 1541 (each one tries a
   write, a few seconds with JiffyDOS).
-- **A stray character on the status line after `:w`** (`!`, `"`, `#`,
-  `$`... one more per save, and the position moves one column right).  In
-  v0.2 too, so old; seen in the disk build, not yet looked at elsewhere.
 - **Recovery after a crash:** the swap files survive one; it needs the
   recovery headers in a file.
 - **Other targets:** the driver only needs the KERNAL's file calls and

@@ -146,15 +146,14 @@ pagemem {
     }
 
     ; the free blocks on the drive, $ffff if the directory can't be read:
-    ; the number of the directory's last line ("blocks free"), listing
-    ; only p8vi.swp* (scratched just before: just the header and that)
+    ; the number of the directory's last line ("blocks free").  the whole
+    ; directory, not "$:p8vi.swp*": on a 1541 with more than one directory
+    ; sector, after that the next file written failed when closed ("74,
+    ; drive not ready,18,00"; not after "$")
     sub blocks_free() -> uword {
         uword free = $ffff
         uword number
-        filename[NAME_AT - 2] = '$'
-        filename[NAME_AT - 1] = ':'
-        filename[ID_AT] = '*'
-        cbm.SETNAM(NAME_AT + 9, filename)
+        cbm.SETNAM(1, "$")
         cbm.SETLFS(LF_READ, diskio.drivenumber, 0)
         void cbm.OPEN()
         void cbm.CHKIN(LF_READ)
@@ -176,7 +175,6 @@ pagemem {
         }
         cbm.CLRCHN()
         cbm.CLOSE(LF_READ)
-        filename[NAME_AT - 2] = 's'
         return free
     }
 
