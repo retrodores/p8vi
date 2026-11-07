@@ -376,12 +376,15 @@ PLUS4 = {'EMU': ['xplus4', '-default', '-sounddev', 'dummy', '-warp', '+autostar
 # keyboard focus from whatever the user is typing in
 C128 = {'EMU': ['x128', '-minimized', '-default', '-sounddev', 'dummy', '-warp', '+autostart-warp',
                 '-40col', '-drive8type', '1541'],
-        'EXIT_POKE': 'poke 55295,0', 'SCREEN_DUMP': 'm 0400 07e7'}
+        'EXIT_POKE': 'poke 55295,0', 'SCREEN_DUMP': 'm 0400 07e7',
+        # (the font build's screen: $c400, the RAM under the KERNAL ROM)
+        'FONT_DUMP': ['bank ram', 'm c400 c7e7']}
 # the C128 on the 80 column screen (--machine c128-80): the screen is at
 # $0000 in the VDC's own memory (the monitor's "vdc" bank), 80 x 25
 C128_80 = {'EMU': ['x128', '-minimized', '-default', '-sounddev', 'dummy', '-warp', '+autostart-warp',
                    '-80col', '-drive8type', '1541'],
-           'EXIT_POKE': 'poke 55295,0', 'SCREEN_DUMP': ['bank vdc', 'm 0000 07cf'], 'COLUMNS': 80}
+           'EXIT_POKE': 'poke 55295,0', 'SCREEN_DUMP': ['bank vdc', 'm 0000 07cf'], 'COLUMNS': 80,
+           'FONT_DUMP': ['bank vdc', 'm 0000 07cf']}
 for c128 in (C128, C128_80):
     # x128 doesn't type -keybuf reliably (the program's start clears the
     # keyboard buffer, CINT, while VICE is still typing): the file tests
@@ -564,10 +567,6 @@ def dump_screen(port):
     """The screen's bytes over the monitor, None if it didn't answer.  (a
     dump from another bank, the VDC's, switches the monitor back to the
     CPU's view after: later reads are of the program's memory)"""
-    if FONT:
-        # (the font build's screen is at $c800)
-        reply = monitor(port, ['m c800 cbe7'], 10)
-        return screen_bytes(reply[0]) if reply else None
     if isinstance(SCREEN_DUMP, list):
         reply = monitor(port, SCREEN_DUMP + ['bank cpu'], 10)
         return screen_bytes(reply[-2]) if reply else None
@@ -683,6 +682,8 @@ def main():
     FILE_PORTS = itertools.count(args.port + 500)
     if args.font:
         FONT = os.path.abspath(args.font)
+        # (the C64 font build's screen is at $c800)
+        SCREEN_DUMP = (machine or {}).get('FONT_DUMP', 'm c800 cbe7')
     if args.reu:
         EMU.extend(['-reu', '-reusize', str(args.reu)])
     if args.jiffydos:

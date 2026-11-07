@@ -209,7 +209,24 @@ _screenrows .word  cbm.Screen + range(0, 1000, 40)
             sta  P8ZP_SCRATCH_W1+1
             pla
             tay
+            .if  p8b_main.FONT != 0
+            ; (the font build's 40 column screen is under the KERNAL ROM,
+            ; src/c128font/font.p8: read with the RAM there)
+            php
+            sei
+            lda  c128.MMUCR
+            pha
+            lda  #$3e
+            sta  c128.MMUCR
             lda  (P8ZP_SCRATCH_W1),y
+            tax
+            pla
+            sta  c128.MMUCR
+            plp
+            txa
+            .else
+            lda  (P8ZP_SCRATCH_W1),y
+            .endif
             rts
 _vdc
             tax

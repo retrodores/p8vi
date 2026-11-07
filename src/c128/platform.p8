@@ -3,6 +3,7 @@
 %import textio
 %import cbmscreen
 %import vdcscreen
+%import font
 
 
 ;
@@ -22,7 +23,14 @@ platform {
     sub scroll_rows(ubyte first, ubyte last, ubyte count, bool up) {
         if txt.vdc & $80 != 0
             vdcscreen.scroll_rows(first, last, count, up)
-        else
+        else if features.FONT and font.shown and txt.vdc & $80 == 0 {
+            ; (the font build's screen is under the KERNAL ROM, src/c128font/font.p8)
+            sys.set_irqd()
+            c128.MMUCR = $3e
+            cbmscreen.scroll_rows(first, last, count, up)
+            c128.MMUCR = $0e
+            sys.clear_irqd()
+        } else
             cbmscreen.scroll_rows(first, last, count, up)
     }
 
@@ -49,6 +57,9 @@ platform {
        ; reads a file name through the bank SETBNK set; after BASIC that is
        ; bank 15, where $4000-$bfff is the BASIC ROM (and p8vi's names are)
        c128.SETBNK(0, 0)
+       ; (the font build) without p8vi.fnt the ROM's font stays
+       if features.FONT
+           void font.start()
 
        main.SCREEN_WIDTH    = txt.width()
        main.SCREEN_HEIGHT   = txt.height()
@@ -62,12 +73,15 @@ platform {
 
     ; before the program ends (the font build only)
     sub stop() {
+        if features.FONT and font.shown
+            font.stop()
     }
 
     ; (the font build) show the font for ASCII or for PETSCII text; returns
-    ; true if its ASCII characters are shown
+    ; true if its ASCII characters are shown: the font stays, if p8vi.fnt
+    ; loaded
     sub font_mode(bool ascii) -> bool {
-        return true
+        return features.FONT and font.shown
     }
 
     ; open a file for writing with diskio.f_write as a SEQ file.

@@ -2,7 +2,8 @@
 ; the C128 bank 1 build (p8vi-c128x): src/p8vi_c128.p8 with the text in
 ; RAM bank 1 (the page store, src/c128bank1), up to about 60 KB.  The page
 ; store's code is bigger than the gap buffer's: features are left out for
-; room (see below).
+; room (see below).  It is also a font build: p8vi.fnt, if it is on the
+; disk, shows the ASCII characters PETSCII lacks (src/c128font/font.p8).
 
 %import editor
 %zeropage basicsafe
@@ -26,7 +27,7 @@ features {
     const bool FINAL_EOL = true  ; a line ending at the end of a file ends the last line (no empty line after it)
     const bool SCROLL = true     ; scroll the screen one row when the cursor goes just off it (not draw it all again)
     const bool DIR = false      ; :@$ shows the disk directory (off: room for page slots)
-    const bool FONT = false     ; the C64 font build: p8vi.fnt shows the ASCII characters (src/c64/font.p8)
+    const bool FONT = true      ; the font build: p8vi.fnt shows the ASCII characters (src/c128font/font.p8)
 }
 
 ; features.FONT again, for the assembler (charset.p8's tables).  In main:
@@ -34,6 +35,6 @@ features {
 main {
     %option merge
     %asm {{
-FONT = 0
+FONT = 1
     }}
 }

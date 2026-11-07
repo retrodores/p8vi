@@ -158,6 +158,7 @@ def main():
         edtest.EMU.extend(edtest.JIFFYDOS)
     if args.font:
         edtest.FONT = os.path.abspath(args.font)
+        edtest.SCREEN_DUMP = (machine or {}).get('FONT_DUMP', 'm c800 cbe7')
     args.prg = os.path.abspath(args.prg)
     args.work = os.path.abspath(args.work)
     results = [run(args, 'crash', True), run(args, 'clean', False)]

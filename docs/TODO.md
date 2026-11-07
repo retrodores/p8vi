@@ -131,11 +131,13 @@ and editing then go about as with an REU.
     (`make test-c128x`) has the text in RAM bank 1 instead, up to about
     60 KB (src/c128bank1: pages copied a byte at a time through the MMU's
     preset configurations, by a loop in the shared RAM at $0200), without
-    the start screen and `:@$` for room, and 3 page slots.  Moving through
+    the start screen and `:@$` for room, and 2 page slots.  Moving through
     about 50 KB of text, the copies from bank 1 can't be noticed (tried on
     VICE, 2026-11-06).  `:rec` after a reset works (bank 1 keeps its
     contents; tests/vice/rectest.py --machine c128 [--no-reu], also with
-    p8vi-c128reu's REU).
+    p8vi-c128reu's REU).  It is also a font build: p8vi.fnt (the C64
+    font build's) on either screen, src/c128font/font.p8; without the file
+    the ROM's font stays.  The font cost one page slot (755 bytes).
   - `p8vi-c128reu` (`make test-c128reu`): the pages in an REU, 192 KB
     for the text, yank and undo (src/c128reu, src/c64/reu.p8), or in bank
     1 without one; the bank 1 build's room savings and also the one row
