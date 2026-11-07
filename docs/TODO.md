@@ -131,9 +131,10 @@ and editing then go about as with an REU.
     (`make test-c128x`) has the text in RAM bank 1 instead, up to about
     60 KB (src/c128bank1: pages copied a byte at a time through the MMU's
     preset configurations, by a loop in the shared RAM at $0200), without
-    the start screen and `:@$` for room, and 3 page slots.  Next: `:rec`
-    after a reset (bank 1 keeps its contents; untested), how fast moving
-    through a big file is, and an REU build (the C64's REU driver nearly
+    the start screen and `:@$` for room, and 3 page slots.  Moving through
+    about 50 KB of text, the copies from bank 1 can't be noticed (tried on
+    VICE, 2026-11-06).  Next: `:rec` after a reset (bank 1 keeps its
+    contents; untested), and an REU build (the C64's REU driver nearly
     fits: the page store needs the room the bank 1 build found).
   - Running p8vi-c128x overwrites BASIC's variables and strings (bank 1).
   - After `:q`, BASIC prints each string with the rest of its string
