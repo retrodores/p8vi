@@ -324,6 +324,14 @@ test-plus4:	build/p8vi-plus4.prg
 	python3 -B tests/vice/edtest.py files --machine plus4 -j 4 --prg build/p8vi-plus4.prg
 	python3 -B tests/vice/edtest.py screen --machine plus4 -j 4 --prg build/p8vi-plus4.prg
 
+# the same tests on the C128 (VICE's x128, a 1541), on the 40 column and
+# the 80 column (VDC) screen
+test-c128:	build/p8vi-c128.prg
+	python3 -B tests/vice/edtest.py files --machine c128 -j 4 --prg build/p8vi-c128.prg
+	python3 -B tests/vice/edtest.py screen --machine c128 -j 4 --prg build/p8vi-c128.prg
+	python3 -B tests/vice/edtest.py files --machine c128-80 -j 4 --prg build/p8vi-c128.prg
+	python3 -B tests/vice/edtest.py screen --machine c128-80 -j 4 --prg build/p8vi-c128.prg
+
 # the same tests on the PET (VICE's xpet, a 4032 with a 2031 drive).  left
 # out, for the features it doesn't have: ascii, crlf, big, final-eol,
 # read-format, find (ASCII and CR LF files), subst, dos, read-dir

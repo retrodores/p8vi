@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Editor tests on a C64 in VICE (x64sc with a true-drive 1541), or with
---machine pet on a PET 4032 (xpet with an IEEE-488 2031 drive), or with
---machine plus4 on a Plus/4 (xplus4 with a 1541).
+--machine pet on a PET 4032 (xpet with an IEEE-488 2031 drive), with
+--machine plus4 on a Plus/4 (xplus4 with a 1541), or with --machine c128
+or c128-80 on a C128 in its own mode (x128 with a 1541) on the 40 column
+or the 80 column (VDC) screen.
 
     edtest.py [--prg build/p8vi-c64.prg] [--work build] [-j N] [files|screen] [name...]
 
@@ -24,6 +26,7 @@ which is ASCII uppercase in a file, so test texts are in uppercase ASCII.
 """
 
 import argparse
+import itertools
 import os
 import re
 import shutil
@@ -368,6 +371,27 @@ PET = {'EMU': ['xpet', '-default', '-model', '4032', '-sounddev', 'dummy', '-war
 PLUS4 = {'EMU': ['xplus4', '-default', '-sounddev', 'dummy', '-warp', '+autostart-warp',
                  '-drive8type', '1541'],
          'EXIT_POKE': 'poke 64975,0', 'SCREEN_DUMP': 'm 0c00 0fe7'}
+# the C128 (--machine c128): debug cartridge at $d7ff and the 40 column
+# screen at $0400, as on the C64.  -minimized: x128's windows would take the
+# keyboard focus from whatever the user is typing in
+C128 = {'EMU': ['x128', '-minimized', '-default', '-sounddev', 'dummy', '-warp', '+autostart-warp',
+                '-40col', '-drive8type', '1541'],
+        'EXIT_POKE': 'poke 55295,0', 'SCREEN_DUMP': 'm 0400 07e7'}
+# the C128 on the 80 column screen (--machine c128-80): the screen is at
+# $0000 in the VDC's own memory (the monitor's "vdc" bank), 80 x 25
+C128_80 = {'EMU': ['x128', '-minimized', '-default', '-sounddev', 'dummy', '-warp', '+autostart-warp',
+                   '-80col', '-drive8type', '1541'],
+           'EXIT_POKE': 'poke 55295,0', 'SCREEN_DUMP': ['bank vdc', 'm 0000 07cf'], 'COLUMNS': 80}
+for c128 in (C128, C128_80):
+    # x128 doesn't type -keybuf reliably (the program's start clears the
+    # keyboard buffer, CINT, while VICE is still typing): the file tests
+    # type through the remote monitor once the editor is on the screen
+    c128['MONITOR_KEYS'] = True
+# the screen's width (its height is 25)
+COLUMNS = 40
+MONITOR_KEYS = False
+# remote monitor ports for the file tests that type through it
+FILE_PORTS = None
 
 
 def dir_text(args, text, after):
@@ -413,10 +437,26 @@ def run_files(args, suite):
     # :q! back to BASIC, then a write to $d7ff (the -debugcart) quits VICE
     keybuf = ':e t.txt\\n' + keys + ':q!\\n' + EXIT_POKE + '\\n'
     with open(base + '.log', 'wb') as log:
-        subprocess.run(EMU + ['-debugcart', '-8', d64, '-autostart', d64,
-                              '-keybuf', keybuf, '-limitcycles', str(args.limit),
-                              '-exitscreenshot', base + '.png'],
-                       stdout=log, stderr=subprocess.STDOUT, cwd=args.work)
+        if MONITOR_KEYS:
+            port = next(FILE_PORTS)
+            p = subprocess.Popen(EMU + ['-debugcart', '-8', d64, '-autostart', d64,
+                                        '-limitcycles', str(args.limit), '-exitscreenshot', base + '.png',
+                                        '-remotemonitor', '-remotemonitoraddress', f'ip4://127.0.0.1:{port}'],
+                                 stdout=log, stderr=subprocess.STDOUT, cwd=args.work)
+            try:
+                if wait_for_editor(port):
+                    monitor(port, ['keybuf ' + keybuf], 10)
+                p.wait(timeout=900)
+            except subprocess.TimeoutExpired:
+                pass
+            finally:
+                p.kill()
+                p.wait()
+        else:
+            subprocess.run(EMU + ['-debugcart', '-8', d64, '-autostart', d64,
+                                  '-keybuf', keybuf, '-limitcycles', str(args.limit),
+                                  '-exitscreenshot', base + '.png'],
+                           stdout=log, stderr=subprocess.STDOUT, cwd=args.work)
     lines = []
     ok = True
     if b'cycle limit' in open(base + '.log', 'rb').read():
@@ -449,12 +489,15 @@ def monitor(port, cmds, timeout):
             if time.time() > end:
                 return None
             time.sleep(0.5)
-    def until_prompt():
+    def until_prompt(prompts=0):
         # a reply ends with the next prompt, "(C:$xxxx) "
         reply = b''
-        # entering the monitor sends a prompt of its own first
-        while not re.search(rb'\S.*\(C:\$[0-9a-f]{4}\) $', reply, re.S) or \
-                re.fullmatch(rb'\(C:\$[0-9a-f]{4}\) ', reply):
+        # entering the monitor sends a prompt of its own first.  a command
+        # with no output (like "bank") answers with just its prompt: then
+        # wait for that many prompts
+        while (not re.search(rb'\S.*\(C:\$[0-9a-f]{4}\) $', reply, re.S) or
+               re.fullmatch(rb'\(C:\$[0-9a-f]{4}\) ', reply)) if not prompts else \
+                len(re.findall(rb'\(C:\$[0-9a-f]{4}\) ', reply)) < prompts:
             try:
                 d = s.recv(65536)
             except socket.timeout:
@@ -469,9 +512,9 @@ def monitor(port, cmds, timeout):
     replies = []
     with s:
         s.settimeout(0.5)
-        for cmd in cmds:
+        for k, cmd in enumerate(cmds):
             s.sendall((cmd + '\n').encode())
-            reply = until_prompt()
+            reply = until_prompt((2 if k == 0 else 1) if cmd.startswith('bank') else 0)
             if reply is None:
                 return None
             replies.append(reply)
@@ -488,7 +531,21 @@ def screen_bytes(reply):
         m = re.match(r'.*>C:([0-9a-f]{4})\s+([0-9a-f]{2}(?: {1,2}[0-9a-f]{2})*)', line)
         if m:
             b += bytes.fromhex(m.group(2).replace(' ', ''))
-    return bytes(b[:1000])
+    return bytes(b[:COLUMNS * 25])
+
+
+def wait_for_editor(port, timeout=300):
+    """True once the editor shows its position (line,col) on the status row"""
+    dump = SCREEN_DUMP if isinstance(SCREEN_DUMP, list) else [SCREEN_DUMP]
+    end = time.time() + timeout
+    while time.time() < end:
+        time.sleep(1)
+        reply = monitor(port, dump, 10)
+        if reply:
+            scr = screen_bytes(reply[-1])
+            if re.search(rb'[0-9],[0-9]', bytes(c & 0x7f for c in scr[COLUMNS * 24:])):
+                return True
+    return False
 
 
 def screen_after(args, base, port, text, keys):
@@ -497,11 +554,16 @@ def screen_after(args, base, port, text, keys):
     make_disk(d64, args.prg, text)
     with open(base + '.log', 'wb') as log:
         p = subprocess.Popen(EMU + ['-remotemonitor', '-remotemonitoraddress',
-                                    f'ip4://127.0.0.1:{port}', '-8', d64,
-                                    '-autostart', d64, '-keybuf', ':e t.txt\\n' + keys,
-                                    '-limitcycles', '40000000000'],
+                                    f'ip4://127.0.0.1:{port}', '-8', d64, '-autostart', d64] +
+                             ([] if MONITOR_KEYS else ['-keybuf', ':e t.txt\\n' + keys]) +
+                             ['-limitcycles', '40000000000'],
                              stdout=log, stderr=subprocess.STDOUT, cwd=args.work)
     try:
+        if MONITOR_KEYS:
+            # (see C128) type once the editor is up; the cycles count from then
+            if not wait_for_editor(port):
+                return None
+            monitor(port, ['keybuf :e t.txt\\n' + keys, 'sw reset'], 10)
         # wait in emulated time, so a busy host can't cut the run short.
         # (a monitor that doesn't answer yet, with VICE still starting on a
         # busy host, is asked again: once that ended the check)
@@ -515,9 +577,10 @@ def screen_after(args, base, port, text, keys):
             if m and int(m.group(1)) >= args.cycles:
                 for _ in range(5):
                     # (the font build's screen is at $c800)
-                    reply = monitor(port, ['m c800 cbe7' if FONT else SCREEN_DUMP], 10)
+                    dump = SCREEN_DUMP if isinstance(SCREEN_DUMP, list) else [SCREEN_DUMP]
+                    reply = monitor(port, ['m c800 cbe7'] if FONT else dump, 10)
                     if reply:
-                        return screen_bytes(reply[0])
+                        return screen_bytes(reply[-1])
                 return None
         return None
     finally:
@@ -531,17 +594,18 @@ def run_screen(args, job):
     port = args.port + 2 * i
     a = screen_after(args, base + '-a', port, text, keys)
     b = screen_after(args, base + '-b', port + 1, text, keys + r'\x0c')
-    if a is None or b is None or len(a) != 1000 or len(b) != 1000:
+    cells = COLUMNS * 25
+    if a is None or b is None or len(a) != cells or len(b) != cells:
         return name, False, ['  no screen dump (VICE monitor did not answer)']
     # both must be the editor in nav mode, which shows "line,col" in the
     # status row, or the run didn't get through its keys
     for scr in (a, b):
-        status = bytes(c & 0x7f for c in scr[960:])
+        status = bytes(c & 0x7f for c in scr[cells - COLUMNS:])
         if not re.search(rb'[0-9],[0-9]', status):
             return name, False, ['  the editor is not on the screen (raise --cycles?)']
     # bit 7 is the reverse-video cursor
-    diff = [i for i in range(1000) if (a[i] ^ b[i]) & 0x7f]
-    lines = [f'  row {i // 40} col {i % 40}: partial {a[i]:02x} full {b[i]:02x}'
+    diff = [i for i in range(cells) if (a[i] ^ b[i]) & 0x7f]
+    lines = [f'  row {i // COLUMNS} col {i % COLUMNS}: partial {a[i]:02x} full {b[i]:02x}'
              for i in diff[:10]]
     if diff:
         lines.insert(0, f'  {len(diff)} cells differ from a full redraw')
@@ -563,16 +627,19 @@ def main():
     ap.add_argument('--skip', action='append', default=[], metavar='SUITE',
                     help='leave this suite out (for builds with little room)')
     ap.add_argument('--font', metavar='FNT', help='the font build: its font file, and its tests')
-    ap.add_argument('--machine', default='c64', choices=['c64', 'pet', 'plus4'])
+    ap.add_argument('--machine', default='c64', choices=['c64', 'pet', 'plus4', 'c128', 'c128-80'])
     ap.add_argument('--jiffydos', action='store_true',
                     help="the C64 with JiffyDOS: VICE's jiffykernal and jiffy1541II ROMs (in VICE's ROM directories)")
     ap.add_argument('--paged', action='store_true',
                     help='also the REU suites (more text than main RAM holds) without an REU: the disk build')
     args = ap.parse_args()
-    global FONT, EMU, EXIT_POKE, SCREEN_DUMP
-    machine = {'pet': PET, 'plus4': PLUS4}.get(args.machine)
+    global FONT, EMU, EXIT_POKE, SCREEN_DUMP, COLUMNS, MONITOR_KEYS, FILE_PORTS
+    machine = {'pet': PET, 'plus4': PLUS4, 'c128': C128, 'c128-80': C128_80}.get(args.machine)
     if machine:
         EMU, EXIT_POKE, SCREEN_DUMP = machine['EMU'], machine['EXIT_POKE'], machine['SCREEN_DUMP']
+        COLUMNS = machine.get('COLUMNS', 40)
+        MONITOR_KEYS = machine.get('MONITOR_KEYS', False)
+    FILE_PORTS = itertools.count(args.port + 500)
     if args.font:
         FONT = os.path.abspath(args.font)
     if args.reu:
