@@ -97,6 +97,8 @@ main {
                 ; (page store) keep the text recoverable: when the keys stop
                 if buffer.PAGED and buffer.changes != buffer.synced_changes and cbm.RDTIM16() - key_time > SYNC_DELAY
                     sync_text()
+                if platform.SWITCH and platform.switch_wanted()
+                    switch_screen()
                 draw_cursor()
                 continue
             }
@@ -147,6 +149,23 @@ main {
             void blink_timer()
             cursor_on()
         }
+    }
+
+    ; (the C128) on the other screen: everything drawn again for its width
+    sub switch_screen() {
+        cursor_off()
+        platform.switch_screen()
+        ; the top row starts where a row starts at the new width
+        buffer.set_mark(MARK_TOP, view.row_of(buffer.get_mark(MARK_TOP)))
+        view.refresh(true)
+        if mode == MODE_CMD {
+            draw_cmdline()
+            view.column = 1 + cmdlen
+            if view.column > SCREEN_WIDTH - 2
+                view.column = SCREEN_WIDTH - 2
+            view.row = STATUS_LINE
+        }
+        cursor_on()
     }
 
     sub handle_key() {

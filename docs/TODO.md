@@ -150,8 +150,13 @@ and editing then go about as with an REU.
     leaves free (STREND $33 to FRETOP $35) was left out: `:rec` would
     have to search bank 1 for the headers after a reset, and
     p8vi-c128reu would lose a page slot.
-  - Switching 40/80 while running (ESC X): `txt.init()` again, and a
-    full redraw.
+  - Switching 40/80 while running: p8vi-c128 follows the 40/80 DISPLAY
+    key (MMU $d505 bit 7, looked at while waiting for keys; SWAPPER, then
+    everything drawn again), 185 bytes (`features.SWITCH`).  Not yet in
+    p8vi-c128x (the font sets up one screen: load it into both) or
+    p8vi-c128reu (1048 bytes free: it would lose a page slot).  The status
+    message is lost on a switch.  In VICE: `resourceset "C128ColumnKey"
+    "0"` (80) or `"1"` (40) in the monitor.
   - The C128's other keys: TAB, HELP, LINE FEED, the function keys.
   - Colors on the VDC (the attribute memory), `txt` colors and scrolling.
 - **The next release:** which of the new builds go in (`make release`

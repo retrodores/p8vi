@@ -60,6 +60,15 @@ platform {
         font.show(false)
     }
 
+    ; (the C128: the 40/80 DISPLAY key switches the screen, see
+    ; src/c128/platform.p8; not here)
+    const bool SWITCH = false
+    sub switch_wanted() -> bool {
+        return false
+    }
+    sub switch_screen() {
+    }
+
     ; (the font build) show the ROM's character set with the ASCII
     ; characters for ASCII text, the C64's for PETSCII; returns ascii
     sub font_mode(bool ascii) -> bool {

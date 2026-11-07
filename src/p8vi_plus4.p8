@@ -21,6 +21,7 @@ features {
     const bool SCROLL = true     ; scroll the screen one row when the cursor goes just off it (not draw it all again)
     const bool DIR = true       ; :@$ shows the disk directory
     const bool FONT = false     ; the C64 font build: p8vi.fnt shows the ASCII characters (src/c64/font.p8)
+    const bool SWITCH = false    ; (the C128) the 40/80 DISPLAY key switches the screen while p8vi runs
 }
 
 ; features.FONT again, for the assembler (charset.p8's tables).  In main:

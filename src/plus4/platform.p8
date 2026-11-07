@@ -41,6 +41,15 @@ platform {
     sub stop() {
     }
 
+    ; (the C128: the 40/80 DISPLAY key switches the screen, see
+    ; src/c128/platform.p8; not here)
+    const bool SWITCH = false
+    sub switch_wanted() -> bool {
+        return false
+    }
+    sub switch_screen() {
+    }
+
     ; (font builds only; there is none here)
     sub font_mode(bool ascii) -> bool {
         return false

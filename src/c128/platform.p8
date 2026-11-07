@@ -61,6 +61,13 @@ platform {
        if features.FONT
            void font.start()
 
+       if SWITCH
+           key4080 = @(MMU_MODE) & $80
+       geometry()
+    }
+
+    ; the screen's size and the editor's rows (again after a switch)
+    sub geometry() {
        main.SCREEN_WIDTH    = txt.width()
        main.SCREEN_HEIGHT   = txt.height()
        main.STATUS_HEIGHT   = 2
@@ -69,6 +76,33 @@ platform {
        main.MIN_ROW         = 0
        main.MAX_ROW         = main.SCREEN_HEIGHT - main.STATUS_HEIGHT - 1
        main.STATUS_LINE     = main.SCREEN_HEIGHT - 1
+    }
+
+    ; (features.SWITCH) the 40/80 DISPLAY key switches the screen while
+    ; p8vi runs.  The KERNAL reads the key only at a reset; its position
+    ; is bit 7 of the MMU's mode register: 0 when it is down (80 columns).
+    ; (not with the font yet: src/c128font/font.p8 sets up one screen)
+    const bool SWITCH = features.SWITCH and not features.FONT
+    const uword MMU_MODE = $d505
+    ubyte @nozp key4080     ; the key's position at the last look
+
+    ; true if the key was pressed and selects the other screen
+    sub switch_wanted() -> bool {
+        ubyte k = @(MMU_MODE) & $80
+        if k == key4080
+            return false
+        key4080 = k
+        return (k == 0) != (txt.vdc & $80 != 0)
+    }
+
+    ; switch to the other screen (the KERNAL's SWAPPER, as ESC X does) and
+    ; clear it, lowercase
+    sub switch_screen() {
+        c128.SWAPPER()
+        txt.init()
+        txt.lowercase()
+        txt.cls()
+        geometry()
     }
 
     ; before the program ends (the font build only)
