@@ -143,9 +143,6 @@ and editing then go about as with an REU.
     1 without one; the bank 1 build's room savings and also the one row
     scrolling off (`features.SCROLL`), for 2 page slots.
   - Running p8vi-c128x overwrites BASIC's variables and strings (bank 1).
-  - After `:q`, BASIC prints each string with the rest of its string
-    pool after it (`print 7`: 7 and garbage).  Not the zero page, golden
-    RAM or bank 0 memory, not SETBNK; the C64 doesn't do it.
   - Switching 40/80 while running (ESC X): `txt.init()` again, and a
     full redraw.
   - The C128's other keys: TAB, HELP, LINE FEED, the function keys.

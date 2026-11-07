@@ -15,6 +15,10 @@
 ; %zpreserved has no effect)
 %zpreserved $92,$92
 %zpreserved $a4,$a4
+; and Prog8's c128 basicsafe zero page includes BASIC 7's TEMPPT ($18):
+; left at 1 by p8vi, BASIC printed garbage after each string after :q
+; (bugs/c128_basicsafe_temppt.p8)
+%zpreserved $18,$18
 
 ; which optional features the build has (code for the ones that are off
 ; is left out of the program)
