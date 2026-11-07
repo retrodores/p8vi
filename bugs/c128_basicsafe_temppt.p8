@@ -1,5 +1,9 @@
 ; c128 target, %zeropage basicsafe: BASIC prints garbage after the program
 ;
+; FIXED in prog8c-llvm (2026-11-07, after 008ea6fb): C128Zeropage.kt no
+; longer hands out $18-$1a (TEMPPT, LASTPT).  Verified: w5 now lands at
+; $1b.  p8vi keeps its %zpreserved $18,$18 for older and upstream compilers.
+;
 ; Compiler: prog8c-llvm v14.0-BETA3 (git ab65226d8, branch llvm); the
 ; C128 zero page lists are the same in prog8c-beta (master).
 ; Target: c128 (BASIC 7)
