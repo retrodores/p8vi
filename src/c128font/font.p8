@@ -20,18 +20,25 @@
 ; needs the KERNAL ROM banked out (txt.getchr and platform.scroll_rows).
 ; ($ff00-$ffff can't hold the font: the MMU registers are there.)
 ;
+; Both are set up at the start, whichever screen is active, so the 40/80
+; key can switch screens (features.SWITCH): the hook copies only while the
+; 40 column screen is the KERNAL's, and screen() sets VM1 again after the
+; switch (lowercase changes it).
+;
 font {
     const uword SCREEN = $c400
     const uword CHARS = $f000
     ; VM1 (the KERNAL copies it to the VIC-II's memory pointers): the
     ; screen at $0400 and the characters at $3000 in the VIC bank
     const ubyte VM1_FONT = $1c
+    ; and at the end: the screen at $0400, the ROM's lowercase characters
+    ; (p8vi leaves the screen lowercase)
+    const ubyte VM1_ROM = $16
     ; how far the screen rows move
     const ubyte MOVE = msb(SCREEN) - $04
 
     str FILE = "p8vi.fnt"
     bool shown              ; the font is on the screen
-    ubyte old_vm1
     uword old_chrout
 
     ; load the font and show it.  returns false if p8vi.fnt didn't load.
@@ -43,14 +50,10 @@ font {
         if failed
             return false
         shown = true
-        if txt.vdc & $80 != 0 {
-            to_vdc()
-            return true
-        }
+        to_vdc()
         mirror_all()
-        old_vm1 = c128.VM1
         set_bank(%00)
-        c128.VM1 = VM1_FONT
+        screen()
         move_rows(MOVE)
         sys.set_irqd()
         old_chrout = cbm.IBSOUT
@@ -59,18 +62,21 @@ font {
         return true
     }
 
-    ; back to the ROM's font (and on 40 columns the screen at $0400)
+    ; the font on the 40 column screen again (after a switch to it)
+    sub screen() {
+        c128.VM1 = VM1_FONT
+    }
+
+    ; back to the ROM's font on both screens (and the 40 column screen at
+    ; $0400)
     sub stop() {
         shown = false
-        if txt.vdc & $80 != 0 {
-            c128.DLCHR()
-            return
-        }
+        c128.DLCHR()
         sys.set_irqd()
         cbm.IBSOUT = old_chrout
         sys.clear_irqd()
         set_bank(%11)
-        c128.VM1 = old_vm1
+        c128.VM1 = VM1_ROM
         move_rows(256 - MOVE)       ; (back, modulo 256)
     }
 
@@ -115,7 +121,7 @@ font {
         }}
     }
 
-    ; CHROUT, then (output to the screen) the KERNAL's row to the font's
+    ; CHROUT, then (output to the 40 column screen) the KERNAL's row to the font's
     ; screen: the row PNT ($e0, the 40 column editor's) points at, or all
     ; of it after a clear.  keeps A, X, Y and the flags CHROUT returns.
     asmsub chrout_hook() {
@@ -131,6 +137,8 @@ font {
             lda  $9a                    ; DFLTO: the output device
             cmp  #3
             bne  _done
+            bit  $d7                    ; MODE: bit 7 set on 80 columns
+            bmi  _done
             lda  _char
             cmp  #147
             bne  _row

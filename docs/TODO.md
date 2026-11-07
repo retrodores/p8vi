@@ -152,9 +152,10 @@ and editing then go about as with an REU.
     p8vi-c128reu would lose a page slot.
   - Switching 40/80 while running: p8vi-c128 follows the 40/80 DISPLAY
     key (MMU $d505 bit 7, looked at while waiting for keys; SWAPPER, then
-    everything drawn again), 185 bytes (`features.SWITCH`).  Not yet in
-    p8vi-c128x (the font sets up one screen: load it into both) or
-    p8vi-c128reu (1048 bytes free: it would lose a page slot).  The status
+    everything drawn again), 185 bytes (`features.SWITCH`), and
+    p8vi-c128x, with its font set up on both screens at the start (162
+    bytes there, 1322 left).  Not in p8vi-c128reu (1048 bytes free: it
+    would lose a page slot).  The status
     message is lost on a switch.  In VICE: `resourceset "C128ColumnKey"
     "0"` (80) or `"1"` (40) in the monitor.
   - The C128's other keys: TAB, HELP, LINE FEED, the function keys.

@@ -81,8 +81,7 @@ platform {
     ; (features.SWITCH) the 40/80 DISPLAY key switches the screen while
     ; p8vi runs.  The KERNAL reads the key only at a reset; its position
     ; is bit 7 of the MMU's mode register: 0 when it is down (80 columns).
-    ; (not with the font yet: src/c128font/font.p8 sets up one screen)
-    const bool SWITCH = features.SWITCH and not features.FONT
+    const bool SWITCH = features.SWITCH
     const uword MMU_MODE = $d505
     ubyte @nozp key4080     ; the key's position at the last look
 
@@ -101,6 +100,9 @@ platform {
         c128.SWAPPER()
         txt.init()
         txt.lowercase()
+        ; (the font build: lowercase changed VM1)
+        if features.FONT and font.shown
+            font.screen()
         txt.cls()
         geometry()
     }

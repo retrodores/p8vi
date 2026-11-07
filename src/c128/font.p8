@@ -12,4 +12,7 @@ font {
 
     sub stop() {
     }
+
+    sub screen() {
+    }
 }
