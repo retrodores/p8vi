@@ -387,6 +387,7 @@ for c128 in (C128, C128_80):
     # keyboard buffer, CINT, while VICE is still typing): the file tests
     # type through the remote monitor once the editor is on the screen
     c128['MONITOR_KEYS'] = True
+DBG = os.environ.get('EDTEST_DEBUG')
 # the screen's width (its height is 25)
 COLUMNS = 40
 MONITOR_KEYS = False
@@ -444,8 +445,15 @@ def run_files(args, suite):
                                         '-remotemonitor', '-remotemonitoraddress', f'ip4://127.0.0.1:{port}'],
                                  stdout=log, stderr=subprocess.STDOUT, cwd=args.work)
             try:
+                typed = False
                 if wait_for_editor(port):
-                    monitor(port, ['keybuf ' + keybuf], 10)
+                    # (a busy host can keep the monitor from answering: ask again)
+                    for _ in range(5):
+                        if monitor(port, ['keybuf ' + keybuf], 20):
+                            typed = True
+                            break
+                if not typed:
+                    log.write(b'edtest: the editor did not come up, or the keys could not be typed\n')
                 p.wait(timeout=900)
             except subprocess.TimeoutExpired:
                 pass
@@ -459,7 +467,11 @@ def run_files(args, suite):
                            stdout=log, stderr=subprocess.STDOUT, cwd=args.work)
     lines = []
     ok = True
-    if b'cycle limit' in open(base + '.log', 'rb').read():
+    logged = open(base + '.log', 'rb').read()
+    if b'edtest: the editor did not come up' in logged:
+        ok = False
+        lines.append('  the editor did not come up, or the keys could not be typed')
+    elif b'cycle limit' in logged:
         ok = False
         lines.append('  hung: hit the cycle limit')
     for fname, want in expected:
@@ -562,8 +574,10 @@ def screen_after(args, base, port, text, keys):
         if MONITOR_KEYS:
             # (see C128) type once the editor is up; the cycles count from then
             if not wait_for_editor(port):
+                DBG and print('DBG editor not up', base, flush=True)
                 return None
-            monitor(port, ['keybuf :e t.txt\\n' + keys, 'sw reset'], 10)
+            r = monitor(port, ['keybuf :e t.txt\\n' + keys, 'sw reset'], 10)
+            DBG and print('DBG typed', base, r, flush=True)
         # wait in emulated time, so a busy host can't cut the run short.
         # (a monitor that doesn't answer yet, with VICE still starting on a
         # busy host, is asked again: once that ended the check)
@@ -574,6 +588,7 @@ def screen_after(args, base, port, text, keys):
             if reply is None:
                 continue
             m = re.search(r'Stopwatch:\s+(\d+)', reply[0])
+            DBG and print('DBG sw', base, m and m.group(1), flush=True)
             if m and int(m.group(1)) >= args.cycles:
                 for _ in range(5):
                     # (the font build's screen is at $c800)

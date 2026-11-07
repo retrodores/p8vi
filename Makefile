@@ -53,6 +53,9 @@ PCCARGSM65DMA=-srcdirs src:src/mega65dma:src/mega65 -asmlist -target config/mega
 PCCARGSPLUS4=-srcdirs src:src/plus4 -asmlist -target config/plus4.properties -out build
 # the C128 in its own mode, on the VIC-II or the VDC (src/c128/textio.p8)
 PCCARGSC128=-srcdirs src:src/c128 -asmlist -target c128 -out build
+# the C128 bank 1 build: src/c128bank1 (the page store, its pages in RAM
+# bank 1) before src/c128
+PCCARGSC128X=-srcdirs src:src/c128bank1:src/c128 -asmlist -target c128 -out build
 PCCARGSPET32=-srcdirs src:src/pet32 -asmlist -target pet32 -out build
 PCCARGSVIC20=-srcdirs src:src/vic20 -asmlist -target config/vic20plus24.properties -out build
 PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
@@ -62,7 +65,7 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 # editor.p8.  The C64 has two builds: p8vi-c64
 # with the gap buffer (the most room for text in main RAM) and p8vi-c64reu
 # with the page store (for text in an REU, docs/XMEM-DESIGN.md)
-PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64disk.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-pet32.prg build/p8vi-plus4.prg build/p8vi-c128.prg build/p8vi-vic20.prg
+PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64disk.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-pet32.prg build/p8vi-plus4.prg build/p8vi-c128.prg build/p8vi-c128x.prg build/p8vi-vic20.prg
 # an experiment, not in the release yet: p8vi-c64font (src/p8vi_c64font.p8)
 # is p8vi-c64reu with a font that has the ASCII characters PETSCII lacks.
 # it loads the font from p8vi.fnt (make font, from FONTSRC).
@@ -159,6 +162,15 @@ build/p8vi-c128.prg: src/p8vi_c128.p8 $(SRCS) src/c128/*.p8
 	$(CP) build/p8vi_c128.list build/p8vi-c128.list
 	$(CP) build/p8vi_c128.asm build/p8vi-c128.asm
 	$(RM) build/p8vi_c128.prg
+
+# the C128 bank 1 build (src/p8vi_c128x.p8): the page store with its pages
+# in RAM bank 1, text up to about 60 KB; without the start screen and :@$
+build/p8vi-c128x.prg: src/p8vi_c128x.p8 $(SRCS) src/c128/*.p8 src/c128bank1/*.p8
+	$(PCC) $(PCCARGSC128X) $<
+	$(CP) build/p8vi_c128x.prg $@
+	$(CP) build/p8vi_c128x.list build/p8vi-c128x.list
+	$(CP) build/p8vi_c128x.asm build/p8vi-c128x.asm
+	$(RM) build/p8vi_c128x.prg
 
 # the PET (a 32 KB PET with BASIC 4, Prog8's pet32 target): the gap buffer,
 # with the VIC-20's features and no ASCII or CR LF files, for room for text
@@ -312,6 +324,7 @@ size:	$(PROGS) $(FONTPROG)
 	python3 tools/listsize.py build/p8vi-mega65dma.list --map --memtop 0xc000
 	python3 tools/listsize.py build/p8vi-pet32.list --map --memtop 0x8000
 	python3 tools/listsize.py build/p8vi-c128.list --map --memtop 0xc000
+	python3 tools/listsize.py build/p8vi-c128x.list --map --memtop 0xc000
 	python3 tools/listsize.py build/p8vi-plus4.list --map --memtop 0xfc00
 	python3 tools/listsize.py build/p8vi-vic20.list --map --min-free $(VIC20_MIN_FREE)
 
@@ -331,6 +344,16 @@ test-c128:	build/p8vi-c128.prg
 	python3 -B tests/vice/edtest.py screen --machine c128 -j 4 --prg build/p8vi-c128.prg
 	python3 -B tests/vice/edtest.py files --machine c128-80 -j 4 --prg build/p8vi-c128.prg
 	python3 -B tests/vice/edtest.py screen --machine c128-80 -j 4 --prg build/p8vi-c128.prg
+
+# the C128 bank 1 build: also the page store's suites (--paged), except
+# read-dir (no :@$ in this build) and the two that need more than bank 1
+# holds (huge: about 87 KB of text; bigundo: 29 KB and its undo)
+C128X_SKIP = --skip read-dir --skip huge --skip bigundo
+test-c128x:	build/p8vi-c128x.prg
+	python3 -B tests/vice/edtest.py files --machine c128 --paged --limit 3000000000 -j 4 $(C128X_SKIP) --prg build/p8vi-c128x.prg
+	python3 -B tests/vice/edtest.py screen --machine c128 -j 4 --prg build/p8vi-c128x.prg
+	python3 -B tests/vice/edtest.py files --machine c128-80 --paged --limit 3000000000 -j 4 $(C128X_SKIP) --prg build/p8vi-c128x.prg
+	python3 -B tests/vice/edtest.py screen --machine c128-80 -j 4 --prg build/p8vi-c128x.prg
 
 # the same tests on the PET (VICE's xpet, a 4032 with a 2031 drive).  left
 # out, for the features it doesn't have: ascii, crlf, big, final-eol,

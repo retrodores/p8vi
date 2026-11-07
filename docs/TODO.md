@@ -127,8 +127,15 @@ and editing then go about as with an REU.
 - **C128** (`p8vi-c128`, native mode; the 40 column VIC-II or the 80
   column VDC screen, whichever is active at the start; `make test-c128`).
   Needs prog8c-llvm ab65226d8 or later (bugs/c128_startup_under_basic_rom.p8).
-  - Only 11 KB for text (the program starts at `$1c01`): a build with
-    the text in RAM bank 1 (64 KB), or the REU and disk builds.
+  - Only 11 KB for text (the program starts at `$1c01`).  `p8vi-c128x`
+    (`make test-c128x`) has the text in RAM bank 1 instead, up to about
+    60 KB (src/c128bank1: pages copied a byte at a time through the MMU's
+    preset configurations, by a loop in the shared RAM at $0200), without
+    the start screen and `:@$` for room, and 3 page slots.  Next: `:rec`
+    after a reset (bank 1 keeps its contents; untested), how fast moving
+    through a big file is, and an REU build (the C64's REU driver nearly
+    fits: the page store needs the room the bank 1 build found).
+  - Running p8vi-c128x overwrites BASIC's variables and strings (bank 1).
   - After `:q`, BASIC prints each string with the rest of its string
     pool after it (`print 7`: 7 and garbage).  Not the zero page, golden
     RAM or bank 0 memory, not SETBNK; the C64 doesn't do it.
