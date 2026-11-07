@@ -142,7 +142,14 @@ and editing then go about as with an REU.
     for the text, yank and undo (src/c128reu, src/c64/reu.p8), or in bank
     1 without one; the bank 1 build's room savings and also the one row
     scrolling off (`features.SCROLL`), for 2 page slots.
-  - Running p8vi-c128x overwrites BASIC's variables and strings (bank 1).
+  - p8vi-c128x, and p8vi-c128reu without an REU, use all of bank 1,
+    where BASIC 7 keeps its variables and strings.  Safe after the usual
+    `LOAD`/`RUN`: they clear BASIC's variables and string space before p8vi
+    starts (checked 2026-11-07).  Only a start without `RUN` (`BLOAD` and
+    `SYS 7181`) could have variables to keep.  Using only the part BASIC
+    leaves free (STREND $33 to FRETOP $35) was left out: `:rec` would
+    have to search bank 1 for the headers after a reset, and
+    p8vi-c128reu would lose a page slot.
   - Switching 40/80 while running (ESC X): `txt.init()` again, and a
     full redraw.
   - The C128's other keys: TAB, HELP, LINE FEED, the function keys.

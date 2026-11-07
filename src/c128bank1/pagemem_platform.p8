@@ -10,7 +10,8 @@
 ; Bank 1, $0400-$fbff: headers at $0400 and $0800, pages from $0c00 (60
 ; of 1 KB).  ($0000-$03ff is the RAM both banks share; the top is left
 ; alone, where the KERNAL keeps code in each bank.)  BASIC keeps its
-; variables and strings in bank 1 too: they are gone after p8vi.
+; variables and strings in bank 1 too, but LOAD and RUN of p8vi have
+; cleared them already (docs/TODO.md, C128).
 ;
 ; The copying is in src/c128/bank1.p8.
 ;
