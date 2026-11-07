@@ -501,22 +501,35 @@ def monitor(port, cmds, timeout):
             if time.time() > end:
                 return None
             time.sleep(0.5)
-    def until_prompt(prompts=0):
-        # a reply ends with the next prompt, "(C:$xxxx) "
+    def until_prompt(bare=False):
+        # a reply ends with the next prompt, "(C:$xxxx) ".  entering the
+        # monitor sends a prompt of its own first.  a command with no output
+        # (bank, reset, keybuf) answers with just its prompt, after the
+        # entry prompt or not (if the monitor was still open): for those, a
+        # prompt and then a pause (the recv timeout) ends the reply, or a
+        # longer pause with nothing
         reply = b''
-        # entering the monitor sends a prompt of its own first.  a command
-        # with no output (like "bank") answers with just its prompt: then
-        # wait for that many prompts
-        while (not re.search(rb'\S.*\(C:\$[0-9a-f]{4}\) $', reply, re.S) or
-               re.fullmatch(rb'\(C:\$[0-9a-f]{4}\) ', reply)) if not prompts else \
-                len(re.findall(rb'\(C:\$[0-9a-f]{4}\) ', reply)) < prompts:
+        sent = time.time()
+        quiet = False
+        while True:
+            if bare and quiet:
+                # (with the monitor already open, some answer nothing at all)
+                if re.search(rb'\(C:\$[0-9a-f]{4}\) $', reply) or (not reply and time.time() > sent + 1.5):
+                    break
+            elif re.search(rb'\S.*\(C:\$[0-9a-f]{4}\) $', reply, re.S) and \
+                    not re.fullmatch(rb'\(C:\$[0-9a-f]{4}\) ', reply):
+                break
             try:
                 d = s.recv(65536)
+                quiet = False
             except socket.timeout:
+                quiet = True
                 if time.time() > end + 30:
+                    DBG and print('DBG monitor timed out, had', repr(reply[-120:]), flush=True)
                     return None
                 continue
             if not d:
+                DBG and print('DBG monitor closed, had', repr(reply[-80:]), flush=True)
                 return None
             reply += d
         return reply.decode('latin-1')
@@ -526,8 +539,9 @@ def monitor(port, cmds, timeout):
         s.settimeout(0.5)
         for k, cmd in enumerate(cmds):
             s.sendall((cmd + '\n').encode())
-            reply = until_prompt((2 if k == 0 else 1) if cmd.startswith('bank') else 0)
+            reply = until_prompt(cmd.split()[0] in ('bank', 'reset', 'keybuf'))
             if reply is None:
+                DBG and print('DBG monitor gave up on', repr(cmd), flush=True)
                 return None
             replies.append(reply)
         s.sendall(b'x\n')
@@ -546,15 +560,29 @@ def screen_bytes(reply):
     return bytes(b[:COLUMNS * 25])
 
 
+def dump_screen(port):
+    """The screen's bytes over the monitor, None if it didn't answer.  (a
+    dump from another bank, the VDC's, switches the monitor back to the
+    CPU's view after: later reads are of the program's memory)"""
+    if FONT:
+        # (the font build's screen is at $c800)
+        reply = monitor(port, ['m c800 cbe7'], 10)
+        return screen_bytes(reply[0]) if reply else None
+    if isinstance(SCREEN_DUMP, list):
+        reply = monitor(port, SCREEN_DUMP + ['bank cpu'], 10)
+        return screen_bytes(reply[-2]) if reply else None
+    reply = monitor(port, [SCREEN_DUMP], 10)
+    return screen_bytes(reply[0]) if reply else None
+
+
 def wait_for_editor(port, timeout=300):
     """True once the editor shows its position (line,col) on the status row"""
-    dump = SCREEN_DUMP if isinstance(SCREEN_DUMP, list) else [SCREEN_DUMP]
     end = time.time() + timeout
     while time.time() < end:
         time.sleep(1)
-        reply = monitor(port, dump, 10)
-        if reply:
-            scr = screen_bytes(reply[-1])
+        scr = dump_screen(port)
+        DBG and print('DBG wait', port, None if scr is None else bytes(c & 0x7f for c in scr[COLUMNS * 24:]), flush=True)
+        if scr:
             if re.search(rb'[0-9],[0-9]', bytes(c & 0x7f for c in scr[COLUMNS * 24:])):
                 return True
     return False
@@ -591,11 +619,9 @@ def screen_after(args, base, port, text, keys):
             DBG and print('DBG sw', base, m and m.group(1), flush=True)
             if m and int(m.group(1)) >= args.cycles:
                 for _ in range(5):
-                    # (the font build's screen is at $c800)
-                    dump = SCREEN_DUMP if isinstance(SCREEN_DUMP, list) else [SCREEN_DUMP]
-                    reply = monitor(port, ['m c800 cbe7'] if FONT else dump, 10)
-                    if reply:
-                        return screen_bytes(reply[-1])
+                    scr = dump_screen(port)
+                    if scr:
+                        return scr
                 return None
         return None
     finally:

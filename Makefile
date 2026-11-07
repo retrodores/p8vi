@@ -368,6 +368,7 @@ test-c128x:	build/p8vi-c128x.prg
 	python3 -B tests/vice/edtest.py screen --machine c128 -j 4 --prg build/p8vi-c128x.prg
 	python3 -B tests/vice/edtest.py files --machine c128-80 --paged --limit 3000000000 -j 4 $(C128X_SKIP) --prg build/p8vi-c128x.prg
 	python3 -B tests/vice/edtest.py screen --machine c128-80 -j 4 --prg build/p8vi-c128x.prg
+	python3 -B tests/vice/rectest.py --machine c128 --no-reu --prg build/p8vi-c128x.prg
 
 # the C128 REU build: with a 512 KB REU (all the page store's suites), and
 # without one (bank 1, as test-c128x); read-dir: no :@$ in this build
@@ -377,6 +378,8 @@ test-c128reu:	build/p8vi-c128reu.prg
 	python3 -B tests/vice/edtest.py files --machine c128-80 --reu 512 --limit 3000000000 -j 4 --skip read-dir --prg build/p8vi-c128reu.prg
 	python3 -B tests/vice/edtest.py screen --machine c128-80 --reu 512 -j 4 --prg build/p8vi-c128reu.prg
 	python3 -B tests/vice/edtest.py files --machine c128 --paged --limit 3000000000 -j 4 $(C128X_SKIP) --prg build/p8vi-c128reu.prg
+	python3 -B tests/vice/rectest.py --machine c128 --prg build/p8vi-c128reu.prg
+	python3 -B tests/vice/rectest.py --machine c128-80 --no-reu --prg build/p8vi-c128reu.prg
 
 # the same tests on the PET (VICE's xpet, a 4032 with a 2031 drive).  left
 # out, for the features it doesn't have: ascii, crlf, big, final-eol,
