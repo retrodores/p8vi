@@ -1,5 +1,11 @@
 ; c128 target: a program bigger than about 9 KB never starts
 ;
+; FIXED in prog8c-llvm ab65226d8 (2026-11-06): prog8_entrypoint banks the
+; BASIC ROM out first, init_system uses $0e, and cleanup_at_exit leaves
+; through prog8_c128_exit (below $4000) to select bank 15.  Verified on
+; x128 with this file ("hello c128") and with p8vi-c128 (starts, :q returns
+; to BASIC).  Upstream prog8c-beta (master a4b59f6b) still has the bug.
+;
 ; Compiler: prog8c-llvm v14.0-BETA3 (git adcfe18e, branch llvm); the c128
 ; startup code is the same in prog8c-beta (master a4b59f6b), see below.
 ; Target: c128 (not c64, cx16, pet32: their startup is under no ROM)
@@ -56,7 +62,6 @@
 
 %import textio
 %zeropage basicsafe
-%option no_sysinit
 
 main {
     sub start() {

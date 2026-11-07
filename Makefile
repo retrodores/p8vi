@@ -151,8 +151,8 @@ build/p8vi-plus4.prg: src/p8vi_plus4.p8 $(SRCS) src/plus4/*.p8 config/plus4.prop
 
 # the C128 (native mode, not GO64, src/p8vi_c128.p8): the full editor and
 # the gap buffer, on the 40 column or the 80 column screen, whichever is
-# active when it starts.  (needs a compiler with the c128 startup fixed:
-# bugs/c128_startup_under_basic_rom.p8)
+# active when it starts.  (needs prog8c-llvm ab65226d8 or later: the c128
+# startup, bugs/c128_startup_under_basic_rom.p8)
 build/p8vi-c128.prg: src/p8vi_c128.p8 $(SRCS) src/c128/*.p8
 	$(PCC) $(PCCARGSC128) $<
 	$(CP) build/p8vi_c128.prg $@
