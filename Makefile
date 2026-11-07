@@ -51,6 +51,8 @@ PCCARGSM65=-srcdirs src:src/mega65 -asmlist -target config/mega65.properties -ou
 # the MEGA65 page store build: text in chip RAM banks 4 and 5 through DMA
 PCCARGSM65DMA=-srcdirs src:src/mega65dma:src/mega65 -asmlist -target config/mega65.properties -out build
 PCCARGSPLUS4=-srcdirs src:src/plus4 -asmlist -target config/plus4.properties -out build
+# the C128 in its own mode, on the VIC-II or the VDC (src/c128/textio.p8)
+PCCARGSC128=-srcdirs src:src/c128 -asmlist -target c128 -out build
 PCCARGSPET32=-srcdirs src:src/pet32 -asmlist -target pet32 -out build
 PCCARGSVIC20=-srcdirs src:src/vic20 -asmlist -target config/vic20plus24.properties -out build
 PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
@@ -60,7 +62,7 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 # editor.p8.  The C64 has two builds: p8vi-c64
 # with the gap buffer (the most room for text in main RAM) and p8vi-c64reu
 # with the page store (for text in an REU, docs/XMEM-DESIGN.md)
-PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64disk.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-pet32.prg build/p8vi-plus4.prg build/p8vi-vic20.prg
+PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64disk.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-pet32.prg build/p8vi-plus4.prg build/p8vi-c128.prg build/p8vi-vic20.prg
 # an experiment, not in the release yet: p8vi-c64font (src/p8vi_c64font.p8)
 # is p8vi-c64reu with a font that has the ASCII characters PETSCII lacks.
 # it loads the font from p8vi.fnt (make font, from FONTSRC).
@@ -146,6 +148,17 @@ build/p8vi-plus4.prg: src/p8vi_plus4.p8 $(SRCS) src/plus4/*.p8 config/plus4.prop
 	$(CP) build/p8vi_plus4.list build/p8vi-plus4.list
 	$(CP) build/p8vi_plus4.asm build/p8vi-plus4.asm
 	$(RM) build/p8vi_plus4.prg
+
+# the C128 (native mode, not GO64, src/p8vi_c128.p8): the full editor and
+# the gap buffer, on the 40 column or the 80 column screen, whichever is
+# active when it starts.  (needs a compiler with the c128 startup fixed:
+# bugs/c128_startup_under_basic_rom.p8)
+build/p8vi-c128.prg: src/p8vi_c128.p8 $(SRCS) src/c128/*.p8
+	$(PCC) $(PCCARGSC128) $<
+	$(CP) build/p8vi_c128.prg $@
+	$(CP) build/p8vi_c128.list build/p8vi-c128.list
+	$(CP) build/p8vi_c128.asm build/p8vi-c128.asm
+	$(RM) build/p8vi_c128.prg
 
 # the PET (a 32 KB PET with BASIC 4, Prog8's pet32 target): the gap buffer,
 # with the VIC-20's features and no ASCII or CR LF files, for room for text
@@ -298,6 +311,7 @@ size:	$(PROGS) $(FONTPROG)
 	python3 tools/listsize.py build/p8vi-mega65.list --map --memtop 0xc000
 	python3 tools/listsize.py build/p8vi-mega65dma.list --map --memtop 0xc000
 	python3 tools/listsize.py build/p8vi-pet32.list --map --memtop 0x8000
+	python3 tools/listsize.py build/p8vi-c128.list --map --memtop 0xc000
 	python3 tools/listsize.py build/p8vi-plus4.list --map --memtop 0xfc00
 	python3 tools/listsize.py build/p8vi-vic20.list --map --min-free $(VIC20_MIN_FREE)
 
