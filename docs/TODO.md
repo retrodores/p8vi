@@ -124,8 +124,20 @@ and editing then go about as with an REU.
 - **Plus/4** (`p8vi-plus4`): `src/plus4/rammode.p8` must stay below
   `$8000` (it switches the RAM in); that holds because the toplevel
   imports `platform` first, but nothing checks it when the program grows.
+- **C128** (`p8vi-c128`, native mode; the 40 column VIC-II or the 80
+  column VDC screen, whichever is active at the start; `make test-c128`).
+  Needs prog8c-llvm ab65226d8 or later (bugs/c128_startup_under_basic_rom.p8).
+  - Only 11 KB for text (the program starts at `$1c01`): a build with
+    the text in RAM bank 1 (64 KB), or the REU and disk builds.
+  - After `:q`, BASIC prints each string with the rest of its string
+    pool after it (`print 7`: 7 and garbage).  Not the zero page, golden
+    RAM or bank 0 memory, not SETBNK; the C64 doesn't do it.
+  - Switching 40/80 while running (ESC X): `txt.init()` again, and a
+    full redraw.
+  - The C128's other keys: TAB, HELP, LINE FEED, the function keys.
+  - Colors on the VDC (the attribute memory), `txt` colors and scrolling.
 - **The next release:** which of the new builds go in (`make release`
-  copies the MEGA65 builds, not the PET, Plus/4 or disk builds).
+  copies the MEGA65 builds, not the PET, Plus/4, disk or C128 builds).
 
 ## Tests
 
