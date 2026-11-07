@@ -12,20 +12,14 @@
 ; alone, where the KERNAL keeps code in each bank.)  BASIC keeps its
 ; variables and strings in bank 1 too: they are gone after p8vi.
 ;
-; The MMU can only show the CPU all of one bank or the other (apart from
-; the shared RAM), so the copy runs from the shared RAM, at $0200 (BASIC's
-; input buffer, unused while p8vi runs; copied there again for every
-; transfer), switching banks for every byte through the MMU's preset
-; configurations: a write to $ff02 selects PCRB, bank 1 all RAM ($7f);
-; $ff01 PCRA, bank 0 all RAM ($3f), as the KERNAL sets them up.  About 24
-; cycles a byte, 25 ms for a 1 KB page at 1 MHz; with interrupts off (bank
-; 1 all RAM has no KERNAL for them), and the program's own configuration
-; ($0e: bank 0, KERNAL and I/O) back after.
+; The copying is in src/c128/bank1.p8.
 ;
 ; The scratch buffer and, if there is room, one slot are in the golden RAM
 ; the editor's key buffers leave (platform.sparestart); the other slots
 ; are at the start of the text memory.
 ;
+%import bank1
+
 pagemem {
     const uword NO_PAGE = $ffff
     ; bytes per page
@@ -124,10 +118,10 @@ pagemem {
         ; no: into the least recently used slot
         s = oldest
         if slot_dirty[s]
-            stash(slot_addr[s], page_address(slot_page[s]), size)
+            bank1.stash(slot_addr[s], page_address(slot_page[s]), size)
         slot_page[s] = id
         slot_dirty[s] = false
-        fetch(page_address(id), slot_addr[s], size)
+        bank1.fetch(page_address(id), slot_addr[s], size)
 found:
         slot_used[s] = clock
         last_slot = s
@@ -144,12 +138,12 @@ found:
     ; there to dest
     sub header_put(ubyte h, uword offset, uword src, uword count) {
         if count != 0
-            stash(src, BANK1_HEADERS + h * HEADER_SIZE + offset, count)
+            bank1.stash(src, BANK1_HEADERS + h * HEADER_SIZE + offset, count)
     }
 
     sub header_get(ubyte h, uword offset, uword dest, uword count) {
         if count != 0
-            fetch(BANK1_HEADERS + h * HEADER_SIZE + offset, dest, count)
+            bank1.fetch(BANK1_HEADERS + h * HEADER_SIZE + offset, dest, count)
     }
 
     ; the page mapped last was written to
@@ -162,112 +156,10 @@ found:
         ubyte s
         for s in 0 to nslots - 1 {
             if slot_dirty[s] {
-                stash(slot_addr[s], page_address(slot_page[s]), size)
+                bank1.stash(slot_addr[s], page_address(slot_page[s]), size)
                 slot_dirty[s] = false
             }
         }
     }
 
-    ; copy count bytes from bank 1 at src to bank 0 at dest
-    sub fetch(uword src, uword dest, uword count) {
-        copy(src, dest, count, 0)
-    }
-
-    ; copy count bytes from bank 0 at src to bank 1 at dest
-    sub stash(uword src, uword dest, uword count) {
-        copy(src, dest, count, COPY_STASH - COPY_FETCH)
-    }
-
-    ; the copy loops go to the shared RAM, then run from there
-    const uword COPY_AT = $0200
-    sub copy(uword src, uword dest, uword count, ubyte entry) {
-        sys.memcopy(&copy_code, COPY_AT, COPY_SIZE)
-        %asm {{
-            lda  p8v_src
-            sta  P8ZP_SCRATCH_W1
-            lda  p8v_src+1
-            sta  P8ZP_SCRATCH_W1+1
-            lda  p8v_dest
-            sta  P8ZP_SCRATCH_W2
-            lda  p8v_dest+1
-            sta  P8ZP_SCRATCH_W2+1
-            lda  p8v_count
-            sta  P8ZP_SCRATCH_B1        ; the bytes after the whole pages
-            ldx  p8v_count+1            ; whole pages
-            lda  p8v_entry
-            beq  +
-            jmp  $0200 + (p8b_pagemem.p8s_copy_code.stash - p8b_pagemem.p8s_copy_code)
-+           jmp  $0200                  ; COPY_AT
-        }}
-    }
-
-    ; the two loops: fetch at the start, stash after it.  relocatable (only
-    ; relative branches inside), run at COPY_AT.  in: P8ZP_SCRATCH_W1 the
-    ; source, P8ZP_SCRATCH_W2 the destination, X whole pages, then
-    ; P8ZP_SCRATCH_B1 more bytes
-    const ubyte COPY_FETCH = 0
-    const ubyte COPY_STASH = 1          ; (only != COPY_FETCH matters)
-    const ubyte COPY_SIZE = 112         ; (BASIC's input buffer has 161 bytes)
-    asmsub copy_code() {
-        %asm {{
-            ; ---- fetch: bank 1 to bank 0
-            sei
-            ldy  #0
-            cpx  #0
-            beq  _frest
-_fpage      sta  $ff02                  ; bank 1
-            lda  (P8ZP_SCRATCH_W1),y
-            sta  $ff01                  ; bank 0
-            sta  (P8ZP_SCRATCH_W2),y
-            iny
-            bne  _fpage
-            inc  P8ZP_SCRATCH_W1+1
-            inc  P8ZP_SCRATCH_W2+1
-            dex
-            bne  _fpage
-_frest      cpy  P8ZP_SCRATCH_B1
-            beq  _fdone
-            sta  $ff02
-            lda  (P8ZP_SCRATCH_W1),y
-            sta  $ff01
-            sta  (P8ZP_SCRATCH_W2),y
-            iny
-            bne  _frest
-_fdone      lda  #$0e                   ; the program's configuration
-            sta  $ff00
-            cli
-            rts
-stash
-            ; ---- stash: bank 0 to bank 1
-            sei
-            ldy  #0
-            cpx  #0
-            beq  _srest
-_spage      sta  $ff01                  ; bank 0
-            lda  (P8ZP_SCRATCH_W1),y
-            sta  $ff02                  ; bank 1
-            sta  (P8ZP_SCRATCH_W2),y
-            iny
-            bne  _spage
-            inc  P8ZP_SCRATCH_W1+1
-            inc  P8ZP_SCRATCH_W2+1
-            dex
-            bne  _spage
-_srest      cpy  P8ZP_SCRATCH_B1
-            beq  _sdone
-            sta  $ff01
-            lda  (P8ZP_SCRATCH_W1),y
-            sta  $ff02
-            sta  (P8ZP_SCRATCH_W2),y
-            iny
-            bne  _srest
-_sdone      lda  #$0e
-            sta  $ff00
-            cli
-            rts
-_end
-            .cerror _end - p8b_pagemem.p8s_copy_code > 112, "copy_code is longer than COPY_SIZE"
-            ; !notreached!
-        }}
-    }
 }

@@ -134,8 +134,11 @@ and editing then go about as with an REU.
     the start screen and `:@$` for room, and 3 page slots.  Moving through
     about 50 KB of text, the copies from bank 1 can't be noticed (tried on
     VICE, 2026-11-06).  Next: `:rec` after a reset (bank 1 keeps its
-    contents; untested), and an REU build (the C64's REU driver nearly
-    fits: the page store needs the room the bank 1 build found).
+    contents; untested).
+  - `p8vi-c128reu` (`make test-c128reu`): the pages in an REU, 192 KB
+    for the text, yank and undo (src/c128reu, src/c64/reu.p8), or in bank
+    1 without one; the bank 1 build's room savings and also the one row
+    scrolling off (`features.SCROLL`), for 2 page slots.
   - Running p8vi-c128x overwrites BASIC's variables and strings (bank 1).
   - After `:q`, BASIC prints each string with the rest of its string
     pool after it (`print 7`: 7 and garbage).  Not the zero page, golden
