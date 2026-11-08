@@ -362,7 +362,11 @@ SCREEN_SUITES = [
     ('scroll-wrap-up', WRAPPED, 'G' + 'k' * 25),
 ]
 
-EMU = ['x64sc', '-default', '-sounddev', 'dummy', '-warp', '+autostart-warp',
+# -minimized: the emulators' windows would pop up and take the keyboard
+# focus from whatever the user is typing in.  It must come after -default,
+# which resets every setting given before it (VICE reads the options in
+# order).
+EMU = ['x64sc', '-default', '-minimized', '-sounddev', 'dummy', '-warp', '+autostart-warp',
        '-drive8type', '1541']
 # --jiffydos: VICE's JiffyDOS ROMs, in its ROM directories (as the
 # Makefile's emulator targets use them)
@@ -374,25 +378,25 @@ SCREEN_DUMP = 'm 0400 07e7'
 # the PET (--machine pet): a 4032 with a 2031, the IEEE-488 drive that
 # takes .d64 images like the 1541; its debug cartridge is at $8bff, its
 # screen at $8000
-PET = {'EMU': ['xpet', '-default', '-model', '4032', '-sounddev', 'dummy', '-warp',
+PET = {'EMU': ['xpet', '-default', '-minimized', '-model', '4032', '-sounddev', 'dummy', '-warp',
                '+autostart-warp', '-drive8type', '2031'],
        'EXIT_POKE': 'poke 35839,0', 'SCREEN_DUMP': 'm 8000 83e7'}
 # the Plus/4 (--machine plus4): its debug cartridge is at $fdcf, its screen
 # at $0c00
-PLUS4 = {'EMU': ['xplus4', '-default', '-sounddev', 'dummy', '-warp', '+autostart-warp',
+PLUS4 = {'EMU': ['xplus4', '-default', '-minimized', '-sounddev', 'dummy', '-warp', '+autostart-warp',
                  '-drive8type', '1541'],
          'EXIT_POKE': 'poke 64975,0', 'SCREEN_DUMP': 'm 0c00 0fe7'}
 # the C128 (--machine c128): debug cartridge at $d7ff and the 40 column
-# screen at $0400, as on the C64.  -minimized: x128's windows would take the
-# keyboard focus from whatever the user is typing in
-C128 = {'EMU': ['x128', '-minimized', '-default', '-sounddev', 'dummy', '-warp', '+autostart-warp',
+# screen at $0400, as on the C64.  (-minimized hides both its windows, the
+# VIC-II's and the VDC's)
+C128 = {'EMU': ['x128', '-default', '-minimized', '-sounddev', 'dummy', '-warp', '+autostart-warp',
                 '-40col', '-drive8type', '1541'],
         'EXIT_POKE': 'poke 55295,0', 'SCREEN_DUMP': 'm 0400 07e7',
         # (the font build's screen: $c400, the RAM under the KERNAL ROM)
         'FONT_DUMP': ['bank ram', 'm c400 c7e7']}
 # the C128 on the 80 column screen (--machine c128-80): the screen is at
 # $0000 in the VDC's own memory (the monitor's "vdc" bank), 80 x 25
-C128_80 = {'EMU': ['x128', '-minimized', '-default', '-sounddev', 'dummy', '-warp', '+autostart-warp',
+C128_80 = {'EMU': ['x128', '-default', '-minimized', '-sounddev', 'dummy', '-warp', '+autostart-warp',
                    '-80col', '-drive8type', '1541'],
            'EXIT_POKE': 'poke 55295,0', 'SCREEN_DUMP': ['bank vdc', 'm 0000 07cf'], 'COLUMNS': 80,
            'FONT_DUMP': ['bank vdc', 'm 0000 07cf']}

@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 import edtest  # noqa: E402  (its monitor client)
 
 SIZES = [128, 256, 512, 1024, 2048, 4096, 8192, 16384]
-EMU = ['x64sc', '-default', '-sounddev', 'dummy', '-warp', '-debugcart',
+EMU = ['x64sc', '-default', '-minimized', '-sounddev', 'dummy', '-warp', '-debugcart',
        '-autostartprgmode', '1']
 
 
