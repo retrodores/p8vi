@@ -17,6 +17,9 @@ screen  types keys, dumps screen memory over the VICE remote monitor, does
 Every run gets its own disk image, so runs go in parallel.  A run that hits
 the cycle limit hung.
 
+With --reu the files run starts with reu-in-use: the build's pages must be in
+the REU (pagemem.in_reu, read over the monitor), not quietly in main RAM.
+
 --font FNT runs the font build (p8vi-c64font) with its font file on the
 disk, and adds its tests.
 
@@ -433,6 +436,49 @@ def make_disk(d64, prg, text, blocks_free=None):
                        check=True, capture_output=True)
 
 
+REU_CHECK = 'reu-in-use'
+
+
+def run_reu_check(args):
+    """With --reu: the page store must have its pages in the REU.  It falls
+    back to main RAM, quietly, when main RAM has no room for its slots
+    below the text top (as the font build once did, 11 bytes short), and
+    the other suites then fail in ways that look like broken undo or put.
+    Reads pagemem.in_reu (its address from the build's listing)."""
+    listing = os.path.splitext(args.prg)[0] + '.list'
+    try:
+        with open(listing, encoding='latin-1') as f:
+            m = re.search(r'^[>.]([0-9a-f]{4})\s+p8v_in_reu\b', f.read(), re.M)
+    except OSError:
+        m = None
+    if not m:
+        return REU_CHECK, False, [f'  no pagemem.in_reu in {listing}']
+    addr = m.group(1)
+    base = os.path.join(args.work, 'vt-' + REU_CHECK)
+    d64 = base + '.d64'
+    make_disk(d64, args.prg, SHORT)
+    port = next(FILE_PORTS)
+    lines = []
+    with open(base + '.log', 'wb') as log:
+        p = subprocess.Popen(EMU + ['-8', d64, '-autostart', d64, '-limitcycles', str(args.limit),
+                                    '-remotemonitor', '-remotemonitoraddress', f'ip4://127.0.0.1:{port}'],
+                             stdout=log, stderr=subprocess.STDOUT, cwd=args.work)
+        try:
+            reply = monitor(port, [f'm {addr} {addr}'], 20) if wait_for_editor(port) else None
+        finally:
+            p.kill()
+            p.wait()
+    if reply is None:
+        return REU_CHECK, False, ['  the editor did not come up, or the monitor did not answer']
+    data = screen_bytes(reply[0])
+    if not data:
+        return REU_CHECK, False, [f'  could not read ${addr}: {reply[0]!r}']
+    if data[0] == 0:
+        lines.append(f'  the pages are in main RAM, not the REU (pagemem.in_reu at ${addr} is 0):')
+        lines.append('  is there room for pagemem.SLOTS slots below the text top?')
+    return REU_CHECK, not lines, lines
+
+
 def run_files(args, suite):
     name, keys, expected, *text = suite
     base = os.path.join(args.work, 'vt-' + name)
@@ -698,7 +744,9 @@ def main():
     if args.kind == 'files':
         suites = [s for s in FILE_SUITES + (REU_SUITES if args.reu or args.paged else []) + (FONT_SUITES if args.font else [])
                   if (not args.names or s[0] in args.names) and s[0] not in args.skip]
-        work = lambda s: run_files(args, s)
+        if args.reu and (not args.names or REU_CHECK in args.names) and REU_CHECK not in args.skip:
+            suites.insert(0, (REU_CHECK,))
+        work = lambda s: run_reu_check(args) if s[0] == REU_CHECK else run_files(args, s)
     else:
         suites = list(enumerate(s for s in SCREEN_SUITES if not args.names or s[0] in args.names))
         work = lambda s: run_screen(args, s)
