@@ -1,4 +1,5 @@
 %import diskio
+%import cbmkernal
 %import strings
 %import textio
 

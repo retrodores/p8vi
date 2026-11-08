@@ -74,7 +74,7 @@ PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64disk.prg build/p8
 # it loads the font from p8vi.fnt (make font, from FONTSRC).
 FONTPROG = build/p8vi-c64font.prg
 FONTSRC	= src/c64/c64oscharset.p8
-SRCS	= src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/pagestore.p8 src/charset.p8 src/*/platform.p8 \
+SRCS	= src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/pagestore.p8 src/charset.p8 src/cbmkernal.p8 src/*/platform.p8 \
 	  src/*/store_platform.p8 src/*/pagemem_platform.p8 src/*/xmem_platform.p8 src/c64/reu.p8
 
 all: build $(PROGS) $(FONTPROG)
