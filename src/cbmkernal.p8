@@ -23,15 +23,17 @@ main {
     }
 
     ; send DOS command c ('s' scratch, 'r' rename) for name, keeping its
-    ; prefix at the front ("s0:name"; "s:name" without one), with "=old"
-    ; after it if old isn't 0.  (diskio.delete() and rename() put "s:" and
-    ; "r:" before the whole name, which a prefix doesn't survive)
+    ; prefix at the front ("s0:name"; "s0:name" too without one: the MEGA65
+    ; wants the drive, "r:new=old" gives 79 SINGLE DRIVE D0 ONLY), with
+    ; "=old" after it if old isn't 0.  (diskio.delete() and rename() put "s:"
+    ; and "r:" before the whole name, which a prefix doesn't survive)
     sub dos_command(ubyte c, str name, str old) {
         ubyte i = 1
         diskio.list_filename[0] = c
         if prefix_len(name) == 0 {
-            diskio.list_filename[1] = ':'
-            i = 2
+            diskio.list_filename[1] = '0'
+            diskio.list_filename[2] = ':'
+            i = 3
         }
         i += strings.copy(name, &diskio.list_filename + i)
         if old != 0 {
