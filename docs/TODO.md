@@ -47,6 +47,14 @@ aren't.
   `scroll_rows` (platform).  The Prog8 code around calls is what costs
   bytes.
 
+- **Ctrl-G could show where the text is** (the REU, bank 1, main RAM),
+  like Turbo Macro Pro's `(512k)` on its status line: it would show at a
+  glance when a build quietly falls back to main RAM (as p8vi-c64font
+  did, 11 bytes short of room for the REU slots).  A fixed tag is about
+  15-25 bytes, the REU size more; p8vi-c128reu has about 24 bytes before
+  it loses a page slot, so it waits for a round of trimming.  The tests
+  catch the fallback already (`reu-in-use` in tests/vice/edtest.py).
+
 ## Memory
 
 - **Text in extended memory** (the cx16's banked RAM, a C64 REU): files
