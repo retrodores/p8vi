@@ -16,3 +16,5 @@ prog8lib-*/
 save/
 *.gif
 *.d64
+# temporary files
+temp/
