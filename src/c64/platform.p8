@@ -35,8 +35,13 @@ platform {
        else
            texttop = $cfe0     ; Prog8 keeps the R0-R15 virtual registers at $cfe0-$cfff
        ; (the font build) the text memory ends at the screen
-       if features.FONT and texttop > font.SCREEN
+       ; and $cc00-$cfdf (after the screen) is spare memory: the key
+       ; buffers there leave the REU's page slots room below the screen
+       if features.FONT and texttop > font.SCREEN {
            texttop = font.SCREEN
+           sparestart = font.SCREEN + $0400
+           sparetop = $cfe0
+       }
        if features.FONT and not font.start() {
            txt.print("can't load p8vi.fnt\n")
            sys.exit(1)

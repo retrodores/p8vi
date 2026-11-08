@@ -169,12 +169,6 @@ and editing then go about as with an REU.
   C64, the PET (`--machine pet`) and the Plus/4 (`--machine plus4`).
 - **cx16 tests.**  x16emu can only type keys by pasting text with `-bas`,
   so tests there are done by hand so far.
-- **The font build's file suites fail** (2026-11-06, `make
-  test-c64font`: 9 of 22 passed).  For example `subst` s3: after
-  `:%s/one/x/g` and `u` the file still has the x's.  The REU build passes
-  the same suites.  Built from the source before the full-disk work it
-  fails too, with prog8c-llvm (adcfe18e) and prog8c-beta (a4b59f6b)
-  alike.  Waiting for the compiler work to settle before looking into it.
 - **Intermittent failures with JiffyDOS** (`make test-jiffydos`): in 2
   of 3 full runs, suites of the REU and font builds failed (an extra byte
   at the end of a file read in, lines missing after a put, a hang), and
