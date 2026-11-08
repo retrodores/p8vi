@@ -193,6 +193,14 @@ FILE_SUITES = [
         ('t.txt', SHORT.split(b'\n', 1)[1]),
         ('p8vi.tmp', None),
     ]),
+    # :w with a drive prefix (features.PREFIX; not in every build): a new
+    # file, then written over (2dd), then another, and no p8vi.tmp left
+    # (the temporary file goes to 0:p8vi.tmp, the rename is r0:x1=p8vi.tmp)
+    ('prefix', r':w 0:x1\n2dd:w 0:x1\n:w 0:x2\n', [
+        ('p8vi.tmp', None),
+        ('x1', b'THIRD, WITH PUNCT!\n\nFIFTH LINE'),
+        ('x2', b'THIRD, WITH PUNCT!\n\nFIFTH LINE'),
+    ]),
     # saving to a full disk: the text doubled (read in again) doesn't fit in
     # the 3 blocks left, so the save fails, and the file is as it was (it
     # used to be deleted before writing), with no temporary file left

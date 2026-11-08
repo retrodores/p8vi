@@ -284,7 +284,7 @@ test-mega65:	build/p8vi-mega65.prg
 # pages; it fails the same way on a C64 with a 128 KB REU)
 test-mega65dma:	build/p8vi-mega65dma.prg
 	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg --paged --font \
-		--skip subst --skip read-dir $(FONT_SKIP_M65) files
+		--skip subst --skip read-dir --skip prefix $(FONT_SKIP_M65) files
 	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg --paged --model 64 \
 		files delete-put undo pages huge
 	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg screen
@@ -377,11 +377,11 @@ test-c128x:	build/p8vi-c128x.prg build/p8vi.fnt
 # the C128 REU build: with a 512 KB REU (all the page store's suites), and
 # without one (bank 1, as test-c128x); read-dir: no :@$ in this build
 test-c128reu:	build/p8vi-c128reu.prg
-	python3 -B tests/vice/edtest.py files --machine c128 --reu 512 --limit 3000000000 -j 4 --skip read-dir --prg build/p8vi-c128reu.prg
+	python3 -B tests/vice/edtest.py files --machine c128 --reu 512 --limit 3000000000 -j 4 --skip read-dir --skip prefix --prg build/p8vi-c128reu.prg
 	python3 -B tests/vice/edtest.py screen --machine c128 --reu 512 -j 4 --prg build/p8vi-c128reu.prg
-	python3 -B tests/vice/edtest.py files --machine c128-80 --reu 512 --limit 3000000000 -j 4 --skip read-dir --prg build/p8vi-c128reu.prg
+	python3 -B tests/vice/edtest.py files --machine c128-80 --reu 512 --limit 3000000000 -j 4 --skip read-dir --skip prefix --prg build/p8vi-c128reu.prg
 	python3 -B tests/vice/edtest.py screen --machine c128-80 --reu 512 -j 4 --prg build/p8vi-c128reu.prg
-	python3 -B tests/vice/edtest.py files --machine c128 --paged --limit 3000000000 -j 4 $(C128X_SKIP) --prg build/p8vi-c128reu.prg
+	python3 -B tests/vice/edtest.py files --machine c128 --paged --limit 3000000000 -j 4 $(C128X_SKIP) --skip prefix --prg build/p8vi-c128reu.prg
 	python3 -B tests/vice/rectest.py --machine c128 --prg build/p8vi-c128reu.prg
 	python3 -B tests/vice/rectest.py --machine c128-80 --no-reu --prg build/p8vi-c128reu.prg
 

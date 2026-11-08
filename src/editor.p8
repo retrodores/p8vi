@@ -2321,20 +2321,67 @@ main {
     ; deleted only once that worked: a failed write (a full disk, a drive
     ; error, a reset) leaves the old file as it was
     str save_temp = "p8vi.tmp"
+    ; (features.PREFIX) the temporary file's name with the saved file's
+    ; drive or path prefix ("0:", "//dir/:"): the rename only works in the
+    ; same place
+    ubyte[40] temp_name
+
+    ; how much of name is a drive or path prefix: up to and including its
+    ; last ':', 0 for none (rfind gives 255 then)
+    sub prefix_len(str name) -> ubyte {
+        ubyte i
+        i, void = strings.rfind(name, ':')
+        return i + 1
+    }
+
+    ; send DOS command c ('s' scratch, 'r' rename) for name, keeping its
+    ; prefix at the front ("s0:name"; "s:name" without one), with "=old"
+    ; after it if old isn't 0.  (diskio.delete() and rename() put "s:" and
+    ; "r:" before the whole name, which a prefix doesn't survive)
+    sub dos_command(ubyte c, str name, str old) {
+        ubyte i = 1
+        diskio.list_filename[0] = c
+        if prefix_len(name) == 0 {
+            diskio.list_filename[1] = ':'
+            i = 2
+        }
+        i += strings.copy(name, &diskio.list_filename + i)
+        if old != 0 {
+            diskio.list_filename[i] = '='
+            void strings.copy(old, &diskio.list_filename + i + 1)
+        }
+        diskio.send_command(diskio.list_filename)
+    }
+
+    ; (features.PREFIX) delete a file (one that isn't there is no error)
+    sub scratch(str name) {
+        dos_command('s', name, 0)
+    }
 
     ; write the whole text to a file, replacing it if it exists.
     ; returns false (and shows the drive status) if that fails.
     sub save_file(str name) -> bool {
         bool ok
-        ; (straight into the file if that is the temporary name itself)
+        ; the temporary file goes where the file goes (features.PREFIX);
+        ; straight into the file if that is the temporary name itself
         pointer target = save_temp
-        if strings.compare(name, save_temp) == 0
+        if features.PREFIX {
+            ubyte plen = prefix_len(name)
+            target = &temp_name
+            sys.memcopy(name, temp_name, plen)
+            void strings.copy(save_temp, &temp_name + plen)
+            if strings.compare(name + plen, save_temp) == 0
+                target = name
+        } else if strings.compare(name, save_temp) == 0
             target = name
         ; CBM DOS can't open an existing file for writing, so delete it first.
         ; (not with diskio.exists(): probing for a missing file with a read
         ; channel hangs the 1541 after a number of tries; deleting a file
         ; that isn't there is harmless)
-        diskio.delete(target)
+        if features.PREFIX
+            scratch(target)
+        else
+            diskio.delete(target)
         if not platform.open_write(target) {
             disk_error()
             return false
@@ -2356,13 +2403,22 @@ main {
         if not ok or disk_code != 0 {
             status(status_text)
             ; what was written is no good; the old file is still there
-            diskio.delete(target)
+            if features.PREFIX
+                scratch(target)
+            else
+                diskio.delete(target)
             return false
         }
-        ; the text is safe on the disk: now the old file can go
+        ; the text is safe on the disk: now the old file can go.  (the
+        ; rename's old name is in the new name's place already)
         if target != name {
-            diskio.delete(name)
-            diskio.rename(save_temp, name)
+            if features.PREFIX {
+                scratch(name)
+                dos_command('r', name, save_temp)
+            } else {
+                diskio.delete(name)
+                diskio.rename(save_temp, name)
+            }
             read_disk_status()
             if disk_code != 0 {
                 status("saved as p8vi.tmp")

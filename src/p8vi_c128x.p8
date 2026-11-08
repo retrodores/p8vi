@@ -33,6 +33,7 @@ features {
     const bool DIR = false      ; :@$ shows the disk directory (off: room for page slots)
     const bool FONT = true      ; the font build: p8vi.fnt shows the ASCII characters (src/c128font/font.p8)
     const bool SWITCH = true     ; (the C128) the 40/80 DISPLAY key switches the screen while p8vi runs
+    const bool PREFIX = true     ; :w keeps a drive or path prefix (0:name, //dir/:name) for the safe save (164 bytes)
 }
 
 ; features.FONT again, for the assembler (charset.p8's tables).  In main:

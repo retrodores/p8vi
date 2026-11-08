@@ -25,8 +25,13 @@ aren't.
   the VIC-20 doesn't have, so there a file that ends with a line ending
   still shows an empty last line.
 - **Saving with a drive or path prefix** (`:w 0:name`, `//dir/:name`):
-  the library's delete and rename put `s:` and `r:` before the whole name,
-  which doesn't work with a prefix (nor did saving before the safe save).
+  fixed with `features.PREFIX` (164 bytes; the scratch and rename commands
+  keep the prefix in front, and the temporary file goes to the same place),
+  but it is off where there's no room: p8vi-vic20, p8vi-cx16 and
+  p8vi-mega65dma (too long by 59-98 bytes) and p8vi-c128reu (it would
+  lose a page slot).  There the library's delete and rename put `s:` and
+  `r:` before the whole name, which a prefix doesn't survive.  Only `0:` is
+  tested (the `prefix` suite); `//dir/:` needs a CMD drive or SD2IEC.
 - **The VIC-20 status line** is only 22 columns: 12 for messages and 10 for
   the line,column position.  Check what gets cut short and whether the two
   parts can run into each other.
