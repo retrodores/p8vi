@@ -173,6 +173,22 @@ and editing then go about as with an REU.
     "0"` (80) or `"1"` (40) in the monitor.
   - The C128's other keys: TAB, HELP, LINE FEED, the function keys.
   - Colors on the VDC (the attribute memory), `txt` colors and scrolling.
+- **TRS-80 Model III with LDOS** (`p8vi-trs80.cmd`, `make trs80`; llvm16
+  with the z80-trs80-cmd profile, llvm-z80 and z88dk; src/trs80).  Edits,
+  saves and reads files (checked by hand in trs80gp, 2026-11-08); about
+  10 KB for text with LDOS's HIGH$ at $FFFF.  Keys: shift + up arrow is
+  Escape, BREAK too, the left arrow is backspace (DEL), shift + left moves
+  left, Ctrl is shift + down arrow + a letter.  p8vi clears the caps lock
+  flag ($4019) and moves LDOS's blinking cursor ($4020) out of the way,
+  and puts both back on :q.  Open:
+  - A test runner.  trs80gp types into it only with `-ik` (keyboard
+    matrix rows; the mask is hex): its paste (`-i`) only feeds programs
+    that wait for a key through LDOS, not p8vi's polling.  But after any
+    `-ik` key a file open hangs (in p8vi; not in small test programs, and
+    not with the real keyboard).
+  - The safe save copies p8vi.tmp to the file (the library has no rename).
+  - The start screen (SPLASH) draws with CBM screen codes; off.
+  - The empty rows show `-` as on CBM; the TRS-80 could show `~`.
 - **The next release:** which of the new builds go in (`make release`
   copies the MEGA65 builds, not the PET, Plus/4, disk or C128 builds).
 

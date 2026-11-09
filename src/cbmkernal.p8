@@ -1,7 +1,7 @@
 ; p8vi's CBM parts: the KERNAL and CBM DOS calls of the editor (main), for
 ; the CBM targets (each platform.p8 imports this).  Another kind of machine
-; gives the same names in its own platform: get_key, ticks,
-; str2uword_digits, disk_code, status_text, file_exists, read_disk_status,
+; gives the same names in its own platform: get_key, ticks, cursor_char,
+; rename_file, str2uword_digits, disk_code, status_text, file_exists, read_disk_status,
 ; disk_error, dos_cmd, dir_cmd (features.DIR), dos_command and scratch
 ; (features.PREFIX), and the charset module.
 
@@ -11,10 +11,21 @@
 main {
 %option merge
 
+    ; platform.stop() is only for the font builds here (features.FONT)
+    const bool PLATFORM_STOP = false
+
     ; a key from the keyboard buffer, 0 for none
     alias get_key = cbm.GETIN2
     ; the jiffy clock (1/60 s), low 16 bits
     alias ticks = cbm.RDTIM16
+
+    ; the cursor: the character under it in reverse
+    inline sub cursor_char(ubyte char) -> ubyte {
+        return char ^ $80
+    }
+
+    ; rename a file (the safe save: p8vi.tmp to the file's name)
+    alias rename_file = diskio.rename
 
     ; the number of digits the last conv.str2uword() read (it leaves them
     ; in r15)

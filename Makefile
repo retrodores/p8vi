@@ -202,6 +202,17 @@ build/p8vi-vic20.prg: src/p8vi_vic20.p8 $(SRCS)
 	$(CP) build/p8vi_vic20.asm build/p8vi-vic20.asm
 	$(RM) build/p8vi_vic20.prg
 
+# the TRS-80 Model III with LDOS: a .cmd program, through prog8c's llvm16
+# target and the z80-trs80-cmd profile, which need llvm-z80 and z88dk (not
+# in "all").  The source is src/p8vi_trs80.p8 with src/trs80.
+LLVM_Z80 ?= $(HOME)/.local/llvm-z80
+Z88DK ?= $(HOME)/.local/z88dk
+export LLVM_Z80 Z88DK
+PCCARGSTRS80=-srcdirs src:src/trs80 -target llvm16 -triple z80-trs80-cmd
+trs80: build/p8vi-trs80.cmd
+build/p8vi-trs80.cmd: src/p8vi_trs80.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/trs80/*.p8
+	$(PCC) $(PCCARGSTRS80) -o build/p8vi-trs80 $<
+
 clean:
 	$(RM) build$(SEP)*
 

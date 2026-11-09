@@ -300,11 +300,11 @@ main {
         }
     }
 
-    ; show the character under the cursor in reverse
+    ; show the cursor on the character under it (in reverse on CBM)
     sub cursor_on() {
         if not cursor_active {
             char_save = txt.getchr(view.column, view.row)
-            txt.setchr(view.column, view.row, char_save ^ $80)
+            txt.setchr(view.column, view.row, cursor_char(char_save))
             cursor_active = true
         }
     }
@@ -1960,7 +1960,7 @@ main {
         ; nothing to recover after this
         if buffer.PAGED
             buffer.clean()
-        if features.FONT
+        if features.FONT or PLATFORM_STOP
             platform.stop()
         txt.cls()
         sys.exit(0)
@@ -2391,7 +2391,7 @@ main {
                 dos_command('r', name, save_temp)
             } else {
                 diskio.delete(name)
-                diskio.rename(save_temp, name)
+                rename_file(save_temp, name)
             }
             read_disk_status()
             if disk_code != 0 {
