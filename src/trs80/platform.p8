@@ -377,25 +377,12 @@ main {
     }
 
     ; rename a file.  no DOS call renames one: the profile's rename
-    ; (z80-trs80-files.c) copies old to new through a sector buffer and
-    ; deletes old, or deletes the partial copy.  sets io_failed if it fails.
-    ; (called directly, as diskio.rename() doesn't give the result; so the
-    ; names need the DOS's NAME/EXT, which diskio makes of name.ext)
-    extsub prog8_trs80_rename(str old, str new) -> word
-    str old_spec = " " * 40
-    str new_spec = " " * 40
+    ; (z80-trs80-files.c) copies old to new and deletes old, or deletes the
+    ; partial copy.  diskio.rename() gives no result, so the old file still
+    ; there means it failed: sets io_failed then.
     sub rename_file(str old, str new) {
-        dos_spec(old, old_spec)
-        dos_spec(new, new_spec)
-        io_failed = prog8_trs80_rename(old_spec, new_spec) != 0
-    }
-    sub dos_spec(str name, str spec) {
-        void strings.copy(name, spec)
-        ubyte i
-        bool found
-        i, found = strings.rfind(spec, '.')
-        if found
-            spec[i] = '/'
+        diskio.rename(old, new)
+        io_failed = file_exists(old)
     }
 
     ; (features.DOS, features.DIR, features.PREFIX: CBM DOS only, off here)
