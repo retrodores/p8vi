@@ -87,6 +87,8 @@ NEW_TEXTS = {('final-eol', 'new')}
 # the suites for CBM things: PETSCII and ASCII files, the C64's graphics
 # keys, CBM DOS commands and drive prefixes, a disk filled with c1541
 CBM_ONLY = ['ascii', 'g-cmds', 'read-dir', 'dos', 'prefix', 'save-full']
+# and what the TRS-80 build leaves out for room (features.MARKS)
+NO_ROOM = ['marks']
 
 
 def trs_name(name):
@@ -161,7 +163,7 @@ def main():
     args.work = os.path.abspath(args.work)
     suites = [s for s in edtest.FILE_SUITES
               if (not args.names or s[0] in args.names) and s[0] not in args.skip
-              and (args.names or s[0] not in CBM_ONLY)]
+              and (args.names or s[0] not in CBM_ONLY + NO_ROOM)]
     if not suites:
         sys.exit('no such suite')
     failed = 0

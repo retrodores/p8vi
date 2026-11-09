@@ -304,14 +304,14 @@ test-mega65:	build/p8vi-mega65.prg
 
 # the same on the MEGA65 page store build, with the suites for more text
 # than main RAM holds (--paged) and the font suite: the pages in attic RAM
-# (xemu has it).  left out: subst and read-dir (SUBST and DIR are off in
-# this build), and g-cmds and ascii as above.  then some of them as on a
+# (xemu has it).  left out: subst, read-dir and marks (SUBST, DIR and
+# MARKS are off in this build), and g-cmds and ascii as above.  then some of them as on a
 # Nexys4 board (model ID $40), without attic RAM: the pages in banks 4 and
 # 5 (not bigundo: 30 KB of text, undo and yank need more than their 126
 # pages; it fails the same way on a C64 with a 128 KB REU)
 test-mega65dma:	build/p8vi-mega65dma.prg
 	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg --paged --font \
-		--skip subst --skip read-dir --skip prefix $(FONT_SKIP_M65) files
+		--skip subst --skip read-dir --skip prefix --skip marks $(FONT_SKIP_M65) files
 	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg --paged --model 64 \
 		files delete-put undo pages huge
 	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg screen
@@ -389,8 +389,9 @@ test-c128:	build/p8vi-c128.prg
 
 # the C128 bank 1 build: also the page store's suites (--paged), except
 # read-dir (no :@$ in this build) and the two that need more than bank 1
-# holds (huge: about 87 KB of text; bigundo: 29 KB and its undo)
-C128X_SKIP = --skip read-dir --skip huge --skip bigundo
+# holds (huge: about 87 KB of text; bigundo: 29 KB and its undo), and
+# marks (features.MARKS is off for room)
+C128X_SKIP = --skip read-dir --skip huge --skip bigundo --skip marks
 # p8vi-c128x is also a font build (oscii.fnt on its disks, and the font
 # suite): it leaves out g-cmds and ascii as the C64 font build does
 C128X_FONT = --font build/oscii.fnt --skip g-cmds --skip ascii
@@ -402,11 +403,12 @@ test-c128x:	build/p8vi-c128x.prg build/oscii.fnt
 	python3 -B tests/vice/rectest.py --machine c128 --no-reu --font build/oscii.fnt --prg build/p8vi-c128x.prg
 
 # the C128 REU build: with a 512 KB REU (all the page store's suites), and
-# without one (bank 1, as test-c128x); read-dir: no :@$ in this build
+# without one (bank 1, as test-c128x); read-dir: no :@$ in this build,
+# no marks either
 test-c128reu:	build/p8vi-c128reu.prg
-	python3 -B tests/vice/edtest.py files --machine c128 --reu 512 --limit 3000000000 -j 4 --skip read-dir --skip prefix --prg build/p8vi-c128reu.prg
+	python3 -B tests/vice/edtest.py files --machine c128 --reu 512 --limit 3000000000 -j 4 --skip read-dir --skip prefix --skip marks --prg build/p8vi-c128reu.prg
 	python3 -B tests/vice/edtest.py screen --machine c128 --reu 512 -j 4 --prg build/p8vi-c128reu.prg
-	python3 -B tests/vice/edtest.py files --machine c128-80 --reu 512 --limit 3000000000 -j 4 --skip read-dir --skip prefix --prg build/p8vi-c128reu.prg
+	python3 -B tests/vice/edtest.py files --machine c128-80 --reu 512 --limit 3000000000 -j 4 --skip read-dir --skip prefix --skip marks --prg build/p8vi-c128reu.prg
 	python3 -B tests/vice/edtest.py screen --machine c128-80 --reu 512 -j 4 --prg build/p8vi-c128reu.prg
 	python3 -B tests/vice/edtest.py files --machine c128 --paged --limit 3000000000 -j 4 $(C128X_SKIP) --skip prefix --prg build/p8vi-c128reu.prg
 	python3 -B tests/vice/rectest.py --machine c128 --prg build/p8vi-c128reu.prg
@@ -441,8 +443,8 @@ test-c64reu:	build/p8vi-c64reu.prg
 # the font build: the REU build's tests, and its own (the font suite).
 # it has its own keys for | (and } is shift + minus), its own PETSCII for
 # ASCII files and oscii.fnt on the disk, so g-cmds, ascii and read-dir
-# don't apply
-FONT_SKIP = --skip g-cmds --skip ascii --skip read-dir
+# don't apply, and marks: it has none (features.MARKS)
+FONT_SKIP = --skip g-cmds --skip ascii --skip read-dir --skip marks
 test-c64font:	build/p8vi-c64font.prg build/oscii.fnt
 	python3 tests/vice/edtest.py files --prg build/p8vi-c64font.prg --font build/oscii.fnt --reu 512 --limit 3000000000 $(FONT_SKIP)
 	python3 tests/vice/edtest.py files --prg build/p8vi-c64font.prg --font build/oscii.fnt --skip big $(FONT_SKIP)
