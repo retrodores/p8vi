@@ -39,6 +39,8 @@ import edtest  # noqa: E402
 TRS80GP = os.environ.get('TRS80GP') or shutil.which('trs80gp') or \
     os.path.expanduser('~/Applications/trs80gp.app/Contents/MacOS/trs80gp')
 TIMEOUT = 600
+# the test build's key buffer (KEY_BUF_SIZE in src/trs80/platform.p8)
+KEY_BUF_SIZE = 256
 
 
 def key_bytes(keys):
@@ -101,8 +103,11 @@ def run_suite(args, suite):
     with open(os.path.join(work, 't.txt'), 'wb') as f:
         # (LF line endings to CR, CR LF stays CR LF)
         f.write(swap(start).replace(b'\r\n', b'\0').replace(b'\n', b'\r').replace(b'\0', b'\r\n'))
+    played = key_bytes(':e t.txt\\n' + keys + ':q!\\n')
+    if len(played) > KEY_BUF_SIZE:
+        return name, False, [f'  {len(played)} bytes of keys, the test build holds {KEY_BUF_SIZE}']
     with open(os.path.join(work, 'keys.txt'), 'wb') as f:
-        f.write(key_bytes(':e t.txt\\n' + keys + ':q!\\n'))
+        f.write(played)
     typed = ['-iw', 'Ready', '-id', '60',
              '-i', 'IMPORT2 p8vi.cmd P8VI/CMD:1\\r', '-id', '900',
              '-i', 'IMPORT2 t.txt T/TXT:1\\r', '-id', '300',

@@ -45,7 +45,9 @@ platform {
     extsub malloc(uword size) -> uword
     extsub free(uword block)
     const uword FILE_ROOM = 2048
-    const uword STACK_ROOM = 2048
+    ; (measured: running the edits and big test suites, the stack used under
+    ; 64 bytes of it)
+    const uword STACK_ROOM = 512
 
     sub init() {
         uword size = $c000
@@ -270,8 +272,13 @@ main {
     ; backspace, which deletes in insert mode and on the : line and moves
     ; left otherwise (as h).  shift + left arrow (24) moves left in insert
     ; mode too.  Ctrl is shift + down arrow with a letter, as LDOS does it:
-    ; Ctrl-F is 6.
-    ubyte[if features.KEYFILE 2048 else 1] key_buf
+    ; Ctrl-F is 6, or in normal mode (where @ does nothing else) @ and then
+    ; the letter: @g is Ctrl-G.  another key after @ is just that key.
+    bool ctrl_next          ; @ was typed in normal mode: the next letter is a Ctrl key
+    ; (it takes memory from the text: tests/trs80/trstest.py checks that a
+    ; suite's keys fit)
+    const uword KEY_BUF_SIZE = 256
+    ubyte[if features.KEYFILE KEY_BUF_SIZE else 1] key_buf
     uword key_count
     uword key_pos
     sub get_key() -> ubyte {
@@ -280,6 +287,15 @@ main {
             return key_buf[key_pos - 1]
         }
         ubyte k = txt.getkey()
+        if k == '@' and mode == MODE_NAV and not ctrl_next {
+            ctrl_next = true
+            return 0
+        }
+        if k != 0 and ctrl_next {
+            ctrl_next = false
+            if (k >= 'a' and k <= 'z') or (k >= 'A' and k <= 'Z')
+                return k & 31
+        }
         when k {
             91 -> return KEY_UP
             10 -> return KEY_DOWN
@@ -295,6 +311,14 @@ main {
     sub ticks() -> uword {
         return (@(SECONDS) as uword) * 30 + 30 - @(TICKS)
     }
+
+    ; a character as txt.setchr wants it: ASCII
+    inline sub screen_code(ubyte char) -> ubyte {
+        return char
+    }
+
+    ; the rows past the end of the text, as vi shows them
+    str EMPTY_ROW = "~"
 
     ; the cursor: an underline (the characters from $80 are graphics)
     inline sub cursor_char(ubyte char) -> ubyte {

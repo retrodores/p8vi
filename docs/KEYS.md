@@ -55,6 +55,25 @@ to the text's: its line endings become the text's, and an ASCII file is
 translated to PETSCII.  Read into an empty text, the text takes on the
 file's format, as with `:e`.
 
+## TRS-80 keyboard notes
+
+The TRS-80 Model III version (`p8vi-trs80.cmd`, for LDOS) is ASCII, so
+there is no translation.  p8vi turns caps lock off while it runs (and back
+on when it quits).  Its keyboard has no `Esc`, `Ctrl` or `Backspace`:
+
+| vi key | Type | Notes |
+|--------|------|-------|
+| `Esc` | `Shift` + `↑`, or `BREAK` | |
+| `Ctrl` + letter | `@` then the letter, in normal mode | `@g` is `Ctrl-G`, `@f` `Ctrl-F`; another key after `@` is just that key; in insert mode and on the `:` line `@` is typed |
+| `Ctrl` + letter | `Shift` + `↓` held with the letter | the way LDOS does it, in any mode |
+| `Backspace` | `←` | deletes in insert mode and on the `:` line; in normal mode it moves left (as `h`) |
+| `←` in insert mode | `Shift` + `←` | |
+| arrow keys | `↑` `↓` `→` (`←` as above) | |
+
+Files are named as LDOS has them: `t.txt` is `T/TXT`.  Saving writes
+`p8vi.tmp` and then copies it over the file (LDOS's library has no
+rename), so a save takes a while on a floppy.
+
 ## Moving
 
 | Keys | Action | Status |

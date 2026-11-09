@@ -10,7 +10,7 @@
 ; which optional features the build has (code for the ones that are off
 ; is left out of the program).
 features {
-    const bool SPLASH = false   ; the start screen (off: it draws with CBM screen codes)
+    const bool SPLASH = true    ; the start screen
     const bool ASCII = false    ; (off: the TRS-80's text is ASCII already)
     const bool CRLF = true      ; CR LF line endings, :set crlf
     const bool SUBST = true     ; :s/old/new/ and line ranges (:%, :1,5, :$)

@@ -1,7 +1,7 @@
 ; p8vi's CBM parts: the KERNAL and CBM DOS calls of the editor (main), for
 ; the CBM targets (each platform.p8 imports this).  Another kind of machine
 ; gives the same names in its own platform: get_key, ticks, cursor_char,
-; rename_file, str2uword_digits, disk_code, status_text, file_exists, read_disk_status,
+; rename_file, str2uword_digits, screen_code, EMPTY_ROW, disk_code, status_text, file_exists, read_disk_status,
 ; disk_error, dos_cmd, dir_cmd (features.DIR), dos_command and scratch
 ; (features.PREFIX), and the charset module.
 
@@ -23,6 +23,14 @@ main {
     inline sub cursor_char(ubyte char) -> ubyte {
         return char ^ $80
     }
+
+    ; a character as txt.setchr wants it
+    inline sub screen_code(ubyte char) -> ubyte {
+        return txt.petscii2scr(char)
+    }
+
+    ; the rows past the end of the text (vi uses ~, PETSCII hasn't one)
+    str EMPTY_ROW = "-"
 
     ; rename a file (the safe save: p8vi.tmp to the file's name)
     alias rename_file = diskio.rename

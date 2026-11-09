@@ -2663,7 +2663,7 @@ view {
             line = splash_lines[i]
             c = (main.SCREEN_WIDTH - strings.length(line)) / 2
             while @(line) != 0 {
-                txt.setchr(c, r, txt.petscii2scr(@(line)))
+                txt.setchr(c, r, main.screen_code(@(line)))
                 c++
                 line++
             }
@@ -2726,8 +2726,8 @@ view {
             return
         }
         if row_start[r] == NONE {
-            ; rows past the end of the text show a - (vi uses ~, not in petscii)
-            platform.put_row(r, 0, "-", 1)
+            ; rows past the end of the text show EMPTY_ROW (vi's ~)
+            platform.put_row(r, 0, main.EMPTY_ROW, 1)
             return
         }
         void buffer.copy_out(row_start[r], row_len[r], linebuf)
