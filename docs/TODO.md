@@ -176,16 +176,18 @@ and editing then go about as with an REU.
 - **TRS-80 Model III with LDOS** (`p8vi-trs80.cmd`, `make trs80`; llvm16
   with the z80-trs80-cmd profile, llvm-z80 and z88dk; src/trs80).  Edits,
   saves and reads files (checked by hand in trs80gp, 2026-11-08); about
-  10 KB for text with LDOS's HIGH$ at $FFFF.  Keys: shift + up arrow is
+  9 KB for text with LDOS's HIGH$ at $FFFF.  Keys: shift + up arrow is
   Escape, BREAK too, the left arrow is backspace (DEL), shift + left moves
   left, Ctrl is shift + down arrow + a letter.  p8vi clears the caps lock
   flag ($4019) and moves LDOS's blinking cursor ($4020) out of the way,
-  and puts both back on :q.  Open:
-  - A test runner.  trs80gp types into it only with `-ik` (keyboard
-    matrix rows; the mask is hex): its paste (`-i`) only feeds programs
-    that wait for a key through LDOS, not p8vi's polling.  But after any
-    `-ik` key a file open hangs (in p8vi; not in small test programs, and
-    not with the real keyboard).
+  and puts both back on :q.  `make test-trs80` runs edtest's file suites
+  (16 of them, not the CBM ones) with a test build that plays its keys from
+  KEYS/TXT (features.KEYFILE, `make trs80-test`), through FreHD's IMPORT2
+  and EXPORT2 in trs80gp (tests/trs80/trstest.py).  Open:
+  - Screen tests.  trs80gp's paste (`-i`) doesn't reach p8vi's keyboard
+    polling, and after a key typed on its keyboard matrix (`-ik`) a file
+    open hangs (not with the real keyboard); a JCL file (`DO`) can't drive
+    it either.  temp/docs/trs80-ldos-notes.md has the details.
   - The safe save copies p8vi.tmp to the file (the library has no rename).
   - The start screen (SPLASH) draws with CBM screen codes; off.
   - The empty rows show `-` as on CBM; the TRS-80 could show `~`.

@@ -212,6 +212,14 @@ PCCARGSTRS80=-srcdirs src:src/trs80 -target llvm16 -triple z80-trs80-cmd
 trs80: build/p8vi-trs80.cmd
 build/p8vi-trs80.cmd: src/p8vi_trs80.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSTRS80) -o build/p8vi-trs80 $<
+# the test build: it plays the keys in KEYS/TXT first (features.KEYFILE)
+# the file tests on the TRS-80 (trs80gp, a window per suite; see
+# tests/trs80/trstest.py): the suites for CBM things are left out
+test-trs80:	build/p8vi-trs80test.cmd
+	python3 -B tests/trs80/trstest.py -j 3
+trs80-test: build/p8vi-trs80test.cmd
+build/p8vi-trs80test.cmd: src/p8vi_trs80test.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/trs80/*.p8
+	$(PCC) $(PCCARGSTRS80) -o build/p8vi-trs80test $<
 
 clean:
 	$(RM) build$(SEP)*

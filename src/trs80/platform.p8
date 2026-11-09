@@ -44,7 +44,7 @@ platform {
     ; leaves FILE_ROOM below it.)
     extsub malloc(uword size) -> uword
     extsub free(uword block)
-    const uword FILE_ROOM = 1024
+    const uword FILE_ROOM = 2048
     const uword STACK_ROOM = 2048
 
     sub init() {
@@ -84,7 +84,16 @@ platform {
         main.MIN_ROW         = 0
         main.MAX_ROW         = main.SCREEN_HEIGHT - main.STATUS_HEIGHT - 1
         main.STATUS_LINE     = main.SCREEN_HEIGHT - 1
+        ; (the test build) the keys to play, from KEYS/TXT
+        if features.KEYFILE and diskio.f_open(KEY_FILE) {
+            main.key_count = diskio.f_read(main.key_buf, len(main.key_buf))
+            diskio.f_close()
+        }
     }
+
+    ; (features.KEYFILE, the test build) the keys get_key() gives first:
+    ; the editor's codes, as tests/vice/edtest.py's suites type them
+    str KEY_FILE = "keys.txt"
 
     ; before the program ends
     sub stop() {
@@ -262,7 +271,14 @@ main {
     ; left otherwise (as h).  shift + left arrow (24) moves left in insert
     ; mode too.  Ctrl is shift + down arrow with a letter, as LDOS does it:
     ; Ctrl-F is 6.
+    ubyte[if features.KEYFILE 2048 else 1] key_buf
+    uword key_count
+    uword key_pos
     sub get_key() -> ubyte {
+        if features.KEYFILE and key_pos < key_count {
+            key_pos++
+            return key_buf[key_pos - 1]
+        }
         ubyte k = txt.getkey()
         when k {
             91 -> return KEY_UP
