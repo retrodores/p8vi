@@ -145,6 +145,15 @@ lines, `2dd` deletes 2 lines, `d3w` deletes 3 words.
 | `gg`, `G`, `nG` | first line, last line, line n |
 | `:n` | line n (also `:$` last line and `:.` cursor line, not on the VIC-20) |
 | `H` `M` `L` | top, middle, bottom row of the screen |
+| `m`a, `'`a, `` ` ``a | set mark a; go to its line, or to the mark itself (see below) |
+
+**Marks** (not on the VIC-20, the X16, the TRS-80, `p8vi-c64font`,
+`p8vi-mega65dma`, `p8vi-c128x` or `p8vi-c128reu`): `ma` remembers the cursor's place as mark `a` (any
+letter `a`-`z`).  `'a` goes back to that line, `` `a `` to the very
+place; on a Commodore `` ` `` is `Shift` + `*`.  With an operator they
+work like any motion: `d'a` deletes the lines from the cursor to the
+mark, `` y`a `` yanks up to it.  Marks move with the text as you edit;
+`:e` clears them.
 
 Scrolling:
 
@@ -392,28 +401,32 @@ The VIC-20 version has to fit in less memory, so it has none of these:
 * `:s` replacing, and line ranges (`:%`, `:5,10`, `:$`, `:.`)
 * the disk commands `:@`, `:@$` and `:r $`
 * the start screen
+* marks (`m`, `'`, `` ` ``)
 * scrolling one row at a time (the screen is drawn again instead)
 * a file that ends with a line ending shows an empty last line (the other
   versions treat it as the end of the last line, like vi)
 
 The PET version has to fit in 32 KB with its text.  It leaves out what
-the VIC-20 version leaves out, and ASCII and CR LF files too: files are
+the VIC-20 version leaves out (it has marks, though), and ASCII and CR LF
+files too: files are
 read and written as they are, and `:set ascii` and `:set crlf` aren't
 there.  It is for the 4032 (40 columns) for now.
 
-The X16 version leaves out the start screen only, and the Plus/4 version
-nothing.
+The X16 version leaves out the start screen and marks, and the Plus/4
+version nothing.
 
-`p8vi-mega65dma` leaves out the start screen, `:s` replacing and line
-ranges, and `:@$` and `:r $`: its program has to fit below the room it
+`p8vi-mega65dma` leaves out the start screen, marks, `:s` replacing and
+line ranges, and `:@$` and `:r $`: its program has to fit below the room it
 needs for its text.  `p8vi-mega65` has everything.
 
-`p8vi-c128x` leaves out the start screen, `:@$` and `:r $`, and
+`p8vi-c128x` leaves out the start screen, marks, `:@$` and `:r $`, and
 `p8vi-c128reu` those and scrolling one row at a time and the `40/80
 DISPLAY` key.  `p8vi-c128` and `p8vi-c64disk` have everything.
 
+`p8vi-c64font` leaves out marks.
+
 The TRS-80 version leaves out the disk commands (`:@`, `:@$`, `:r $`),
-recovery, and `:set ascii` and `:set petscii` (its files are ASCII).
+recovery, marks, and `:set ascii` and `:set petscii` (its files are ASCII).
 
 <div style="page-break-before: always"></div>
 
@@ -435,6 +448,7 @@ VIC-20 or the PET, or in `p8vi-mega65dma`.
 | `H` `M` `L` | screen top / middle / bottom | `n\|` `_` | column n, non-blank |
 | `Ctrl-F` `Ctrl-B` | page down / up | `Ctrl-D` `Ctrl-U` | half page |
 | `ge` `gE` | end of previous word | `Ctrl-L` | redraw |
+| `m`a | set mark a | `'`a `` ` ``a | to mark a's line / place |
 
 **Inserting** (leave with `Esc`)
 

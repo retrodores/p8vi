@@ -26,8 +26,10 @@ buffer {
 
     ; returned by searches and line routines when there is no result
     const uword NONE = $ffff
-    ; marks are positions that move along with inserts and deletes
-    const ubyte NUM_MARKS = 4
+    ; marks are positions that move along with inserts and deletes.  the
+    ; program says how many it uses (main.BUFFER_MARKS): each one costs time
+    ; on every insert and delete
+    const ubyte NUM_MARKS = main.BUFFER_MARKS
 
     private uword bufend    ; length of the text (1 past the last character)
 

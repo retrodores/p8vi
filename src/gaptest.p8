@@ -12,6 +12,7 @@
 %import buftests
 
 main {
+    const ubyte BUFFER_MARKS = 4      ; buffer.NUM_MARKS (buftests uses 4)
     ; small buffer so the full buffer cases are easy to reach
     const ubyte CAPACITY = 32
 

@@ -20,6 +20,8 @@ main {
     ; gap buffer marks used by the editor
     const ubyte MARK_CURSOR     = 0     ; buffer offset of the cursor
     const ubyte MARK_TOP        = 1     ; buffer offset of the top left of the screen
+    const ubyte MARK_USER       = 2     ; (features.MARKS) vi's marks a-z: 2 to 27
+    const ubyte BUFFER_MARKS    = if features.MARKS 28 else 2   ; buffer.NUM_MARKS
 
     ; more keys
     const ubyte KEY_STOP        = $03   ; RUN/STOP, also works as escape
@@ -38,6 +40,7 @@ main {
     const ubyte KEY_UP          = $91
     const ubyte KEY_LEFT        = $9d
     const ubyte KEY_TILDE       = $de   ; PETSCII has no ~, use pi (shift + up arrow)
+    const ubyte KEY_BACKTICK    = $c0   ; PETSCII has no `, use shift + * (as the font build shows it)
     const ubyte KEY_UNDERSCORE  = $a4   ; _ as typed on a C64 (commodore + @), '_' is $e4
     ; the font build's | and _ (src/c64/font.p8)
     const ubyte KEY_FONT_PIPE       = $dc
@@ -560,6 +563,10 @@ main {
             return
         }
 
+        if features.MARKS and (key == 'm' or key == '\'' or key == KEY_BACKTICK) {
+            pending_char = key
+            return
+        }
         target = motion(key, count)
         if target != buffer.NONE {
             set_cursor(target)
@@ -652,7 +659,19 @@ main {
         ; the change can be anywhere, so find the line number from scratch
         buffer.set_mark(MARK_CURSOR, position)
         cur_line = buffer.line_number(cursor())
-        set_cursor(min(cursor(), last_char(cursor())))
+        ; (shared with the marks: a subroutine of its own only pays then)
+        if features.MARKS
+            cursor_on_char(cursor())
+        else {
+            set_cursor(min(cursor(), last_char(cursor())))
+            goal_col = column()
+        }
+    }
+
+    ; put the cursor at position, or on the last character of its line if
+    ; position is the line's end, and keep its column for j and k
+    sub cursor_on_char(uword position) {
+        set_cursor(min(position, last_char(position)))
         goal_col = column()
     }
 
@@ -663,6 +682,10 @@ main {
         pending_char = 0
         if key == KEY_ESCAPE {
             handle_escape()
+            return
+        }
+        if features.MARKS and (cmd == 'm' or cmd == '\'' or cmd == KEY_BACKTICK) {
+            mark_command(cmd)
             return
         }
         when cmd {
@@ -739,6 +762,37 @@ main {
         }
     }
 
+    ; (features.MARKS) the letter after m, ' or ` (KEY_BACKTICK: shift + *).
+    ; ma sets mark a at the cursor; 'a goes to its line (linewise for an
+    ; operator: d'a), `a to the mark itself (exclusive: d`a).  the marks move along with the
+    ; text, a :e or :rec clears them; a deleted mark's line is where the
+    ; deletion was (vi forgets it).
+    bool[if features.MARKS 26 else 1] mark_set
+    sub mark_command(ubyte cmd) {
+        uword target
+        ubyte m = key - 'a'
+        if m < 26 {
+            if cmd == 'm' {
+                buffer.set_mark(MARK_USER + m, cursor())
+                mark_set[m] = true
+                return
+            }
+            if mark_set[m] {
+                target = buffer.get_mark(MARK_USER + m)
+                if cmd == '\''
+                    target = first_nonblank(target)
+                if pending_op != 0 {
+                    finish_operator(target, false, cmd == '\'')
+                } else
+                    cursor_on_char(target)
+                return
+            }
+            status("mark not set")
+        }
+        pending_op = 0
+        op_count = 0
+    }
+
     ; the key after d, c, y, > or <
     sub operator_key(uword count) {
         ubyte op = pending_op
@@ -748,6 +802,11 @@ main {
             pending_op = 0
             op_count = 0
             lines_operator(op, count)
+            return
+        }
+        if features.MARKS and (key == '\'' or key == KEY_BACKTICK) {
+            ; d'a, d`a: the mark's letter first
+            pending_char = key
             return
         }
         if key == 'f' or key == 'F' or key == 't' or key == 'T' or key == 'g' {
@@ -2249,6 +2308,10 @@ main {
 
     ; reset the editor for new text in the buffer
     sub new_text() {
+        if features.MARKS {
+            for cx16.r0L in 0 to len(mark_set) - 1
+                mark_set[cx16.r0L] = false
+        }
         buffer.eol = $0d
         final_eol = features.FINAL_EOL
         cur_line = 0

@@ -13,6 +13,7 @@
 %import buftests
 
 main {
+    const ubyte BUFFER_MARKS = 4      ; buffer.NUM_MARKS (buftests uses 4)
     ; 4 pages of 8 bytes
     const ubyte PAGE = 8
     const ubyte CAPACITY = 32

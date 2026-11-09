@@ -166,7 +166,7 @@ Keys in insert and replace mode:
 Operators (`d`, `c`, `y`, `>`, `<`) work with every motion above that is
 marked ✅, including `f` `F` `t` `T` `;` `,` `n` `N` `gg` `ge`, and with
 counts before either part (`2d3w`).  `j` `k` `G` `gg` `H` `M` `L` `+` `-`
-`_` work on whole lines, and `>` `<` always do.
+`_` `'` work on whole lines, and `>` `<` always do.
 
 ## Copying and pasting
 
@@ -211,9 +211,16 @@ doesn't fit can't be undone ("undo too big").  Loading a file empties it.
 
 | Keys | Action | Status |
 |------|--------|--------|
-| `m` + `a`–`z` | set a mark | ⬜ (the buffer has 2 spare marks, so maybe `a` and `b`) |
-| `'` + mark, `` ` `` + mark | go to a mark's line / position | ⬜ |
+| `m` + `a`–`z` | set a mark at the cursor | ✅ |
+| `'` + mark | go to the first non-blank of the mark's line (whole lines with an operator: `d'a`) | ✅ |
+| `` ` `` + mark | go to the mark itself (`` d`a `` up to it); on a Commodore `` ` `` is `Shift` + `*` | ✅ |
 | `''` | back to the position before the last jump | ⬜ |
+| `A`–`Z` | marks in other files | ❌ |
+
+Marks move with the text as it changes; `:e` and `:rec` clear them.
+Unlike vi, a mark on a deleted line stays, at the place of the deletion.
+Not on the VIC-20, the X16, the TRS-80, `p8vi-c64font`, `p8vi-mega65dma`,
+`p8vi-c128x` or `p8vi-c128reu` (`features.MARKS`: about 400 bytes).
 
 ## Visual mode
 
