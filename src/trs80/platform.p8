@@ -272,9 +272,8 @@ main {
     ; backspace, which deletes in insert mode and on the : line and moves
     ; left otherwise (as h).  shift + left arrow (24) moves left in insert
     ; mode too.  Ctrl is shift + down arrow with a letter, as LDOS does it:
-    ; Ctrl-F is 6, or in normal mode (where @ does nothing else) @ and then
-    ; the letter: @g is Ctrl-G.  another key after @ is just that key.
-    bool ctrl_next          ; @ was typed in normal mode: the next letter is a Ctrl key
+    ; Ctrl-F is 6.  (@ and then the letter in normal mode is Ctrl too:
+    ; features.CTRL_AT, editor.p8's ctrl_at)
     ; (it takes memory from the text: tests/trs80/trstest.py checks that a
     ; suite's keys fit)
     const uword KEY_BUF_SIZE = 256
@@ -287,15 +286,6 @@ main {
             return key_buf[key_pos - 1]
         }
         ubyte k = txt.getkey()
-        if k == '@' and mode == MODE_NAV and not ctrl_next {
-            ctrl_next = true
-            return 0
-        }
-        if k != 0 and ctrl_next {
-            ctrl_next = false
-            if (k >= 'a' and k <= 'z') or (k >= 'A' and k <= 'Z')
-                return k & 31
-        }
         when k {
             91 -> return KEY_UP
             10 -> return KEY_DOWN

@@ -127,8 +127,9 @@ and editing then go about as with an REU.
     the attic RAM check on a board without it.
   - Recovery after a reset hasn't been tried.
 - **PET** (`p8vi-pet32`, a 4032 with BASIC 4):
-  - The PET has no Ctrl key: Ctrl-F/B/D/U, Ctrl-W, Ctrl-G and Ctrl-L
-    need other keys (RVS already gives Ctrl-R).
+  - The PET has no Ctrl key: `@` then a letter is Ctrl in normal mode
+    (`features.CTRL_AT`, as on the TRS-80; 133 bytes), RVS gives Ctrl-R.
+    Ctrl-W in insert mode (delete a word) still can't be typed.
   - The 8032 (80 columns): Prog8's PET screen routines are 40 columns.
   - The 8096 and 8296 have 64 KB more RAM at `$8000-$ffff`: room for
     the page store.

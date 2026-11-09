@@ -92,6 +92,8 @@ main {
         cursor_on()
         repeat {
             key = get_key()
+            if features.CTRL_AT
+                key = ctrl_at(key)
             if key == $00 {
                 ; (page store) keep the text recoverable: when the keys stop
                 if buffer.PAGED and buffer.changes != buffer.synced_changes and ticks() - key_time > SYNC_DELAY
@@ -2401,6 +2403,24 @@ main {
         }
         status_bytes(name, buffer.length())
         return true
+    }
+
+    ; (features.CTRL_AT: the PET and the TRS-80 have no Ctrl key) @ in
+    ; normal mode makes the next letter a Ctrl key: @ then g is Ctrl-G.
+    ; another key after @ is just that key; in insert mode and on the
+    ; command line @ is typed.
+    bool ctrl_next
+    sub ctrl_at(ubyte k) -> ubyte {
+        if k == '@' and mode == MODE_NAV and not ctrl_next {
+            ctrl_next = true
+            return 0
+        }
+        if k != 0 and ctrl_next {
+            ctrl_next = false
+            if (k >= 'a' and k <= 'z') or (k >= 'A' and k <= 'Z')
+                return k & 31
+        }
+        return k
     }
 
     ; show msg on the status line and wait for a key.

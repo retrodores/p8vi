@@ -24,5 +24,6 @@ features {
     const bool FONT = false     ; the C64 font build: oscii.fnt shows the ASCII characters (src/c64/font.p8)
     const bool SWITCH = false   ; (the C128) the 40/80 DISPLAY key switches the screen while p8vi runs
     const bool PREFIX = false   ; (CBM DOS only) :w keeps a drive or path prefix (0:name, //dir/:name) for the safe save
+    const bool CTRL_AT = true    ; @ then a letter is Ctrl + the letter in normal mode (for keyboards without Ctrl)
     const bool KEYFILE = true   ; (the test build) the keys come from KEYS/TXT first
 }

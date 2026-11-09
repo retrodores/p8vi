@@ -97,11 +97,11 @@ Commodore keyboards lack some keys vi uses:
 `{` and `}` don't exist in PETSCII.  On the MEGA65 an ASCII file shows
 them, and the keys type them (see [ASCII and PETSCII](#ascii-and-petscii)).
 
-**The PET** has no `CTRL` or `C=` key.  `RVS` types `Ctrl-R` (redo), and
-the cursor keys, `HOME` and `RUN/STOP` work as above, but `Ctrl-F`,
-`Ctrl-B`, `Ctrl-D`, `Ctrl-U`, `Ctrl-W`, `Ctrl-G` and `Ctrl-L` can't be
-typed yet: move with `G`, `nG`, `H`, `M`, `L` and the cursor keys
-instead.  On the PET a disk problem such as no drive stops p8vi with a
+**The PET** has no `CTRL` or `C=` key.  In nav mode `@` and then a letter
+is `Ctrl` + that letter: `@f` is `Ctrl-F`, `@g` `Ctrl-G` (as on the
+TRS-80; in insert mode and on the `:` line `@` is just typed).  `RVS`
+types `Ctrl-R` (redo) too, and the cursor keys, `HOME` and `RUN/STOP`
+work as above.  On the PET a disk problem such as no drive stops p8vi with a
 BASIC error (`?DEVICE NOT PRESENT`), and the text is lost.
 
 **The C128's** `ESC` key is `Esc` too.

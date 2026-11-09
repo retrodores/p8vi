@@ -55,6 +55,13 @@ to the text's: its line endings become the text's, and an ASCII file is
 translated to PETSCII.  Read into an empty text, the text takes on the
 file's format, as with `:e`.
 
+## PET keyboard notes
+
+The PET has no `Ctrl` key.  In normal mode `@` and then a letter is
+`Ctrl` + that letter (`@f` is `Ctrl-F`, `@g` `Ctrl-G`); another key after
+`@` is just that key, and in insert mode and on the `:` line `@` is typed.
+`RVS` is `Ctrl-R` (redo).
+
 ## TRS-80 keyboard notes
 
 The TRS-80 Model III version (`p8vi-trs80.cmd`, for LDOS) is ASCII, so
