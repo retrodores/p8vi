@@ -1,9 +1,9 @@
 # p8vi quick start
 
-p8vi is a vi for 8-bit Commodore computers: the C64, VIC-20, PET, Plus/4,
-Commander X16 and MEGA65.  If you know vi or vim you
-know most of it already; this guide shows what is there and which keys to
-press on a Commodore keyboard.  `docs/KEYS.md` lists every vi command with
+p8vi is a vi for 8-bit computers: the Commodore C64, VIC-20, PET, Plus/4
+and C128, the Commander X16, the MEGA65 and the TRS-80 Model III.  If you
+know vi or vim you know most of it already; this guide shows what is there
+and which keys to press on a Commodore (or TRS-80) keyboard.  `docs/KEYS.md` lists every vi command with
 whether it is done.
 
 ## Contents
@@ -30,14 +30,21 @@ whether it is done.
 |---------|-----|------|
 | `p8vi-c64.prg` | C64 | about 16 KB |
 | `p8vi-c64reu.prg` | C64 with an REU | up to 64 KB (about 4 KB without an REU: use `p8vi-c64` then) |
+| `p8vi-c64font.prg` | C64 with an REU, and `p8vi.fnt` on the disk | as `p8vi-c64reu`, with a font that has the ASCII characters PETSCII lacks (``\ ^ _ ` { \| } ~``) |
+| `p8vi-c64disk.prg` | C64 with a fast drive (IDE64, RAMLink, CMD HD, SD card) | up to 64 KB, in `p8vi.swp...` files on the disk |
+| `p8vi-c128.prg` | C128 (in its own mode, 40 or 80 columns) | about 11 KB |
+| `p8vi-c128x.prg` | C128 | up to about 60 KB (in RAM bank 1); uses `p8vi.fnt` if it is on the disk |
+| `p8vi-c128reu.prg` | C128 with an REU | up to 64 KB (or about 60 KB in RAM bank 1 without an REU) |
 | `p8vi-cx16.prg` | Commander X16 | up to 64 KB (in banked RAM) |
 | `p8vi-vic20.prg` | VIC-20 with 32 KB of RAM expansion (blocks 1, 2, 3 and 5) | about 4.7 KB |
 | `p8vi-plus4.prg` | Plus/4 | about 24.6 KB |
 | `p8vi-pet32.prg` | PET 4032 (32 KB, BASIC 4, 40 columns) | about 3.3 KB |
 | `p8vi-mega65.prg` | MEGA65 (in MEGA65 mode, not `GO64`) | about 6.7 KB |
 | `p8vi-mega65dma.prg` | MEGA65 | up to 64 KB (in attic RAM, or chip RAM banks 4 and 5 without it) |
+| `p8vi-trs80.cmd` | TRS-80 Model III (48 KB) with LDOS | about 6.6 KB |
 
-The MEGA65, PET and Plus/4 versions are new and still being worked on.
+The MEGA65, PET, Plus/4, C128 and TRS-80 versions and `p8vi-c64disk` are
+new and still being worked on.
 
 Load and run it like any program, for example on a C64:
 
@@ -47,7 +54,12 @@ RUN
 ```
 
 On the MEGA65 (in its own mode, the one it starts in): `DLOAD"P8VI-MEGA65"`
-and `RUN`, or `RUN"P8VI-MEGA65"`.
+and `RUN`, or `RUN"P8VI-MEGA65"`.  On the C128 (in its own mode, not
+`GO64`): `RUN"P8VI-C128"`; it uses the 40 or the 80 column screen,
+whichever is active.
+
+On the TRS-80, copy `p8vi-trs80.cmd` to an LDOS disk as `P8VI/CMD` (for
+example with a FreHD's `IMPORT2`) and type `P8VI` at the LDOS prompt.
 
 Then `:e name` opens a file (a name that isn't on the disk starts a new,
 empty file), and `:q` quits.  `Ctrl-G` shows how many lines there are and
@@ -91,6 +103,25 @@ the cursor keys, `HOME` and `RUN/STOP` work as above, but `Ctrl-F`,
 typed yet: move with `G`, `nG`, `H`, `M`, `L` and the cursor keys
 instead.  On the PET a disk problem such as no drive stops p8vi with a
 BASIC error (`?DEVICE NOT PRESENT`), and the text is lost.
+
+**The C128's** `ESC` key is `Esc` too.
+`p8vi-c128` and `p8vi-c128x` follow the `40/80 DISPLAY` key while they
+run.
+
+**The TRS-80** has no `Esc`, `Ctrl` or Backspace key, and its text is
+ASCII (p8vi turns caps lock off while it runs):
+
+| vi key | Type this | |
+|--------|-----------|---|
+| `Esc` | `Shift` + `↑`, or `BREAK` | |
+| `Ctrl-F` etc. | `@` then `F`, in nav mode | in insert mode and on the `:` line `@` is just typed |
+| `Ctrl-F` etc. | `Shift` + `↓` held with `F` | LDOS's own way, in any mode |
+| Backspace | `←` | in nav mode it moves left, as `h` |
+| `←` in insert mode | `Shift` + `←` | |
+
+Files are named as LDOS has them: `t.txt` is `T/TXT`.  Saving copies
+`p8vi.tmp` over the file (LDOS can't rename one), so `:w` takes a while on
+a floppy.
 
 A count typed before a command repeats or extends it: `3j` moves down 3
 lines, `2dd` deletes 2 lines, `d3w` deletes 3 words.
@@ -263,7 +294,7 @@ Control characters (tabs too) show as `.`.
 
 ## Disk commands
 
-Not on the VIC-20:
+Commodore drives only, not on the VIC-20:
 
 | Command | Does |
 |---------|------|
@@ -321,12 +352,21 @@ So in an ASCII file the vi commands `|` (go to a column) and `_` are
 RAM: files up to 64 KB, with yank and undo as big.  The plain C64 build
 has more room without an REU, so use that one there.
 
+**`p8vi-c128x`** keeps the text in the C128's RAM bank 1 (up to about
+60 KB), and **`p8vi-c128reu`** in an REU (files up to 64 KB, with yank and
+undo as big), or in bank 1 without one.
+
+**`p8vi-c64disk`** keeps the text in `p8vi.swp...` files on the disk,
+for fast drives: loading and saving a big file is slow (minutes on a 1541),
+but moving and editing go about as fast as with an REU.
+
 **`p8vi-mega65dma`** keeps the text in the MEGA65's attic RAM: files up to
 64 KB, with yank and undo as big.  A MEGA65 without attic RAM (the Nexys4
 FPGA boards) has 128 KB of chip RAM for it instead, which holds a 64 KB
 file but leaves less room for yank and undo.
 
-**Recovery after a crash or a reset** (REU build with an REU, and the X16;
+**Recovery after a crash or a reset** (REU build with an REU, the X16,
+`p8vi-c128x` and `p8vi-c128reu`;
 `p8vi-mega65dma` keeps a copy as well, but recovering it after a reset
 hasn't been tried on a MEGA65 yet).
 While you edit, p8vi keeps a copy of the text up to date in extended
@@ -367,6 +407,13 @@ nothing.
 `p8vi-mega65dma` leaves out the start screen, `:s` replacing and line
 ranges, and `:@$` and `:r $`: its program has to fit below the room it
 needs for its text.  `p8vi-mega65` has everything.
+
+`p8vi-c128x` leaves out the start screen, `:@$` and `:r $`, and
+`p8vi-c128reu` those and scrolling one row at a time and the `40/80
+DISPLAY` key.  `p8vi-c128` and `p8vi-c64disk` have everything.
+
+The TRS-80 version leaves out the disk commands (`:@`, `:@$`, `:r $`),
+recovery, and `:set ascii` and `:set petscii` (its files are ASCII).
 
 <div style="page-break-before: always"></div>
 

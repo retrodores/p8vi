@@ -71,8 +71,8 @@ on when it quits).  Its keyboard has no `Esc`, `Ctrl` or `Backspace`:
 | arrow keys | `↑` `↓` `→` (`←` as above) | |
 
 Files are named as LDOS has them: `t.txt` is `T/TXT`.  Saving writes
-`p8vi.tmp` and then copies it over the file (LDOS's library has no
-rename), so a save takes a while on a floppy.
+`p8vi.tmp` and then copies it over the file (no LDOS call renames a
+file), so a save takes a while on a floppy.
 
 ## Moving
 

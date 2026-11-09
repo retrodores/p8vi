@@ -176,7 +176,7 @@ and editing then go about as with an REU.
 - **TRS-80 Model III with LDOS** (`p8vi-trs80.cmd`, `make trs80`; llvm16
   with the z80-trs80-cmd profile, llvm-z80 and z88dk; src/trs80).  Edits,
   saves and reads files (checked by hand in trs80gp, 2026-11-08); about
-  7 KB for text with LDOS's HIGH$ at $FFFF.  Keys: shift + up arrow is
+  6.6 KB for text with LDOS's HIGH$ at $FFFF.  Keys: shift + up arrow is
   Escape, BREAK too, the left arrow is backspace (DEL), shift + left moves
   left, Ctrl is shift + down arrow + a letter, or @ then a letter in
   normal mode.  p8vi clears the caps lock
@@ -195,8 +195,6 @@ and editing then go about as with an REU.
     profile's copy and delete (no DOS call renames), and as it gives no
     result, checks that p8vi.tmp is gone.  Left as it is on purpose: when
     the compiler's rename gets faster or gives a result, use that.
-- **The next release:** which of the new builds go in (`make release`
-  copies the MEGA65 builds, not the PET, Plus/4, disk or C128 builds).
 
 ## Tests
 

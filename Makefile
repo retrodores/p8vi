@@ -227,17 +227,25 @@ clean:
 # the programs and the quick start guide, copied to release/ (kept in git:
 # the last known good version, whatever build/ holds).  the quick checks
 # run first; run make test-c64, test-c64reu and test-c64-screen too before
-# a release that matters.
-release:	$(PROGS) font test audit size
+# a release that matters.  (p8vi-trs80.cmd needs llvm-z80 and z88dk, see
+# trs80 above)
+release:	$(PROGS) font build/p8vi-trs80.cmd test audit size
 	$(MD) release
 	$(CP) build$(SEP)p8vi-c64.prg release
 	$(CP) build$(SEP)p8vi-c64font.prg release
 	$(CP) build$(SEP)p8vi.fnt release
 	$(CP) build$(SEP)p8vi-c64reu.prg release
+	$(CP) build$(SEP)p8vi-c64disk.prg release
+	$(CP) build$(SEP)p8vi-c128.prg release
+	$(CP) build$(SEP)p8vi-c128x.prg release
+	$(CP) build$(SEP)p8vi-c128reu.prg release
 	$(CP) build$(SEP)p8vi-cx16.prg release
 	$(CP) build$(SEP)p8vi-mega65.prg release
 	$(CP) build$(SEP)p8vi-mega65dma.prg release
+	$(CP) build$(SEP)p8vi-pet32.prg release
+	$(CP) build$(SEP)p8vi-plus4.prg release
 	$(CP) build$(SEP)p8vi-vic20.prg release
+	$(CP) build$(SEP)p8vi-trs80.cmd release
 	$(CP) docs$(SEP)QUICKSTART.md release
 
 disk:	build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64font.prg build/p8vi.fnt build/p8vi-vic20.prg
