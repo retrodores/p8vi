@@ -286,15 +286,21 @@ FILE_SUITES = [
     # marks (features.MARKS: not every build has them): d'a deletes the
     # lines from the mark's to the cursor's, `a (shift + *, $c0) goes to
     # the mark's column, d`a deletes up to it, y'a yanks lines, :e! clears
-    # the marks, and a mark moves with its line when lines above go
+    # the marks, and a mark moves with its line when lines above go.  m7-m9:
+    # '' back to the line before the last jump (G), `` (shift + * twice) to
+    # the place before a search, '''' there and back again
     ('marks', r"3Gma5Gd'a:w m1\n:e!\n2G4lma3G\xc0ax:w m2\n:e!\n3Gwma1Gd\xc0a:w m3\n"
-              r":e!\n5Gma1Gy'aGp:w m4\n:e!\n5Gmb:e!\n'bx:w m5\n:e!\n10Gma1G3dd'ax:w m6\n", [
+              r":e!\n5Gma1Gy'aGp:w m4\n:e!\n5Gmb:e!\n'bx:w m5\n:e!\n10Gma1G3dd'ax:w m6\n"
+              r":e!\n10G20G''x:w m7\n:e!\n2G3l/30\n\xc0\xc0x:w m8\n:e!\n5G15G''''x:w m9\n", [
         ('m1', b'\n'.join(LONG.split(b'\n')[:2] + LONG.split(b'\n')[5:])),
         ('m2', LONG.replace(b'LINE 02 ', b'LINE02 ', 1)),
         ('m3', LONG[LONG.index(b'LINE 03 ') + 5:]),
         ('m4', LONG + b'\n' + b'\n'.join(LONG.split(b'\n')[:5])),
         ('m5', LONG[1:]),
         ('m6', LONG[LONG.index(b'LINE 04'):].replace(b'LINE 10', b'INE 10', 1)),
+        ('m7', LONG.replace(b'LINE 10', b'INE 10', 1)),
+        ('m8', LONG.replace(b'LINE 02', b'LIN 02', 1)),
+        ('m9', LONG.replace(b'LINE 15', b'INE 15', 1)),
     ], LONG),
 ]
 

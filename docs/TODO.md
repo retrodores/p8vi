@@ -11,9 +11,8 @@ aren't.
 - **`&`** repeats the last `:s` on the cursor line.
 - **Scrolling the view:** `zt`, `zz` and `zb` (cursor line to the top,
   middle or bottom of the screen), and Ctrl-E / Ctrl-Y (scroll one line).
-- **More marks:** `''` and ``` `` ``` (back to before the last jump: a
-  29th buffer mark, set by G, /, n, %, ...); forgetting a mark when its
-  line is deleted, as vi does (now it stays where the deletion was).
+- **More marks:** forgetting a mark when its line is deleted, as vi does
+  (now it stays where the deletion was).  (`''` and ``` `` ``` are done.)
   Marks (`features.MARKS`, about 400 bytes) are off on the VIC-20, X16,
   p8vi-mega65dma, p8vi-c128x (it would lose its main-RAM page slot),
   p8vi-c128reu, p8vi-c64font (its REU slots ran short: the reu-in-use

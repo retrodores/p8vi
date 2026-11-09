@@ -214,7 +214,7 @@ doesn't fit can't be undone ("undo too big").  Loading a file empties it.
 | `m` + `a`–`z` | set a mark at the cursor | ✅ |
 | `'` + mark | go to the first non-blank of the mark's line (whole lines with an operator: `d'a`) | ✅ |
 | `` ` `` + mark | go to the mark itself (`` d`a `` up to it); on a Commodore `` ` `` is `Shift` + `*` | ✅ |
-| `''` | back to the position before the last jump | ⬜ |
+| `''`, ``` `` ``` | back to the line / place before the last jump (`G` `gg` `H` `M` `L` `n` `N` `*` `#` `%` `/` `?` `:n`, a mark); `''` again goes back | ✅ |
 | `A`–`Z` | marks in other files | ❌ |
 
 Marks move with the text as it changes; `:e` and `:rec` clear them.

@@ -152,8 +152,10 @@ lines, `2dd` deletes 2 lines, `d3w` deletes 3 words.
 letter `a`-`z`).  `'a` goes back to that line, `` `a `` to the very
 place; on a Commodore `` ` `` is `Shift` + `*`.  With an operator they
 work like any motion: `d'a` deletes the lines from the cursor to the
-mark, `` y`a `` yanks up to it.  Marks move with the text as you edit;
-`:e` clears them.
+mark, `` y`a `` yanks up to it.  `''` (or ``` `` ```) goes back to where
+you were before the last jump (`G`, a search, `%`, `H` `M` `L`, `:n`, a
+mark); `''` again returns.  Marks move with the text as you edit; `:e`
+clears them.
 
 Scrolling:
 
@@ -449,6 +451,7 @@ VIC-20 or the PET, or in `p8vi-mega65dma`.
 | `Ctrl-F` `Ctrl-B` | page down / up | `Ctrl-D` `Ctrl-U` | half page |
 | `ge` `gE` | end of previous word | `Ctrl-L` | redraw |
 | `m`a | set mark a | `'`a `` ` ``a | to mark a's line / place |
+| `''` | back before the last jump | | |
 
 **Inserting** (leave with `Esc`)
 

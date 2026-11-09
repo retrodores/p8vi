@@ -21,7 +21,8 @@ main {
     const ubyte MARK_CURSOR     = 0     ; buffer offset of the cursor
     const ubyte MARK_TOP        = 1     ; buffer offset of the top left of the screen
     const ubyte MARK_USER       = 2     ; (features.MARKS) vi's marks a-z: 2 to 27
-    const ubyte BUFFER_MARKS    = if features.MARKS 28 else 2   ; buffer.NUM_MARKS
+    const ubyte MARK_JUMP       = 28    ; (features.MARKS) where the last jump came from: '' and ``
+    const ubyte BUFFER_MARKS    = if features.MARKS 29 else 2   ; buffer.NUM_MARKS
 
     ; more keys
     const ubyte KEY_STOP        = $03   ; RUN/STOP, also works as escape
@@ -569,6 +570,11 @@ main {
         }
         target = motion(key, count)
         if target != buffer.NONE {
+            if features.MARKS {
+                when key {
+                    'G', 'H', 'M', 'L', 'n', 'N', '*', '#', '%' -> set_jump()
+                }
+            }
             set_cursor(target)
             when key {
                 'j', 'k', KEY_UP, KEY_DOWN -> {}
@@ -757,6 +763,8 @@ main {
         if pending_op != 0 {
             finish_operator(target, inclusive, linewise)
         } else {
+            if features.MARKS and key == 'g'
+                set_jump()
             set_cursor(target)
             goal_col = column()
         }
@@ -764,14 +772,18 @@ main {
 
     ; (features.MARKS) the letter after m, ' or ` (KEY_BACKTICK: shift + *).
     ; ma sets mark a at the cursor; 'a goes to its line (linewise for an
-    ; operator: d'a), `a to the mark itself (exclusive: d`a).  the marks move along with the
-    ; text, a :e or :rec clears them; a deleted mark's line is where the
-    ; deletion was (vi forgets it).
-    bool[if features.MARKS 26 else 1] mark_set
+    ; operator: d'a), `a to the mark itself (exclusive: d`a).  '' and ``
+    ; go back to where the last jump came from (MARK_JUMP, the 27th: G gg
+    ; H M L n N * # % / ? :n and going to a mark set it), so '' twice comes
+    ; back.  the marks move along with the text, a :e or :rec clears them;
+    ; a deleted mark's line is where the deletion was (vi forgets it).
+    bool[if features.MARKS 27 else 1] mark_set
     sub mark_command(ubyte cmd) {
         uword target
         ubyte m = key - 'a'
-        if m < 26 {
+        if key == '\'' or key == KEY_BACKTICK
+            m = 26
+        if m < 27 {
             if cmd == 'm' {
                 buffer.set_mark(MARK_USER + m, cursor())
                 mark_set[m] = true
@@ -783,14 +795,24 @@ main {
                     target = first_nonblank(target)
                 if pending_op != 0 {
                     finish_operator(target, false, cmd == '\'')
-                } else
+                } else {
+                    set_jump()
                     cursor_on_char(target)
+                }
                 return
             }
             status("mark not set")
         }
         pending_op = 0
         op_count = 0
+    }
+
+    ; (features.MARKS) a jump starts from here: '' comes back
+    sub set_jump() {
+        if features.MARKS {
+            buffer.set_mark(MARK_JUMP, cursor())
+            mark_set[len(mark_set) - 1] = true   ; (26: the index stays in bounds without MARKS too)
+        }
     }
 
     ; the key after d, c, y, > or <
@@ -1166,6 +1188,8 @@ main {
             start = buffer.line_offset(line - 1)
         if start == buffer.NONE
             start = buffer.line_start(buffer.length())
+        if features.MARKS
+            set_jump()
         set_cursor(first_nonblank(start))
         goal_col = column()
     }
@@ -1564,6 +1588,8 @@ main {
         }
         target = search_next(forward)
         if target != buffer.NONE {
+            if features.MARKS
+                set_jump()
             set_cursor(target)
             goal_col = column()
         }
