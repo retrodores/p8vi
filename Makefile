@@ -71,9 +71,9 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64disk.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-pet32.prg build/p8vi-plus4.prg build/p8vi-c128.prg build/p8vi-c128x.prg build/p8vi-c128reu.prg build/p8vi-vic20.prg
 # an experiment, not in the release yet: p8vi-c64font (src/p8vi_c64font.p8)
 # is p8vi-c64reu with a font that has the ASCII characters PETSCII lacks.
-# it loads the font from p8vi.fnt (make font, from FONTSRC).
+# it loads the font from oscii.fnt (make font, from FONTSRC).
 FONTPROG = build/p8vi-c64font.prg
-FONTSRC	= src/c64/c64oscharset.p8
+FONTSRC	= src/c64/oscii.p8
 SRCS	= src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/pagestore.p8 src/charset.p8 src/cbmkernal.p8 src/*/platform.p8 \
 	  src/*/store_platform.p8 src/*/pagemem_platform.p8 src/*/xmem_platform.p8 src/c64/reu.p8
 
@@ -113,9 +113,9 @@ build/p8vi-c64font.prg: src/p8vi_c64font.p8 $(SRCS) src/c64/font.p8 font
 	$(CP) build/p8vi_c64font.asm build/p8vi-c64font.asm
 	$(RM) build/p8vi_c64font.prg
 
-font:	build/p8vi.fnt
+font:	build/oscii.fnt
 
-build/p8vi.fnt: $(FONTSRC) tools/mkfont.py
+build/oscii.fnt: $(FONTSRC) tools/mkfont.py
 	python3 tools/mkfont.py $(FONTSRC) $@
 
 build/p8vi-cx16.prg: src/p8vi_cx16.p8 $(SRCS)
@@ -168,7 +168,7 @@ build/p8vi-c128.prg: src/p8vi_c128.p8 $(SRCS) src/c128/*.p8
 
 # the C128 bank 1 build (src/p8vi_c128x.p8): the page store with its pages
 # in RAM bank 1, text up to about 60 KB; without the start screen and :@$.
-# also a font build: it shows p8vi.fnt if it is on the disk (src/c128font/font.p8)
+# also a font build: it shows oscii.fnt if it is on the disk (src/c128font/font.p8)
 build/p8vi-c128x.prg: src/p8vi_c128x.p8 $(SRCS) src/c128/*.p8 src/c128bank1/*.p8 src/c128font/*.p8
 	$(PCC) $(PCCARGSC128X) $<
 	$(CP) build/p8vi_c128x.prg $@
@@ -233,7 +233,7 @@ release:	$(PROGS) font build/p8vi-trs80.cmd test audit size
 	$(MD) release
 	$(CP) build$(SEP)p8vi-c64.prg release
 	$(CP) build$(SEP)p8vi-c64font.prg release
-	$(CP) build$(SEP)p8vi.fnt release
+	$(CP) build$(SEP)oscii.fnt release
 	$(CP) build$(SEP)p8vi-c64reu.prg release
 	$(CP) build$(SEP)p8vi-c64disk.prg release
 	$(CP) build$(SEP)p8vi-c128.prg release
@@ -248,12 +248,12 @@ release:	$(PROGS) font build/p8vi-trs80.cmd test audit size
 	$(CP) build$(SEP)p8vi-trs80.cmd release
 	$(CP) docs$(SEP)QUICKSTART.md release
 
-disk:	build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64font.prg build/p8vi.fnt build/p8vi-vic20.prg
+disk:	build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64font.prg build/oscii.fnt build/p8vi-vic20.prg
 	c1541 -format $(DISKNAME),52 $(DISKTYPE) $(DISK)
 	c1541 -attach $(DISK) -write build/p8vi-c64.prg p8vi,p
 	c1541 -attach $(DISK) -write build/p8vi-c64reu.prg p8vi-reu,p
 	c1541 -attach $(DISK) -write build/p8vi-c64font.prg p8vi-font,p
-	c1541 -attach $(DISK) -write build/p8vi.fnt p8vi.fnt,p
+	c1541 -attach $(DISK) -write build/oscii.fnt oscii.fnt,p
 	c1541 -attach $(DISK) -write build/p8vi-vic20.prg p8vi-vic20,p
 	c1541 -attach $(DISK) -write samples/sampbig.txt sampbig.txt,s
 	c1541 -attach $(DISK) -write samples/sampmax.txt sampmax.txt,s
@@ -267,7 +267,7 @@ emu-c64:	build/p8vi-c64.prg disk
 emu-c64reu:	build/p8vi-c64reu.prg disk
 	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/p8vi-c64reu.prg
 
-# the font build (p8vi.fnt is on the disk)
+# the font build (oscii.fnt is on the disk)
 emu-c64font:	build/p8vi-c64font.prg disk
 	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/p8vi-c64font.prg
 
@@ -391,15 +391,15 @@ test-c128:	build/p8vi-c128.prg
 # read-dir (no :@$ in this build) and the two that need more than bank 1
 # holds (huge: about 87 KB of text; bigundo: 29 KB and its undo)
 C128X_SKIP = --skip read-dir --skip huge --skip bigundo
-# p8vi-c128x is also a font build (p8vi.fnt on its disks, and the font
+# p8vi-c128x is also a font build (oscii.fnt on its disks, and the font
 # suite): it leaves out g-cmds and ascii as the C64 font build does
-C128X_FONT = --font build/p8vi.fnt --skip g-cmds --skip ascii
-test-c128x:	build/p8vi-c128x.prg build/p8vi.fnt
+C128X_FONT = --font build/oscii.fnt --skip g-cmds --skip ascii
+test-c128x:	build/p8vi-c128x.prg build/oscii.fnt
 	python3 -B tests/vice/edtest.py files --machine c128 --paged --limit 3000000000 -j 4 $(C128X_SKIP) $(C128X_FONT) --prg build/p8vi-c128x.prg
-	python3 -B tests/vice/edtest.py screen --machine c128 -j 4 --font build/p8vi.fnt --prg build/p8vi-c128x.prg
+	python3 -B tests/vice/edtest.py screen --machine c128 -j 4 --font build/oscii.fnt --prg build/p8vi-c128x.prg
 	python3 -B tests/vice/edtest.py files --machine c128-80 --paged --limit 3000000000 -j 4 $(C128X_SKIP) $(C128X_FONT) --prg build/p8vi-c128x.prg
-	python3 -B tests/vice/edtest.py screen --machine c128-80 -j 4 --font build/p8vi.fnt --prg build/p8vi-c128x.prg
-	python3 -B tests/vice/rectest.py --machine c128 --no-reu --font build/p8vi.fnt --prg build/p8vi-c128x.prg
+	python3 -B tests/vice/edtest.py screen --machine c128-80 -j 4 --font build/oscii.fnt --prg build/p8vi-c128x.prg
+	python3 -B tests/vice/rectest.py --machine c128 --no-reu --font build/oscii.fnt --prg build/p8vi-c128x.prg
 
 # the C128 REU build: with a 512 KB REU (all the page store's suites), and
 # without one (bank 1, as test-c128x); read-dir: no :@$ in this build
@@ -440,14 +440,14 @@ test-c64reu:	build/p8vi-c64reu.prg
 
 # the font build: the REU build's tests, and its own (the font suite).
 # it has its own keys for | (and } is shift + minus), its own PETSCII for
-# ASCII files and p8vi.fnt on the disk, so g-cmds, ascii and read-dir
+# ASCII files and oscii.fnt on the disk, so g-cmds, ascii and read-dir
 # don't apply
 FONT_SKIP = --skip g-cmds --skip ascii --skip read-dir
-test-c64font:	build/p8vi-c64font.prg build/p8vi.fnt
-	python3 tests/vice/edtest.py files --prg build/p8vi-c64font.prg --font build/p8vi.fnt --reu 512 --limit 3000000000 $(FONT_SKIP)
-	python3 tests/vice/edtest.py files --prg build/p8vi-c64font.prg --font build/p8vi.fnt --skip big $(FONT_SKIP)
-	python3 tests/vice/rectest.py --prg build/p8vi-c64font.prg --font build/p8vi.fnt
-	python3 tests/vice/edtest.py screen --prg build/p8vi-c64font.prg --font build/p8vi.fnt --reu 512
+test-c64font:	build/p8vi-c64font.prg build/oscii.fnt
+	python3 tests/vice/edtest.py files --prg build/p8vi-c64font.prg --font build/oscii.fnt --reu 512 --limit 3000000000 $(FONT_SKIP)
+	python3 tests/vice/edtest.py files --prg build/p8vi-c64font.prg --font build/oscii.fnt --skip big $(FONT_SKIP)
+	python3 tests/vice/rectest.py --prg build/p8vi-c64font.prg --font build/oscii.fnt
+	python3 tests/vice/edtest.py screen --prg build/p8vi-c64font.prg --font build/oscii.fnt --reu 512
 
 # partial redraws must leave the same screen as a full redraw
 test-c64-screen:	build/p8vi-c64.prg
@@ -469,11 +469,11 @@ test-c64reu-jiffydos:	build/p8vi-c64reu.prg
 	python3 -B tests/vice/rectest.py $(JIFFY) --prg build/p8vi-c64reu.prg
 	python3 -B tests/vice/edtest.py screen $(JIFFY) --prg build/p8vi-c64reu.prg --reu 512
 
-test-c64font-jiffydos:	build/p8vi-c64font.prg build/p8vi.fnt
-	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64font.prg --font build/p8vi.fnt --reu 512 --limit 3000000000 $(FONT_SKIP)
-	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64font.prg --font build/p8vi.fnt --skip big $(FONT_SKIP)
-	python3 -B tests/vice/rectest.py $(JIFFY) --prg build/p8vi-c64font.prg --font build/p8vi.fnt
-	python3 -B tests/vice/edtest.py screen $(JIFFY) --prg build/p8vi-c64font.prg --font build/p8vi.fnt --reu 512
+test-c64font-jiffydos:	build/p8vi-c64font.prg build/oscii.fnt
+	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64font.prg --font build/oscii.fnt --reu 512 --limit 3000000000 $(FONT_SKIP)
+	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64font.prg --font build/oscii.fnt --skip big $(FONT_SKIP)
+	python3 -B tests/vice/rectest.py $(JIFFY) --prg build/p8vi-c64font.prg --font build/oscii.fnt
+	python3 -B tests/vice/edtest.py screen $(JIFFY) --prg build/p8vi-c64font.prg --font build/oscii.fnt --reu 512
 
 test-c64disk-jiffydos:	build/p8vi-c64disk.prg
 	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64disk.prg --paged --limit 3000000000 \

@@ -77,9 +77,9 @@ aren't.
   program now reaches almost to `$8000`.  Room would have to come from
   features switched off, or from the 3 KB expansion at `$0400-$0fff`.
 - **Several files open at once** (multiple buffers).
-- **The font build** (`p8vi-c64font`): a name for it that doesn't
-  suggest it runs on C64 OS; a fallback when `p8vi.fnt` is missing (it
-  stops with "can't load p8vi.fnt"); whether the plain C64 build (gap
+- **The font build** (`p8vi-c64font`, the OSCII font in `oscii.fnt`): a
+  fallback when `oscii.fnt` is missing (it
+  stops with "can't load oscii.fnt"); whether the plain C64 build (gap
   buffer) should get it too, which costs it the 2 KB above `$c800`;
   switching the font with the file's kind, as on the MEGA65 (the C64
   character ROM can't be seen from the VIC bank the font is in); vi's `{`
@@ -148,7 +148,7 @@ and editing then go about as with an REU.
     about 50 KB of text, the copies from bank 1 can't be noticed (tried on
     VICE, 2026-11-06).  `:rec` after a reset works (bank 1 keeps its
     contents; tests/vice/rectest.py --machine c128 [--no-reu], also with
-    p8vi-c128reu's REU).  It is also a font build: p8vi.fnt (the C64
+    p8vi-c128reu's REU).  It is also a font build: oscii.fnt (the C64
     font build's) on either screen, src/c128font/font.p8; without the file
     the ROM's font stays.  The font cost one page slot (755 bytes).
   - `p8vi-c128reu` (`make test-c128reu`): the pages in an REU, 192 KB

@@ -44,7 +44,7 @@ platform {
            sparetop = $cfe0
        }
        if features.FONT and not font.start() {
-           txt.print("can't load p8vi.fnt\n")
+           txt.print("can't load oscii.fnt\n")
            sys.exit(1)
        }
 

@@ -30,10 +30,10 @@ whether it is done.
 |---------|-----|------|
 | `p8vi-c64.prg` | C64 | about 16 KB |
 | `p8vi-c64reu.prg` | C64 with an REU | up to 64 KB (about 4 KB without an REU: use `p8vi-c64` then) |
-| `p8vi-c64font.prg` | C64 with an REU, and `p8vi.fnt` on the disk | as `p8vi-c64reu`, with a font that has the ASCII characters PETSCII lacks (``\ ^ _ ` { \| } ~``) |
+| `p8vi-c64font.prg` | C64 with an REU, and `oscii.fnt` on the disk | as `p8vi-c64reu`, with OSCII, a font that has the ASCII characters PETSCII lacks (``\ ^ _ ` { \| } ~``) |
 | `p8vi-c64disk.prg` | C64 with a fast drive (IDE64, RAMLink, CMD HD, SD card) | up to 64 KB, in `p8vi.swp...` files on the disk |
 | `p8vi-c128.prg` | C128 (in its own mode, 40 or 80 columns) | about 11 KB |
-| `p8vi-c128x.prg` | C128 | up to about 60 KB (in RAM bank 1); uses `p8vi.fnt` if it is on the disk |
+| `p8vi-c128x.prg` | C128 | up to about 60 KB (in RAM bank 1); uses `oscii.fnt` if it is on the disk |
 | `p8vi-c128reu.prg` | C128 with an REU | up to 64 KB (or about 60 KB in RAM bank 1 without an REU) |
 | `p8vi-cx16.prg` | Commander X16 | up to 64 KB (in banked RAM) |
 | `p8vi-vic20.prg` | VIC-20 with 32 KB of RAM expansion (blocks 1, 2, 3 and 5) | about 4.7 KB |

@@ -1,3 +1,7 @@
+; OSCII (C64 OS + ASCII): the font of the font builds, oscii.fnt (make font,
+; tools/mkfont.py).  The C64 OS character set: the C64's lowercase set with
+; the ASCII characters PETSCII lacks (\ ^ _ ` { | } ~).  No licence
+; restrictions (the author's word, 2026-10-30).
 chars {
 	; C64OS Character set definitions 2k
 CUSTOM:

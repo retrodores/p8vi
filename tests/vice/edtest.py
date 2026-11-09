@@ -435,7 +435,7 @@ def make_disk(d64, prg, text, blocks_free=None):
         f.write(text)
     subprocess.run(['c1541', '-format', 'test,52', 'd64', d64, '-attach', d64,
                     '-write', prg, 'p8vi,p', '-write', txt, 't.txt,s'] +
-                   (['-write', FONT, 'p8vi.fnt,p'] if FONT else []),
+                   (['-write', FONT, 'oscii.fnt,p'] if FONT else []),
                    check=True, capture_output=True)
     if blocks_free is not None:
         # a file that fills the disk up to blocks_free blocks

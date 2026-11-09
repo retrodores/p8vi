@@ -3,7 +3,7 @@
 
 ;
 ; the C128 font build (p8vi-c128x with features.FONT): the font of the C64
-; font build (src/c64/font.p8, p8vi.fnt: the lowercase set with the ASCII
+; font build (src/c64/font.p8, oscii.fnt: the lowercase set with the ASCII
 ; characters PETSCII lacks), on either screen.  It is loaded to $f000 in
 ; bank 0, the RAM under the KERNAL ROM.
 ;
@@ -37,11 +37,11 @@ font {
     ; how far the screen rows move
     const ubyte MOVE = msb(SCREEN) - $04
 
-    str FILE = "p8vi.fnt"
+    str FILE = "oscii.fnt"
     bool shown              ; the font is on the screen
     uword old_chrout
 
-    ; load the font and show it.  returns false if p8vi.fnt didn't load.
+    ; load the font and show it.  returns false if oscii.fnt didn't load.
     sub start() -> bool {
         bool failed
         cbm.SETNAM(len(FILE), FILE)

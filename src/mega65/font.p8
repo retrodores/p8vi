@@ -7,7 +7,7 @@
 ; VIC-IV's character RAM, so PETSCII shows the characters it lacks; for a
 ; PETSCII file the C64's lower case set ($2d800) goes back, so PETSCII
 ; graphics show as they are.  The ASCII characters are at the same screen
-; codes as in the C64 font build's p8vi.fnt, so charset.p8's FONT tables
+; codes as in the C64 font build's oscii.fnt, so charset.p8's FONT tables
 ; are the same:
 ;   \ $5c  ^ $5e  _ $5f  ` $c0  { $db  | $dc  } $dd  ~ $de
 ;

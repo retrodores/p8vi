@@ -18,7 +18,7 @@ features {
     const bool FINAL_EOL = true ; a line ending at the end of a file ends the last line (no empty line after it)
     const bool SCROLL = true     ; scroll the screen one row when the cursor goes just off it (not draw it all again)
     const bool DIR = true       ; :@$ shows the disk directory
-    const bool FONT = false     ; the C64 font build: p8vi.fnt shows the ASCII characters (src/c64/font.p8)
+    const bool FONT = false     ; the C64 font build: oscii.fnt shows the ASCII characters (src/c64/font.p8)
     const bool SWITCH = false    ; (the C128) the 40/80 DISPLAY key switches the screen while p8vi runs
     const bool PREFIX = false    ; :w keeps a drive or path prefix (0:name, //dir/:name) for the safe save (164 bytes)
 }

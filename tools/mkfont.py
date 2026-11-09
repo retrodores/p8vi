@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Make p8vi.fnt, the font of the C64 font build (src/c64/font.p8): a
+"""Make oscii.fnt, the OSCII font of the C64 font build (src/c64/font.p8): a
 2 KB character set as a PRG file with load address $f800.
 
     python3 tools/mkfont.py FONT OUT

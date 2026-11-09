@@ -12,7 +12,7 @@ clean: the same, but quit with :q! instead of the reset: then there is
        which a 1541 gives back as one CR).
 
     python3 tests/vice/rectest.py --prg build/p8vi-c64reu.prg
-    python3 tests/vice/rectest.py --prg build/p8vi-c64font.prg --font build/p8vi.fnt
+    python3 tests/vice/rectest.py --prg build/p8vi-c64font.prg --font build/oscii.fnt
     python3 tests/vice/rectest.py --machine c128 --prg build/p8vi-c128reu.prg
     python3 tests/vice/rectest.py --machine c128 --no-reu --prg build/p8vi-c128x.prg
 """

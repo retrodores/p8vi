@@ -3,7 +3,7 @@
 
 ;
 ; the C64 font build (p8vi-c64font, features.FONT): a font loaded from
-; p8vi.fnt (a 2 KB character set saved with load address $f800) into the
+; oscii.fnt (a 2 KB character set saved with load address $f800) into the
 ; RAM under the KERNAL ROM, and the screen moved to $c800, both in VIC-II
 ; bank 3 ($c000-$ffff).  The font is the C64's lowercase set with ASCII
 ; characters in place of some graphics ones, so PETSCII shows them:
@@ -22,10 +22,10 @@ font {
     ; how far the screen rows move
     const ubyte MOVE = msb(SCREEN) - $04
 
-    str FILE = "p8vi.fnt"
+    str FILE = "oscii.fnt"
     ubyte old_vmcsb
 
-    ; load the font and show it.  returns false if p8vi.fnt didn't load.
+    ; load the font and show it.  returns false if oscii.fnt didn't load.
     sub start() -> bool {
         bool failed
         ; (not diskio.load(): the font ends at $ffff, so the end address it

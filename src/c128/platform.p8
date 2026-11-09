@@ -58,7 +58,7 @@ platform {
        ; reads a file name through the bank SETBNK set; after BASIC that is
        ; bank 15, where $4000-$bfff is the BASIC ROM (and p8vi's names are)
        c128.SETBNK(0, 0)
-       ; (the font build) without p8vi.fnt the ROM's font stays
+       ; (the font build) without oscii.fnt the ROM's font stays
        if features.FONT
            void font.start()
 
@@ -115,7 +115,7 @@ platform {
     }
 
     ; (the font build) show the font for ASCII or for PETSCII text; returns
-    ; true if its ASCII characters are shown: the font stays, if p8vi.fnt
+    ; true if its ASCII characters are shown: the font stays, if oscii.fnt
     ; loaded
     sub font_mode(bool ascii) -> bool {
         return features.FONT and font.shown

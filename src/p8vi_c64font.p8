@@ -1,6 +1,6 @@
 ; p8vi - a vi for 8-bit computers, written in Prog8.
 ; the C64 font build (p8vi-c64font): the C64 REU build with a font loaded
-; from p8vi.fnt that has the ASCII characters PETSCII lacks (\ ^ _ ` { | } ~),
+; from oscii.fnt that has the ASCII characters PETSCII lacks (\ ^ _ ` { | } ~),
 ; for editing ASCII text.  An experiment, see src/c64/font.p8.  The editor
 ; itself is in editor.p8, the plain C64 version is src/p8vi.p8.
 
@@ -18,7 +18,7 @@ features {
     const bool FINAL_EOL = true  ; a line ending at the end of a file ends the last line (no empty line after it)
     const bool SCROLL = true     ; scroll the screen one row when the cursor goes just off it (not draw it all again)
     const bool DIR = true       ; :@$ shows the disk directory
-    const bool FONT = true      ; the C64 font build: p8vi.fnt shows the ASCII characters (src/c64/font.p8)
+    const bool FONT = true      ; the C64 font build: oscii.fnt shows the ASCII characters (src/c64/font.p8)
     const bool SWITCH = false    ; (the C128) the 40/80 DISPLAY key switches the screen while p8vi runs
     const bool PREFIX = true     ; :w keeps a drive or path prefix (0:name, //dir/:name) for the safe save (164 bytes)
 }

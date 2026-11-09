@@ -69,15 +69,15 @@ gap buffer, or the page store with an REU or the X16's banked RAM) in
 another program.
 
 `p8vi-c64font` (the `FONT` switch, `src/c64/font.p8`) is the REU build
-with a font that has the ASCII characters PETSCII lacks: `` \ ^ _ ` { | } ~ ``.
-It loads the font from `p8vi.fnt` on the disk to the RAM under the
+with OSCII (C64 OS + ASCII), a font that has the ASCII characters PETSCII
+lacks: `` \ ^ _ ` { | } ~ ``.  It loads the font from `oscii.fnt` on the disk to the RAM under the
 KERNAL at `$f800` and moves the screen to `$c800`, so the program and its
 buffers end below `$c800`.  The characters are typed as in C64 OS: pound
 `\`, up arrow `^`, left arrow `_`, and with Shift: `*` for `` ` ``, `+`
 for `{`, pound for `|`, `-` for `}` and up arrow for `~`.  ASCII files are
 translated to the PETSCII codes the font shows them for.  `make font`
-makes `build/p8vi.fnt` from the font in `FONTSRC` (`tools/mkfont.py`),
-`make emu-c64font` runs it in VICE.  It is not in the release yet.
+makes `build/oscii.fnt` from the font in `FONTSRC` (`tools/mkfont.py`),
+`make emu-c64font` runs it in VICE.  `p8vi-c128x` shows the same font.
 
 The MEGA65 builds are font builds too (`src/mega65/font.p8`), with no
 font file: the MEGA65 ROM has a lower case character set with the same
@@ -165,7 +165,7 @@ The useful `make` targets are:
 | `make test-mega65-zp` | Which zero page bytes the MEGA65 ROM changes in KERNAL calls (`tests/mega65/zpwatch.p8`) |
 | `make test-mega65-keymap` | Measure which MEGA65 keys give which PETSCII codes (the harness's key table) |
 | `make size` | Memory map and room left below memtop for each build (`tools/listsize.py`) |
-| `make disk` | `build/testgap.d81`: a 1581 disk with the C64 and VIC-20 programs, `p8vi.fnt` and the sample files, for `make emu-c64`, `emu-c64reu`, `emu-c64font` and `emu-vic20` (drive 8 is a 1581) |
+| `make disk` | `build/testgap.d81`: a 1581 disk with the C64 and VIC-20 programs, `oscii.fnt` and the sample files, for `make emu-c64`, `emu-c64reu`, `emu-c64font` and `emu-vic20` (drive 8 is a 1581) |
 | `make c64`   | Compile for the C64 and run it in VICE                    |
 | `make cx16`  | Compile for the Commander X16 and run it in x16emu        |
 | `make release` | Copy the four programs and `docs/QUICKSTART.md` to `release/` (after `make test`, `audit` and `size`): the last known good version |
