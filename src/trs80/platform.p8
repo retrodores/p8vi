@@ -376,30 +376,26 @@ main {
         status(status_text)
     }
 
-    ; rename a file: the TRSDOS library has no rename, so copy old to new
-    ; and delete old.  sets io_failed if that fails.
-    ubyte[128] copy_buf
+    ; rename a file.  no DOS call renames one: the profile's rename
+    ; (z80-trs80-files.c) copies old to new through a sector buffer and
+    ; deletes old, or deletes the partial copy.  sets io_failed if it fails.
+    ; (called directly, as diskio.rename() doesn't give the result; so the
+    ; names need the DOS's NAME/EXT, which diskio makes of name.ext)
+    extsub prog8_trs80_rename(str old, str new) -> word
+    str old_spec = " " * 40
+    str new_spec = " " * 40
     sub rename_file(str old, str new) {
-        uword n
-        io_failed = true
-        if diskio.f_open(old) {
-            if diskio.f_open_w(new) {
-                io_failed = false
-                repeat {
-                    n = diskio.f_read(copy_buf, len(copy_buf))
-                    if n == 0
-                        break
-                    if not diskio.f_write(copy_buf, n) {
-                        io_failed = true
-                        break
-                    }
-                }
-                diskio.f_close_w()
-            }
-            diskio.f_close()
-        }
-        if not io_failed
-            diskio.delete(old)
+        dos_spec(old, old_spec)
+        dos_spec(new, new_spec)
+        io_failed = prog8_trs80_rename(old_spec, new_spec) != 0
+    }
+    sub dos_spec(str name, str spec) {
+        void strings.copy(name, spec)
+        ubyte i
+        bool found
+        i, found = strings.rfind(spec, '.')
+        if found
+            spec[i] = '/'
     }
 
     ; (features.DOS, features.DIR, features.PREFIX: CBM DOS only, off here)
