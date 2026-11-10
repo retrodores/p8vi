@@ -321,9 +321,20 @@ main {
         return k
     }
 
-    ; (the page store's clock; there is none here, nor a page store)
+    ; a clock in 30ths of a second, for the page store's sync (p8vi-trs80m4x).
+    ; LS-DOS 6 counts the 30 Hz interrupts in a byte at $002c (seen in
+    ; trs80gp: the seconds are at $002d, the minutes at $002e); the high
+    ; byte is counted here, so this has to be called more often than every
+    ; 8 seconds to keep up (the key loop does; a slower clock now and then
+    ; only delays a sync)
+    const uword TICK_COUNT = $002c
+    ubyte last_tick
+    uword clock
     sub ticks() -> uword {
-        return 0
+        ubyte t = @(TICK_COUNT)
+        clock += t - last_tick
+        last_tick = t
+        return clock
     }
 
     ; a character as txt.setchr wants it: ASCII

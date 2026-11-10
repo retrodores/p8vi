@@ -242,8 +242,10 @@ and editing then go about as with an REU.
     code).  The start screen, marks, zt zz zb and SCROLL are off for room.
     fastmem has Prog8 loops here (the page store needs them; the TRS-80's
     were stubs, the gap buffer has its own).  `make test-trs80m4x` runs the
-    file suites with -mem 128, and the page store's (not huge).  Open:
-    recovery after a reset (`:rec`) is untested; a 64 KB Model 4 falls
+    file suites with -mem 128, and the page store's (not huge).  `:rec`
+    works after a reset in trs80gp (`-ictl reset`; the sync needed a
+    clock: `ticks()` counts LS-DOS 6's 30 Hz byte at $002c), tried by hand,
+    not in the tests yet.  Open: a 64 KB Model 4 falls
     back to main RAM with only a page or two (use p8vi-trs80m4 there); an
     NMI while a page is in the window would find no handler.
   - The function keys (F1-F3), `:r $` / `:@$` (the DOS has a directory).
