@@ -362,6 +362,35 @@ EMUVIC=xvic -default -keymap 1 -model ntsc -memory all -8 $(DISK) -drive8type 15
 emu-vic20:	build/p8vi-vic20.prg disk
 	$(EMUVIC) -autostartprgmode 1 build/p8vi-vic20.prg
 
+# the C64 disk paging build: its swap files go on the test disk (a 1581
+# in VICE is slow; the build is meant for fast drives)
+emu-c64disk:	build/p8vi-c64disk.prg disk
+	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/p8vi-c64disk.prg
+
+# the C128 builds in their own mode, with the test disk (oscii.fnt is on
+# it, for p8vi-c128x).  the 40 column screen; make emu-c128 C128COL=-80col
+# for the 80 column one
+C128COL=-40col
+EMU128=x128 -default -keymap 1 -model ntsc $(C128COL) -8 $(DISK) -drive8type 1581 -monitorfont "JetBrains Mono 16"
+emu-c128:	build/p8vi-c128.prg disk
+	$(EMU128) -autostartprgmode 1 build/p8vi-c128.prg
+emu-c128x:	build/p8vi-c128x.prg disk
+	$(EMU128) -autostartprgmode 1 build/p8vi-c128x.prg
+emu-c128reu:	build/p8vi-c128reu.prg disk
+	$(EMU128) $(EMU_REU) -autostartprgmode 1 build/p8vi-c128reu.prg
+
+# the TRS-80s in trs80gp (TRS80GP, the path of its binary): it boots the
+# DOS and runs p8vi.  drive 1 has the DOS's utility disk with FreHD's
+# IMPORT2 and EXPORT2, and the FreHD's directory is samples/, so
+# "IMPORT2 sample.txt SAMPLE/TXT:1" brings a file in (changes to the
+# built-in disks aren't kept).  the Model III with LDOS, the Model 4 with
+# TRSDOS 6
+TRS80GP ?= $(HOME)/Applications/trs80gp.app/Contents/MacOS/trs80gp
+emu-trs80:	build/p8vi-trs80.cmd
+	$(TRS80GP) -m3 -ld -d1 :lu3 -frehd -frehd_dir samples build/p8vi-trs80.cmd
+emu-trs80m4:	build/p8vi-trs80m4.cmd
+	$(TRS80GP) -m4 -d1 :lu4 -frehd -frehd_dir samples build/p8vi-trs80m4.cmd
+
 # self checking text store tests (gap buffer and page store) on the
 # virtual target
 test-gap:	build
