@@ -1,5 +1,8 @@
 # Request: sys.ticks() for the llvm16 targets (TRS-80, CoCo)
 
+**Done** in prog8c-llvm (2026-11-10), in 60ths of a second on every
+target (`sys.TICKS_PER_SECOND` = 60); p8vi's TRS-80 `ticks()` uses it.
+
 A prompt for the prog8c-llvm (compiler) side, from p8vi, 2026-11-10.
 
 ---

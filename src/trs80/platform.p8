@@ -266,9 +266,8 @@ main {
     const ubyte KEY_SHIFT_Y     = 'Y'
     const ubyte KEY_SHIFT_Z     = 'Z'
 
-    ; LDOS's clock: $4216 counts 30ths of a second down, $4217 the seconds
+    ; LDOS's clock: $4216 counts 30ths of a second down (the cursor blinks by it)
     const uword TICKS = $4216
-    const uword SECONDS = $4217
 
     bool last_timer = false
     sub blink_timer() -> bool {
@@ -311,9 +310,10 @@ main {
         return k
     }
 
-    ; a clock in 30ths of a second (it wraps every minute)
-    sub ticks() -> uword {
-        return (@(SECONDS) as uword) * 30 + 30 - @(TICKS)
+    ; a clock in 60ths of a second: the compiler's (an interrupt task of
+    ; LDOS, installed by the first call)
+    inline sub ticks() -> uword {
+        return sys.ticks()
     }
 
     ; a character as txt.setchr wants it: ASCII
