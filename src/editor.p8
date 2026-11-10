@@ -568,6 +568,12 @@ main {
             pending_char = key
             return
         }
+        ; & repeats the last :s on the cursor line
+        if features.REPEAT_SUBST and key == '&' {
+            range_first = buffer.NONE
+            subst_cmd("")
+            return
+        }
         target = motion(key, count)
         if target != buffer.NONE {
             if features.MARKS {
@@ -1736,6 +1742,10 @@ main {
         rec_keys = take_memory(REPEAT_SIZE)
         dot_keys = take_memory(REPEAT_SIZE)
         insert_text = take_memory(INSERT_SIZE)
+        if features.REPEAT_SUBST {
+            last_subst = take_memory(len(cmdline))
+            last_subst[0] = 0
+        }
         buffer.init(platform.textstart, platform.texttop)
         mode = MODE_NAV
         txt.cls()
@@ -1909,14 +1919,16 @@ main {
     ; :[range]s/old/new/[g] - replace old with new in the lines of the range
     ; (the cursor line without one): the first one in each line, or all of
     ; them with g.  old and new are plain text, and any character can take
-    ; the place of the '/'.  An empty old is the last search.
+    ; the place of the '/'.  An empty old is the last search.  :s on its own
+    ; (and &) repeats the last one, without its g (features.REPEAT_SUBST).
+    pointer last_subst      ; (features.REPEAT_SUBST) the last :s argument, without its flags
     sub subst_cmd(str arg) {
-        ubyte delim = arg[0]
+        ubyte @dirty delim
         ubyte old_len
         ubyte new_at
         ubyte new_len
         ubyte i
-        pointer old = arg + 1
+        pointer @dirty old
         bool all
         bool full = false
         uword line = range_first
@@ -1927,6 +1939,13 @@ main {
         uword match
         uword found = buffer.NONE
 
+        if features.REPEAT_SUBST {
+            if arg[0] != 0
+                void strings.copy(arg, last_subst)
+            arg = last_subst
+        }
+        delim = arg[0]
+        old = arg + 1
         if delim == 0 {
             status("no pattern")
             return
@@ -1941,6 +1960,8 @@ main {
         i = field_end(arg, i, delim)
         new_len = i - new_at
         all = arg[i] != 0 and arg[i + 1] == 'g'
+        if features.REPEAT_SUBST
+            arg[i] = 0
         if old_len == 0 {
             old = search_pat
             old_len = search_len

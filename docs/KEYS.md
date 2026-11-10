@@ -250,6 +250,7 @@ Not on the VIC-20, the X16, the TRS-80, `p8vi-c64font`, `p8vi-mega65dma`,
 | `:@$`, `:@$:pattern` | show the disk directory, or the files that match (`:@$:*.txt`); a key shows the next screen, Escape stops (not on the VIC-20) | ✅ |
 | `:s/old/new/`, `:s/old/new/g` | replace old with new in the cursor line: the first one, or all with `g` (not on the VIC-20) | ✅ |
 | `:%s/…`, `:5,10s/…`, `:.,$s/…` | `:s` on a range of lines: `%` all lines, `a,b` with line numbers, `.` (cursor line), `$` (last line) | ✅ |
+| `&`, `:s`, `:%s` | the last `:s` again, without its flags: in the cursor line, or in a range (not on the X16 or in `p8vi-c128reu`) | ✅ |
 | line ranges for other commands (`:1,5d`, `:1,5w`) | | ⬜ |
 | `:set ascii`, `:set petscii` | write the file as ASCII or PETSCII | ✅ |
 | `:set cr`, `:set lf`, `:set crlf` | the file's line endings | ✅ |

@@ -8,7 +8,6 @@ aren't.
 
 - **Line ranges for more commands:** `:1,5d`, `:.,$y`, `:1,10w name`.
   `:s` has them (`read_range()`).
-- **`&`** repeats the last `:s` on the cursor line.
 - **Scrolling the view:** `zt`, `zz` and `zb` (cursor line to the top,
   middle or bottom of the screen), and Ctrl-E / Ctrl-Y (scroll one line).
 - **More marks:** forgetting a mark when its line is deleted, as vi does
@@ -18,6 +17,11 @@ aren't.
   p8vi-c128reu, p8vi-c64font (its REU slots ran short: the reu-in-use
   check failed) and the TRS-80 (6% of its text; edtest's big suite no
   longer fit the test build).
+- **`&` on the X16 and in `p8vi-c128reu`** (`features.REPEAT_SUBST`,
+  about 115 bytes and a 40 byte copy of the last `:s`): the X16's main RAM
+  is full, and in `p8vi-c128reu` the copy would push the page slot out of
+  `$1300-$1bdf` (32 bytes are left).  The C128's sprite area (`$0e00`)
+  could hold the copy.  `g&` (`:%s` again) isn't there either.
 
 ## Known problems
 

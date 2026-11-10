@@ -263,9 +263,12 @@ Replacing (not on the VIC-20):
 | `:%s/old/new/g` | in every line |
 | `:5,10s/old/new/`, `:.,$s/old/new/` | in lines 5 to 10, from here to the end |
 | `:s//new/` | replace what was searched for last |
+| `&`, `:s` | the last `:s` again, in the cursor line (without its `g`) |
+| `:%s` | the last `:s` again, in every line |
 
 Any character can take the place of `/` (`:s#a/b#c#`), and the last one can
-be left out (`:s/old/new`).  `u` undoes a whole `:s`.
+be left out (`:s/old/new`).  `u` undoes a whole `:s`.  The X16 version and
+`p8vi-c128reu` don't have `&` (or `:s` on its own).
 
 ## Files
 
@@ -414,15 +417,15 @@ files too: files are
 read and written as they are, and `:set ascii` and `:set crlf` aren't
 there.  It is for the 4032 (40 columns) for now.
 
-The X16 version leaves out the start screen and marks, and the Plus/4
-version nothing.
+The X16 version leaves out the start screen, marks and `&`, and the
+Plus/4 version nothing.
 
 `p8vi-mega65dma` leaves out the start screen, marks, `:s` replacing and
 line ranges, and `:@$` and `:r $`: its program has to fit below the room it
 needs for its text.  `p8vi-mega65` has everything.
 
 `p8vi-c128x` leaves out the start screen, marks, `:@$` and `:r $`, and
-`p8vi-c128reu` those and scrolling one row at a time and the `40/80
+`p8vi-c128reu` those and `&`, scrolling one row at a time and the `40/80
 DISPLAY` key.  `p8vi-c128` and `p8vi-c64disk` have everything.
 
 `p8vi-c64font` leaves out marks.
