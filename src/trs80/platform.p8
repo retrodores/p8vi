@@ -45,9 +45,10 @@ platform {
     extsub malloc(uword size) -> uword
     extsub free(uword block)
     ; (2 open files: a sector buffer and the FILE with its control block
-    ; each, about 600 bytes.  it was 2048: the compiler's ENTER fix and
-    ; :e's drive (DRIVE_SUFFIX) took edtest's big g3 over the edge)
-    const uword FILE_ROOM = 1024
+    ; each, about 600 bytes; 2048 leaves a margin, as a failed open would
+    ; mean a failed :w.  it was 1024 for a while, until the compiler's -Oz
+    ; default (2026-11-10) gave the room back)
+    const uword FILE_ROOM = 2048
     ; (measured: running the edits and big test suites, the stack used under
     ; 64 bytes of it.  it was 512: edtest's big g3 needed the room)
     const uword STACK_ROOM = 256
