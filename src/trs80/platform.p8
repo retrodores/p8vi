@@ -46,8 +46,8 @@ platform {
     extsub free(uword block)
     const uword FILE_ROOM = 2048
     ; (measured: running the edits and big test suites, the stack used under
-    ; 64 bytes of it)
-    const uword STACK_ROOM = 512
+    ; 64 bytes of it.  it was 512: edtest's big g3 needed the room)
+    const uword STACK_ROOM = 256
 
     sub init() {
         uword size = $c000
@@ -133,11 +133,11 @@ platform {
         ubyte r
         if up {
             for r in first to last - count
-                sys.memcopy(VIDEO + (r + count) as uword * COLUMNS, VIDEO + (r as uword) * COLUMNS, COLUMNS)
+                sys.memcopy(VIDEO + ((r + count) as uword) * COLUMNS, VIDEO + (r as uword) * COLUMNS, COLUMNS)
         } else {
             r = last
             while r >= first + count {
-                sys.memcopy(VIDEO + (r - count) as uword * COLUMNS, VIDEO + (r as uword) * COLUMNS, COLUMNS)
+                sys.memcopy(VIDEO + ((r - count) as uword) * COLUMNS, VIDEO + (r as uword) * COLUMNS, COLUMNS)
                 r--
             }
         }

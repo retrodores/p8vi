@@ -81,6 +81,11 @@ Files are named as LDOS has them: `t.txt` is `T/TXT`.  Saving writes
 `p8vi.tmp` and then copies it over the file (no LDOS call renames a
 file), so a save takes a while on a floppy.
 
+The Model 4 version (`p8vi-trs80m4.cmd`, for TRSDOS 6 and LS-DOS 6.3, 80
+columns) has a `CTRL` key: `CTRL` + a letter is Ctrl.  `Esc` is `Shift` +
+`↑` or `BREAK`, and `←` and `Shift` + `←` are as on the Model III.  The
+DOS renames files, so saving is quick.
+
 ## Moving
 
 | Keys | Action | Status |
@@ -112,7 +117,7 @@ file), so a save takes a while on a floppy.
 | `Ctrl-F` `Ctrl-B` | page forward / back (moves the cursor a screen of lines) | ✅ |
 | `Ctrl-D` `Ctrl-U` | half a page down / up | ✅ |
 | `Ctrl-E` `Ctrl-Y` | scroll one line without moving the cursor | ⬜ |
-| `zt` `zz` `zb` | the cursor's row to the top / middle / bottom of the screen (not on the VIC-20, the X16 or the TRS-80, or in `p8vi-mega65dma`, `p8vi-c128x` and `p8vi-c64font`) | ✅ |
+| `zt` `zz` `zb` | the cursor's row to the top / middle / bottom of the screen (not on the VIC-20, the X16 or the TRS-80 Model III, or in `p8vi-mega65dma`, `p8vi-c128x` and `p8vi-c64font`) | ✅ |
 | `z<CR>` `z.` `z-` | the same, and the cursor to the first non-blank | ⬜ |
 | `Ctrl-L` | redraw the screen | ✅ |
 
@@ -220,7 +225,7 @@ doesn't fit can't be undone ("undo too big").  Loading a file empties it.
 
 Marks move with the text as it changes; `:e` and `:rec` clear them.
 Unlike vi, a mark on a deleted line stays, at the place of the deletion.
-Not on the VIC-20, the X16, the TRS-80, `p8vi-c64font`, `p8vi-mega65dma`,
+Not on the VIC-20, the X16, the TRS-80 Model III, `p8vi-c64font`, `p8vi-mega65dma`,
 `p8vi-c128x` or `p8vi-c128reu` (`features.MARKS`: about 400 bytes).
 
 ## Visual mode

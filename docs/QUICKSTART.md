@@ -1,7 +1,7 @@
 # p8vi quick start
 
 p8vi is a vi for 8-bit computers: the Commodore C64, VIC-20, PET, Plus/4
-and C128, the Commander X16, the MEGA65 and the TRS-80 Model III.  If you
+and C128, the Commander X16, the MEGA65 and the TRS-80 Model III and 4.  If you
 know vi or vim you know most of it already; this guide shows what is there
 and which keys to press on a Commodore (or TRS-80) keyboard.  `docs/KEYS.md` lists every vi command with
 whether it is done.
@@ -42,6 +42,7 @@ whether it is done.
 | `p8vi-mega65.prg` | MEGA65 (in MEGA65 mode, not `GO64`) | about 6.7 KB |
 | `p8vi-mega65dma.prg` | MEGA65 | up to 64 KB (in attic RAM, or chip RAM banks 4 and 5 without it) |
 | `p8vi-trs80.cmd` | TRS-80 Model III (48 KB) with LDOS | about 6.6 KB |
+| `p8vi-trs80m4.cmd` | TRS-80 Model 4 (64 KB, in its own mode, 80 columns) with TRSDOS 6 or LS-DOS 6.3 | about 8.3 KB |
 
 The MEGA65, PET, Plus/4, C128 and TRS-80 versions and `p8vi-c64disk` are
 new and still being worked on.
@@ -59,7 +60,9 @@ and `RUN`, or `RUN"P8VI-MEGA65"`.  On the C128 (in its own mode, not
 whichever is active.
 
 On the TRS-80, copy `p8vi-trs80.cmd` to an LDOS disk as `P8VI/CMD` (for
-example with a FreHD's `IMPORT2`) and type `P8VI` at the LDOS prompt.
+example with a FreHD's `IMPORT2`) and type `P8VI` at the LDOS prompt.  On
+a Model 4 the same with `p8vi-trs80m4.cmd`, at the TRSDOS 6 or LS-DOS 6.3
+prompt.
 
 Then `:e name` opens a file (a name that isn't on the disk starts a new,
 empty file), and `:q` quits.  `Ctrl-G` shows how many lines there are and
@@ -108,8 +111,8 @@ BASIC error (`?DEVICE NOT PRESENT`), and the text is lost.
 `p8vi-c128` and `p8vi-c128x` follow the `40/80 DISPLAY` key while they
 run.
 
-**The TRS-80** has no `Esc`, `Ctrl` or Backspace key, and its text is
-ASCII (p8vi turns caps lock off while it runs):
+**The TRS-80 Model III** has no `Esc`, `Ctrl` or Backspace key, and its
+text is ASCII (p8vi turns caps lock off while it runs):
 
 | vi key | Type this | |
 |--------|-----------|---|
@@ -122,6 +125,12 @@ ASCII (p8vi turns caps lock off while it runs):
 Files are named as LDOS has them: `t.txt` is `T/TXT`.  Saving copies
 `p8vi.tmp` over the file (LDOS can't rename one), so `:w` takes a while on
 a floppy.
+
+**The TRS-80 Model 4** has a `CTRL` key, so `Ctrl-F` is `CTRL` + `F`.
+`Esc` is `Shift` + `↑` or `BREAK`, and `←` is Backspace as on the Model
+III (`Shift` + `←` moves left in insert mode).  Files are named as the
+DOS has them (`t.txt` is `T/TXT`); the DOS renames `p8vi.tmp` over the
+file when saving.
 
 A count typed before a command repeats or extends it: `3j` moves down 3
 lines, `2dd` deletes 2 lines, `d3w` deletes 3 words.
@@ -147,7 +156,7 @@ lines, `2dd` deletes 2 lines, `d3w` deletes 3 words.
 | `H` `M` `L` | top, middle, bottom row of the screen |
 | `m`a, `'`a, `` ` ``a | set mark a; go to its line, or to the mark itself (see below) |
 
-**Marks** (not on the VIC-20, the X16, the TRS-80, `p8vi-c64font`,
+**Marks** (not on the VIC-20, the X16, the TRS-80 Model III, `p8vi-c64font`,
 `p8vi-mega65dma`, `p8vi-c128x` or `p8vi-c128reu`): `ma` remembers the cursor's place as mark `a` (any
 letter `a`-`z`).  `'a` goes back to that line, `` `a `` to the very
 place; on a Commodore `` ` `` is `Shift` + `*`.  With an operator they
@@ -432,8 +441,10 @@ needs for its text.  `p8vi-mega65` has everything.
 
 `p8vi-c64font` leaves out marks, and `zt` `zz` `zb`.
 
-The TRS-80 version leaves out the disk commands (`:@`, `:@$`, `:r $`),
-recovery, marks, `zt` `zz` `zb`, and `:set ascii` and `:set petscii` (its files are ASCII).
+The TRS-80 Model III version leaves out the disk commands (`:@`, `:@$`,
+`:r $`), recovery, marks, `zt` `zz` `zb`, and `:set ascii` and `:set
+petscii` (its files are ASCII).  The Model 4 version has marks and `zt`
+`zz` `zb`, but not the rest.
 
 <div style="page-break-before: always"></div>
 

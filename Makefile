@@ -221,6 +221,18 @@ trs80-test: build/p8vi-trs80test.cmd
 build/p8vi-trs80test.cmd: src/p8vi_trs80test.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSTRS80) -o build/p8vi-trs80test $<
 
+# the TRS-80 Model 4 in its own mode (TRSDOS 6, LS-DOS 6.3; 80 x 24): the
+# z80-trs80-m4 profile.  The source is src/p8vi_trs80m4.p8 with
+# src/trs80m4, and src/trs80 for the files the two share.
+PCCARGSTRS80M4=-srcdirs src:src/trs80m4:src/trs80 -target llvm16 -triple z80-trs80-m4
+trs80m4: build/p8vi-trs80m4.cmd
+build/p8vi-trs80m4.cmd: src/p8vi_trs80m4.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/trs80m4/*.p8 src/trs80/*.p8
+	$(PCC) $(PCCARGSTRS80M4) -o build/p8vi-trs80m4 $<
+# the test build: it plays the keys in KEYS/TXT first (features.KEYFILE)
+trs80m4-test: build/p8vi-trs80m4test.cmd
+build/p8vi-trs80m4test.cmd: src/p8vi_trs80m4test.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/trs80m4/*.p8 src/trs80/*.p8
+	$(PCC) $(PCCARGSTRS80M4) -o build/p8vi-trs80m4test $<
+
 clean:
 	$(RM) build$(SEP)*
 
