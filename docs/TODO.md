@@ -251,6 +251,33 @@ and editing then go about as with an REU.
     NMI while a page is in the window would find no handler.
   - The function keys (F1-F3), `:r $` / `:@$` (the DOS has a directory).
   - Screen tests: trs80gp's `-it` writes the text screen to a file.
+- **TRS-80 Model I** (not supported yet; tried in trs80gp on 2026-11-10 with
+  the v0.3.1 `p8vi-trs80.cmd`).  The Model III build runs unchanged: under
+  LDOS 5.3.1 (`-m1 -ld`) and TRSDOS 2.3 (plain `-m1`) it starts and shows
+  the start screen.  All 17 file suites pass under LDOS (with trstest.py
+  given a model `'1': (['-m1'], ':lu1', ...)`, as for model 3).  The
+  suites play keys from a file, so they miss what's wrong:
+  - **Letter case swapped** when typing ("Hello" comes out as "hELLO").
+    platform.init writes 0 to `$4019`, the Model III ROM's caps lock flag.
+    On a Model I that is something else, so don't write it there.  The
+    Model I's keyboard gives capitals unless shifted: swap the case of
+    letters from `txt.getkey()`.
+  - **No cursor.**  blink_timer reads `$4216` (LDOS's timer on the Model
+    III), which doesn't count on a Model I: the cursor is never drawn.
+    `sys.ticks()` is 0 on a Model I (compiler docs), so show it without
+    blinking, or count passes through the key loop.
+  - **Without the lower-case kit** (`-nlc`) lower case shows as symbols
+    (bit 6 of the video RAM is missing): "Prog8 VI (p8vi)" is
+    `P2/'8 VI (086))`, and the `~` rows are `>`.  Test for the kit at the
+    start (write a lower-case letter to the video RAM and read it back), and
+    without it show everything in upper case.
+  - Telling the models apart: the ROM byte at `$0125` is `I` (73) on a
+    Model III (the usual check; not verified here yet).  One `.cmd` can
+    serve both.
+  - Keys typed with `-ik` faster than hold/gap 15/15 frames get lost or
+    garbled on both models (test timing, not p8vi).
+  - Better done in the compiler's profile (asked for): `sys.ticks()`, the
+    model, `txt.getkey()`'s case and the lower-case test.
 - **Color Computer 2 and 3** (not started; llvm16 `mc6809-coco`).  Both are
   blocked by the 6809's code size today.  The same program's code is 4.5
   times the Z80's at -O2, mostly from inlining, so p8vi would be over
