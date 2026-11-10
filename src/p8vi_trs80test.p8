@@ -27,5 +27,6 @@ features {
     const bool PREFIX = false   ; (CBM DOS only) :w keeps a drive or path prefix (0:name, //dir/:name) for the safe save
     const bool CTRL_AT = true    ; @ then a letter is Ctrl + the letter in normal mode (for keyboards without Ctrl)
     const bool MARKS = false   ; ma, 'a, `a: vi's marks a-z (28 buffer marks instead of 2)
+    const bool Z_VIEW = false   ; zt zz zb: the cursor row at the top, middle or bottom of the screen (off: the text room; edtest big g3 no longer fit)
     const bool KEYFILE = true   ; (the test build) the keys come from KEYS/TXT first
 }

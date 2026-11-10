@@ -112,7 +112,8 @@ file), so a save takes a while on a floppy.
 | `Ctrl-F` `Ctrl-B` | page forward / back (moves the cursor a screen of lines) | ✅ |
 | `Ctrl-D` `Ctrl-U` | half a page down / up | ✅ |
 | `Ctrl-E` `Ctrl-Y` | scroll one line without moving the cursor | ⬜ |
-| `zt` `zz` `zb` (`z<CR>` `z.` `z-`) | cursor line to top / middle / bottom of the screen | ⬜ |
+| `zt` `zz` `zb` | the cursor's row to the top / middle / bottom of the screen (not on the VIC-20, the X16 or the TRS-80, or in `p8vi-mega65dma`, `p8vi-c128x` and `p8vi-c64font`) | ✅ |
+| `z<CR>` `z.` `z-` | the same, and the cursor to the first non-blank | ⬜ |
 | `Ctrl-L` | redraw the screen | ✅ |
 
 ## Inserting

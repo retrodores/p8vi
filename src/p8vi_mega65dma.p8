@@ -26,6 +26,7 @@ features {
     const bool PREFIX = false    ; :w keeps a drive or path prefix (0:name, //dir/:name) for the safe save (164 bytes)
     const bool CTRL_AT = false    ; @ then a letter is Ctrl + the letter in normal mode (for keyboards without Ctrl)
     const bool MARKS = false    ; ma, 'a, `a: vi's marks a-z (28 buffer marks instead of 2)
+    const bool Z_VIEW = false   ; zt zz zb: the cursor row at the top, middle or bottom of the screen (off: no room below $c000)
 }
 
 ; features.FONT again, for the assembler (charset.p8's tables).  In main:

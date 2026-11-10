@@ -568,6 +568,10 @@ main {
             pending_char = key
             return
         }
+        if features.Z_VIEW and key == 'z' {
+            pending_char = key
+            return
+        }
         ; & repeats the last :s on the cursor line
         if features.REPEAT_SUBST and key == '&' {
             range_first = buffer.NONE
@@ -682,6 +686,22 @@ main {
 
     ; put the cursor at position, or on the last character of its line if
     ; position is the line's end, and keep its column for j and k
+    ; (features.Z_VIEW) zt zz zb: the screen moves to show the cursor's row
+    ; at the top, in the middle or at the bottom.  zt and zb leave it to
+    ; view.refresh(): a top mark after the cursor puts its row at the top,
+    ; one at the start (with the cursor further down than a screen) at the
+    ; bottom.
+    sub z_command() {
+        uword top = 0
+        when key {
+            't' -> top = buffer.NONE
+            'z' -> top = view.rows_up(view.row_of(cursor()), (MAX_ROW - MIN_ROW) / 2)
+            'b' -> {}
+            else -> return
+        }
+        buffer.set_mark(MARK_TOP, top)
+    }
+
     sub cursor_on_char(uword position) {
         set_cursor(min(position, last_char(position)))
         goal_col = column()
@@ -698,6 +718,10 @@ main {
         }
         if features.MARKS and (cmd == 'm' or cmd == '\'' or cmd == KEY_BACKTICK) {
             mark_command(cmd)
+            return
+        }
+        if features.Z_VIEW and cmd == 'z' {
+            z_command()
             return
         }
         when cmd {
@@ -2621,11 +2645,16 @@ view {
             }
             if prev != row_start[main.MAX_ROW] {
                 ; cursor below the screen: its row becomes the bottom row
-                repeat main.MAX_ROW - main.MIN_ROW {
-                    prev = prev_row(top)
-                    if prev == NONE
-                        break
-                    top = prev
+                ; (rows_up() is there for zz, features.Z_VIEW)
+                if features.Z_VIEW
+                    top = rows_up(top, main.MAX_ROW - main.MIN_ROW)
+                else {
+                    repeat main.MAX_ROW - main.MIN_ROW {
+                        prev = prev_row(top)
+                        if prev == NONE
+                            break
+                        top = prev
+                    }
                 }
             }
             buffer.set_mark(main.MARK_TOP, top)
@@ -2686,6 +2715,19 @@ view {
                 (position >= buffer.length() or buffer.get(position) == buffer.eol)
             rows--
         return start + rows * width()
+    }
+
+    ; returns the start of the screen row n rows above the one starting at
+    ; start (as far as the text goes)
+    sub rows_up(uword start, ubyte n) -> uword {
+        uword prev
+        repeat n {
+            prev = prev_row(start)
+            if prev == NONE
+                break
+            start = prev
+        }
+        return start
     }
 
     ; returns the start of the screen row before the one starting at

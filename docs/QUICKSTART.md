@@ -163,6 +163,7 @@ Scrolling:
 |------|------|
 | `Ctrl-F` `Ctrl-B` | a page forward / back |
 | `Ctrl-D` `Ctrl-U` | half a page down / up |
+| `zt` `zz` `zb` | move the screen: the cursor's row at the top, in the middle, at the bottom |
 | `Ctrl-L` | draw the screen again |
 
 ## Inserting text
@@ -407,31 +408,32 @@ The VIC-20 version has to fit in less memory, so it has none of these:
 * the disk commands `:@`, `:@$` and `:r $`
 * the start screen
 * marks (`m`, `'`, `` ` ``)
+* `zt`, `zz` and `zb`
 * scrolling one row at a time (the screen is drawn again instead)
 * a file that ends with a line ending shows an empty last line (the other
   versions treat it as the end of the last line, like vi)
 
 The PET version has to fit in 32 KB with its text.  It leaves out what
-the VIC-20 version leaves out (it has marks, though), and ASCII and CR LF
+the VIC-20 version leaves out (it has marks and `zt` `zz` `zb`, though), and ASCII and CR LF
 files too: files are
 read and written as they are, and `:set ascii` and `:set crlf` aren't
 there.  It is for the 4032 (40 columns) for now.
 
-The X16 version leaves out the start screen, marks and `&`, and the
-Plus/4 version nothing.
+The X16 version leaves out the start screen, marks, `&`, and `zt` `zz`
+`zb`, and the Plus/4 version nothing.
 
-`p8vi-mega65dma` leaves out the start screen, marks, `:s` replacing and
-line ranges, and `:@$` and `:r $`: its program has to fit below the room it
+`p8vi-mega65dma` leaves out the start screen, marks, `zt` `zz` `zb`, `:s`
+replacing and line ranges, and `:@$` and `:r $`: its program has to fit below the room it
 needs for its text.  `p8vi-mega65` has everything.
 
-`p8vi-c128x` leaves out the start screen, marks, `:@$` and `:r $`, and
-`p8vi-c128reu` those and `&`, scrolling one row at a time and the `40/80
-DISPLAY` key.  `p8vi-c128` and `p8vi-c64disk` have everything.
+`p8vi-c128x` leaves out the start screen, marks, `zt` `zz` `zb`, `:@$` and
+`:r $`.  `p8vi-c128reu` leaves out the start screen, marks, `&`, `:@$` and
+`:r $`, scrolling one row at a time and the `40/80 DISPLAY` key.  `p8vi-c128` and `p8vi-c64disk` have everything.
 
-`p8vi-c64font` leaves out marks.
+`p8vi-c64font` leaves out marks, and `zt` `zz` `zb`.
 
 The TRS-80 version leaves out the disk commands (`:@`, `:@$`, `:r $`),
-recovery, marks, and `:set ascii` and `:set petscii` (its files are ASCII).
+recovery, marks, `zt` `zz` `zb`, and `:set ascii` and `:set petscii` (its files are ASCII).
 
 <div style="page-break-before: always"></div>
 
@@ -454,7 +456,7 @@ VIC-20 or the PET, or in `p8vi-mega65dma`.
 | `Ctrl-F` `Ctrl-B` | page down / up | `Ctrl-D` `Ctrl-U` | half page |
 | `ge` `gE` | end of previous word | `Ctrl-L` | redraw |
 | `m`a | set mark a | `'`a `` ` ``a | to mark a's line / place |
-| `''` | back before the last jump | | |
+| `''` | back before the last jump | `zt` `zz` `zb` | line to screen top / mid / bottom |
 
 **Inserting** (leave with `Esc`)
 

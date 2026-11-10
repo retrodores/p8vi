@@ -8,8 +8,13 @@ aren't.
 
 - **Line ranges for more commands:** `:1,5d`, `:.,$y`, `:1,10w name`.
   `:s` has them (`read_range()`).
-- **Scrolling the view:** `zt`, `zz` and `zb` (cursor line to the top,
-  middle or bottom of the screen), and Ctrl-E / Ctrl-Y (scroll one line).
+- **Scrolling the view:** Ctrl-E / Ctrl-Y (scroll one line), and
+  `z<Return>` `z.` `z-` (`zt` `zz` `zb` and the first non-blank).  `zt`
+  `zz` `zb` (`features.Z_VIEW`, about 145 bytes) are off on the VIC-20,
+  X16, p8vi-mega65dma (no room), p8vi-c128x (the main-RAM page slot),
+  p8vi-c64font (the REU slots) and the TRS-80 (edtest's big suite no
+  longer fit).  They put the cursor's row at the top or
+  bottom, where vi puts the first or last row of a long line.
 - **More marks:** forgetting a mark when its line is deleted, as vi does
   (now it stays where the deletion was).  (`''` and ``` `` ``` are done.)
   Marks (`features.MARKS`, about 400 bytes) are off on the VIC-20, X16,
