@@ -270,6 +270,27 @@ test-cpm:	build/p8vi-cpmtest.com build/p8vi-cpm.com
 cpm-test: build/p8vi-cpmtest.com
 build/p8vi-cpmtest.com: src/p8vi_cpmtest.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/cpm/*.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSCPM) -o build/p8vi-cpmtest $<
+# p8vi in tnylpo's full screen console (VT52 codes) in this terminal, in
+# build/cpm with the samples (tnylpo's drive A is the directory; it only
+# sees 8.3 names, so sampsmall.txt is sampsmal.txt too)
+CPMDIR=build/cpm
+emu-cpm:	build/p8vi-cpm.com
+	$(MD) $(CPMDIR)
+	$(CP) samples$(SEP)*.txt $(CPMDIR)
+	$(CP) samples$(SEP)sampsmall.txt $(CPMDIR)$(SEP)sampsmal.txt
+	$(CP) build$(SEP)p8vi-cpm.com $(CPMDIR)$(SEP)p8vi.com
+	cd $(CPMDIR) && tnylpo -s p8vi -t vt52
+# the TRS-80 Model 4 with Montezuma Micro CP/M 2.2 in trs80gp: drive A a
+# copy of the system disk (CPM_DISK), drive B a new data disk with p8vi.com
+# and samples (tools/cpm/m4disk.py; made again each time, so edits there
+# aren't kept).  In CP/M: b: then p8vi -t adm3a.  The keyboard gives
+# capitals until CAPS is pressed, and BREAK is Escape.
+CPM_DISK ?= build/cpm222_work.dsk
+emu-trs80m4-cpm:	build/p8vi-cpm.com
+	$(CP) $(CPM_DISK) build$(SEP)cpm-m4-a.dsk
+	python3 -B tools/cpm/m4disk.py $(CPM_DISK) build/cpm-m4-b.dsk build/p8vi-cpm.com:p8vi.com \
+		samples/sample.txt samples/sampsmall.txt samples/sample6.txt samples/sampmax.txt
+	$(TRS80GP) -m4 -mem 64 -d0 build/cpm-m4-a.dsk -d1 build/cpm-m4-b.dsk
 
 clean:
 	$(RM) build$(SEP)*
