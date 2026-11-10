@@ -278,6 +278,30 @@ and editing then go about as with an REU.
     garbled on both models (test timing, not p8vi).
   - Better done in the compiler's profile (bugs/trs80_model1_support.md):
     `sys.ticks()`, the model, `txt.getkey()`'s case and the lower-case test.
+- **CP/M** (`p8vi-cpm.com`, `make cpm`; llvm16 z80-cpm; src/cpm).  A
+  terminal screen kept in memory, sent as changes: `-t ansi` (default),
+  `vt52` (tnylpo's full screen), `adm3a`.  Checked in tnylpo (all three
+  terminals give the same screen as a Ctrl-L redraw) and on the TRS-80
+  Model 4 with Montezuma Micro CP/M 2.2 in trs80gp (`-t adm3a` works;
+  17,202 bytes free with its 64K CP/M; tools/cpm/dmk.py and cpmtools put
+  p8vi.com on the DMK disk, made room by deleting MBASIC.COM and ASM.COM
+  from a copy).  Open:
+  - File tests: a KEYFILE test build under `tnylpo -b` running the edtest
+    suites (and the screens per terminal), as tests/trs80/trstest.py does.
+  - Arrow keys: terminals send escape sequences (ESC [ A, ESC A, ^K ...);
+    hjkl only for now.
+  - Montezuma's keyboard: capitals until CAPS is pressed; BREAK is
+    Escape.  Keys typed while the floppy is read are lost (no type-ahead);
+    txt.flush() asks for keys every 16 characters, so typing during a
+    screen update is kept.
+  - A Montezuma console driver of its own (its codes beyond ADM-3A:
+    clear to end of line would save a lot of spaces), and the C128's CP/M
+    (ADM-31 on 80 columns).
+  - The z80-cpm profile doesn't turn on z88dk's heap (the Makefile's link
+    options do) and its txt has no getchr and plots 0-based to ANSI (one
+    row and column off): worth a note to the compiler side.
+  - llvm32/llvm64 versions for a host terminal, sharing src/cpm/textio.p8's
+    screen (a raw-mode keyboard needed).
 - **Color Computer 2 and 3** (not started; llvm16 `mc6809-coco`).  Both are
   blocked by the 6809's code size today.  The same program's code is 4.5
   times the Z80's at -O2, mostly from inlining, so p8vi would be over

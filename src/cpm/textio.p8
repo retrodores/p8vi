@@ -200,6 +200,8 @@ txt {
             c = want[base + i]
             out(c)
             shown[base + i] = c
+            if i & 15 == 15
+                poll_key()
         }
         tcol = end + 1
         if tcol >= DEFAULT_WIDTH
@@ -294,12 +296,38 @@ txt {
     sub lowercase() {
     }
 
-    ; a key, 0 for none.  the screen is sent first.
-    sub getkey() -> ubyte {
-        flush()
+    ; keys typed while the screen is sent: a console without type-ahead
+    ; (Montezuma's on the TRS-80 Model 4) loses a key that comes and goes
+    ; while nobody asks for one, so flush() asks every 16 characters
+    ubyte[16] keys
+    ubyte key_head
+    ubyte key_tail
+
+    sub poll_key() {
+        if (key_tail + 1) & 15 == key_head
+            return
         bdos6[7] = $ff
         uword code = &bdos6
-        return lsb(call(code))
+        ubyte k = lsb(call(code))
+        if k != 0 {
+            keys[key_tail] = k
+            key_tail = (key_tail + 1) & 15
+        }
+    }
+
+    ; a key, 0 for none: one typed earlier, or else (after the screen is
+    ; sent) the console's
+    sub getkey() -> ubyte {
+        if key_head == key_tail {
+            flush()
+            if key_head == key_tail
+                poll_key()
+            if key_head == key_tail
+                return 0
+        }
+        ubyte k = keys[key_head]
+        key_head = (key_head + 1) & 15
+        return k
     }
 
     sub waitkey() -> ubyte {
