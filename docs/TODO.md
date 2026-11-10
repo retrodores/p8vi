@@ -276,8 +276,8 @@ and editing then go about as with an REU.
     serve both.
   - Keys typed with `-ik` faster than hold/gap 15/15 frames get lost or
     garbled on both models (test timing, not p8vi).
-  - Better done in the compiler's profile (asked for): `sys.ticks()`, the
-    model, `txt.getkey()`'s case and the lower-case test.
+  - Better done in the compiler's profile (bugs/trs80_model1_support.md):
+    `sys.ticks()`, the model, `txt.getkey()`'s case and the lower-case test.
 - **Color Computer 2 and 3** (not started; llvm16 `mc6809-coco`).  Both are
   blocked by the 6809's code size today.  The same program's code is 4.5
   times the Z80's at -O2, mostly from inlining, so p8vi would be over
