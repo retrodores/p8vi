@@ -1,7 +1,7 @@
 # p8vi quick start
 
 p8vi is a vi for 8-bit computers: the Commodore C64, VIC-20, PET, Plus/4
-and C128, the Commander X16, the MEGA65 and the TRS-80 Model III.  If you
+and C128, the Commander X16, the MEGA65 and the TRS-80 Model III and 4.  If you
 know vi or vim you know most of it already; this guide shows what is there
 and which keys to press on a Commodore (or TRS-80) keyboard.  `docs/KEYS.md` lists every vi command with
 whether it is done.
@@ -42,6 +42,8 @@ whether it is done.
 | `p8vi-mega65.prg` | MEGA65 (in MEGA65 mode, not `GO64`) | about 6.7 KB |
 | `p8vi-mega65dma.prg` | MEGA65 | up to 64 KB (in attic RAM, or chip RAM banks 4 and 5 without it) |
 | `p8vi-trs80.cmd` | TRS-80 Model III (48 KB) with LDOS | about 6.6 KB |
+| `p8vi-trs80m4.cmd` | TRS-80 Model 4 (64 KB, in its own mode, 80 columns) with TRSDOS 6 or LS-DOS 6.3 | about 12.5 KB |
+| `p8vi-trs80m4x.cmd` | TRS-80 Model 4 with 128 KB | up to about 60 KB (in the second 64 KB) |
 
 The MEGA65, PET, Plus/4, C128 and TRS-80 versions and `p8vi-c64disk` are
 new and still being worked on.
@@ -59,7 +61,9 @@ and `RUN`, or `RUN"P8VI-MEGA65"`.  On the C128 (in its own mode, not
 whichever is active.
 
 On the TRS-80, copy `p8vi-trs80.cmd` to an LDOS disk as `P8VI/CMD` (for
-example with a FreHD's `IMPORT2`) and type `P8VI` at the LDOS prompt.
+example with a FreHD's `IMPORT2`) and type `P8VI` at the LDOS prompt.  On
+a Model 4 the same with `p8vi-trs80m4.cmd`, or `p8vi-trs80m4x.cmd` with
+128 KB, at the TRSDOS 6 or LS-DOS 6.3 prompt.
 
 Then `:e name` opens a file (a name that isn't on the disk starts a new,
 empty file), and `:q` quits.  `Ctrl-G` shows how many lines there are and
@@ -97,19 +101,19 @@ Commodore keyboards lack some keys vi uses:
 `{` and `}` don't exist in PETSCII.  On the MEGA65 an ASCII file shows
 them, and the keys type them (see [ASCII and PETSCII](#ascii-and-petscii)).
 
-**The PET** has no `CTRL` or `C=` key.  `RVS` types `Ctrl-R` (redo), and
-the cursor keys, `HOME` and `RUN/STOP` work as above, but `Ctrl-F`,
-`Ctrl-B`, `Ctrl-D`, `Ctrl-U`, `Ctrl-W`, `Ctrl-G` and `Ctrl-L` can't be
-typed yet: move with `G`, `nG`, `H`, `M`, `L` and the cursor keys
-instead.  On the PET a disk problem such as no drive stops p8vi with a
+**The PET** has no `CTRL` or `C=` key.  In nav mode `@` and then a letter
+is `Ctrl` + that letter: `@f` is `Ctrl-F`, `@g` `Ctrl-G` (as on the
+TRS-80; in insert mode and on the `:` line `@` is just typed).  `RVS`
+types `Ctrl-R` (redo) too, and the cursor keys, `HOME` and `RUN/STOP`
+work as above.  On the PET a disk problem such as no drive stops p8vi with a
 BASIC error (`?DEVICE NOT PRESENT`), and the text is lost.
 
 **The C128's** `ESC` key is `Esc` too.
 `p8vi-c128` and `p8vi-c128x` follow the `40/80 DISPLAY` key while they
 run.
 
-**The TRS-80** has no `Esc`, `Ctrl` or Backspace key, and its text is
-ASCII (p8vi turns caps lock off while it runs):
+**The TRS-80 Model III** has no `Esc`, `Ctrl` or Backspace key, and its
+text is ASCII (p8vi turns caps lock off while it runs):
 
 | vi key | Type this | |
 |--------|-----------|---|
@@ -122,6 +126,18 @@ ASCII (p8vi turns caps lock off while it runs):
 Files are named as LDOS has them: `t.txt` is `T/TXT`.  Saving copies
 `p8vi.tmp` over the file (LDOS can't rename one), so `:w` takes a while on
 a floppy.
+
+A drive number goes after the name, as in the DOS: `:w t.txt:1` saves on
+drive 1 (and `p8vi.tmp` goes there too).  Without one the DOS finds the
+file on any drive, and `:e` adds the drive it was on to the name
+(`t.txt:1`), so `:w` saves it there again.  A new file without a drive
+number goes on the first drive the DOS can write to.
+
+**The TRS-80 Model 4** has a `CTRL` key, so `Ctrl-F` is `CTRL` + `F`.
+`Esc` is `Shift` + `↑` or `BREAK`, and `←` is Backspace as on the Model
+III (`Shift` + `←` moves left in insert mode).  Files are named as the
+DOS has them (`t.txt` is `T/TXT`); the DOS renames `p8vi.tmp` over the
+file when saving.
 
 A count typed before a command repeats or extends it: `3j` moves down 3
 lines, `2dd` deletes 2 lines, `d3w` deletes 3 words.
@@ -145,6 +161,17 @@ lines, `2dd` deletes 2 lines, `d3w` deletes 3 words.
 | `gg`, `G`, `nG` | first line, last line, line n |
 | `:n` | line n (also `:$` last line and `:.` cursor line, not on the VIC-20) |
 | `H` `M` `L` | top, middle, bottom row of the screen |
+| `m`a, `'`a, `` ` ``a | set mark a; go to its line, or to the mark itself (see below) |
+
+**Marks** (not on the VIC-20, the X16, the TRS-80 Model III, `p8vi-c64font`,
+`p8vi-mega65dma`, `p8vi-c128x` or `p8vi-c128reu`): `ma` remembers the cursor's place as mark `a` (any
+letter `a`-`z`).  `'a` goes back to that line, `` `a `` to the very
+place; on a Commodore `` ` `` is `Shift` + `*`.  With an operator they
+work like any motion: `d'a` deletes the lines from the cursor to the
+mark, `` y`a `` yanks up to it.  `''` (or ``` `` ```) goes back to where
+you were before the last jump (`G`, a search, `%`, `H` `M` `L`, `:n`, a
+mark); `''` again returns.  Marks move with the text as you edit; `:e`
+clears them.
 
 Scrolling:
 
@@ -152,6 +179,7 @@ Scrolling:
 |------|------|
 | `Ctrl-F` `Ctrl-B` | a page forward / back |
 | `Ctrl-D` `Ctrl-U` | half a page down / up |
+| `zt` `zz` `zb` | move the screen: the cursor's row at the top, in the middle, at the bottom |
 | `Ctrl-L` | draw the screen again |
 
 ## Inserting text
@@ -252,9 +280,12 @@ Replacing (not on the VIC-20):
 | `:%s/old/new/g` | in every line |
 | `:5,10s/old/new/`, `:.,$s/old/new/` | in lines 5 to 10, from here to the end |
 | `:s//new/` | replace what was searched for last |
+| `&`, `:s` | the last `:s` again, in the cursor line (without its `g`) |
+| `:%s` | the last `:s` again, in every line |
 
 Any character can take the place of `/` (`:s#a/b#c#`), and the last one can
-be left out (`:s/old/new`).  `u` undoes a whole `:s`.
+be left out (`:s/old/new`).  `u` undoes a whole `:s`.  The X16 version and
+`p8vi-c128reu` don't have `&` (or `:s` on its own).
 
 ## Files
 
@@ -392,28 +423,38 @@ The VIC-20 version has to fit in less memory, so it has none of these:
 * `:s` replacing, and line ranges (`:%`, `:5,10`, `:$`, `:.`)
 * the disk commands `:@`, `:@$` and `:r $`
 * the start screen
+* marks (`m`, `'`, `` ` ``)
+* `zt`, `zz` and `zb`
 * scrolling one row at a time (the screen is drawn again instead)
 * a file that ends with a line ending shows an empty last line (the other
   versions treat it as the end of the last line, like vi)
 
 The PET version has to fit in 32 KB with its text.  It leaves out what
-the VIC-20 version leaves out, and ASCII and CR LF files too: files are
+the VIC-20 version leaves out (it has marks and `zt` `zz` `zb`, though), and ASCII and CR LF
+files too: files are
 read and written as they are, and `:set ascii` and `:set crlf` aren't
 there.  It is for the 4032 (40 columns) for now.
 
-The X16 version leaves out the start screen only, and the Plus/4 version
-nothing.
+The X16 version leaves out the start screen, marks, `&`, and `zt` `zz`
+`zb`, and the Plus/4 version nothing.
 
-`p8vi-mega65dma` leaves out the start screen, `:s` replacing and line
-ranges, and `:@$` and `:r $`: its program has to fit below the room it
+`p8vi-mega65dma` leaves out the start screen, marks, `zt` `zz` `zb`, `:s`
+replacing and line ranges, and `:@$` and `:r $`: its program has to fit below the room it
 needs for its text.  `p8vi-mega65` has everything.
 
-`p8vi-c128x` leaves out the start screen, `:@$` and `:r $`, and
-`p8vi-c128reu` those and scrolling one row at a time and the `40/80
-DISPLAY` key.  `p8vi-c128` and `p8vi-c64disk` have everything.
+`p8vi-c128x` leaves out the start screen, marks, `zt` `zz` `zb`, `:@$` and
+`:r $`.  `p8vi-c128reu` leaves out the start screen, marks, `&`, `:@$` and
+`:r $`, scrolling one row at a time and the `40/80 DISPLAY` key.  `p8vi-c128` and `p8vi-c64disk` have everything.
 
-The TRS-80 version leaves out the disk commands (`:@`, `:@$`, `:r $`),
-recovery, and `:set ascii` and `:set petscii` (its files are ASCII).
+`p8vi-c64font` leaves out marks, and `zt` `zz` `zb`.
+
+The TRS-80 Model III version leaves out the disk commands (`:@`, `:@$`,
+`:r $`), recovery, marks, `zt` `zz` `zb`, and `:set ascii` and `:set
+petscii` (its files are ASCII).  The Model 4 version has marks and `zt`
+`zz` `zb`, but not the rest.  `p8vi-trs80m4x` leaves out what the Model 4
+version leaves out, and the start screen, marks, `zt` `zz` `zb` and
+scrolling one row at a time (the screen is drawn again instead): its
+program has to leave room below $f400 for its page slots.
 
 <div style="page-break-before: always"></div>
 
@@ -435,6 +476,8 @@ VIC-20 or the PET, or in `p8vi-mega65dma`.
 | `H` `M` `L` | screen top / middle / bottom | `n\|` `_` | column n, non-blank |
 | `Ctrl-F` `Ctrl-B` | page down / up | `Ctrl-D` `Ctrl-U` | half page |
 | `ge` `gE` | end of previous word | `Ctrl-L` | redraw |
+| `m`a | set mark a | `'`a `` ` ``a | to mark a's line / place |
+| `''` | back before the last jump | `zt` `zz` `zb` | line to screen top / mid / bottom |
 
 **Inserting** (leave with `Esc`)
 
