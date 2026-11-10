@@ -304,14 +304,14 @@ test-mega65:	build/p8vi-mega65.prg
 
 # the same on the MEGA65 page store build, with the suites for more text
 # than main RAM holds (--paged) and the font suite: the pages in attic RAM
-# (xemu has it).  left out: subst, read-dir and marks (SUBST, DIR and
+# (xemu has it).  left out: subst, subst-again, read-dir and marks (SUBST, DIR and
 # MARKS are off in this build), and g-cmds and ascii as above.  then some of them as on a
 # Nexys4 board (model ID $40), without attic RAM: the pages in banks 4 and
 # 5 (not bigundo: 30 KB of text, undo and yank need more than their 126
 # pages; it fails the same way on a C64 with a 128 KB REU)
 test-mega65dma:	build/p8vi-mega65dma.prg
 	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg --paged --font \
-		--skip subst --skip read-dir --skip prefix --skip marks $(FONT_SKIP_M65) files
+		--skip subst --skip subst-again --skip read-dir --skip prefix --skip marks $(FONT_SKIP_M65) files
 	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg --paged --model 64 \
 		files delete-put undo pages huge
 	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg screen
@@ -404,21 +404,21 @@ test-c128x:	build/p8vi-c128x.prg build/oscii.fnt
 
 # the C128 REU build: with a 512 KB REU (all the page store's suites), and
 # without one (bank 1, as test-c128x); read-dir: no :@$ in this build,
-# no marks either
+# no marks or & either
 test-c128reu:	build/p8vi-c128reu.prg
-	python3 -B tests/vice/edtest.py files --machine c128 --reu 512 --limit 3000000000 -j 4 --skip read-dir --skip prefix --skip marks --prg build/p8vi-c128reu.prg
+	python3 -B tests/vice/edtest.py files --machine c128 --reu 512 --limit 3000000000 -j 4 --skip read-dir --skip prefix --skip marks --skip subst-again --prg build/p8vi-c128reu.prg
 	python3 -B tests/vice/edtest.py screen --machine c128 --reu 512 -j 4 --prg build/p8vi-c128reu.prg
-	python3 -B tests/vice/edtest.py files --machine c128-80 --reu 512 --limit 3000000000 -j 4 --skip read-dir --skip prefix --skip marks --prg build/p8vi-c128reu.prg
+	python3 -B tests/vice/edtest.py files --machine c128-80 --reu 512 --limit 3000000000 -j 4 --skip read-dir --skip prefix --skip marks --skip subst-again --prg build/p8vi-c128reu.prg
 	python3 -B tests/vice/edtest.py screen --machine c128-80 --reu 512 -j 4 --prg build/p8vi-c128reu.prg
-	python3 -B tests/vice/edtest.py files --machine c128 --paged --limit 3000000000 -j 4 $(C128X_SKIP) --skip prefix --prg build/p8vi-c128reu.prg
+	python3 -B tests/vice/edtest.py files --machine c128 --paged --limit 3000000000 -j 4 $(C128X_SKIP) --skip prefix --skip subst-again --prg build/p8vi-c128reu.prg
 	python3 -B tests/vice/rectest.py --machine c128 --prg build/p8vi-c128reu.prg
 	python3 -B tests/vice/rectest.py --machine c128-80 --no-reu --prg build/p8vi-c128reu.prg
 
 # the same tests on the PET (VICE's xpet, a 4032 with a 2031 drive).  left
 # out, for the features it doesn't have: ascii, crlf, big, final-eol,
-# read-format, find (ASCII and CR LF files), subst, dos, read-dir
+# read-format, find (ASCII and CR LF files), subst, subst-again, dos, read-dir
 PET_SKIP = --skip ascii --skip crlf --skip big --skip final-eol --skip read-format --skip find \
-	--skip subst --skip dos --skip read-dir
+	--skip subst --skip subst-again --skip dos --skip read-dir
 test-pet32:	build/p8vi-pet32.prg
 	python3 -B tests/vice/edtest.py files --machine pet -j 4 --prg build/p8vi-pet32.prg $(PET_SKIP)
 	python3 -B tests/vice/edtest.py screen --machine pet -j 4 --prg build/p8vi-pet32.prg

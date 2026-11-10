@@ -257,6 +257,19 @@ FILE_SUITES = [
         ('s9', b'1TWOY\n22ZTWO\nTHREEZ\n44'),
         ('s10', b'1TWOY\nNNZTWO\nTHREEZ\n44'),
     ], b'ONE TWO ONE\nTWO ONE TWO\nTHREE ONE\nFOUR'),
+    # & and :s on their own repeat the last :s (features.REPEAT_SUBST).
+    # a1 & before any :s changes nothing; a2 & without the g; a3 :s on its
+    # own; a4 u takes it back; a5 :%s on every line; a6 & on the cursor line
+    # only, not the last :s's range
+    ('subst-again', r'&:w a1\n:s/one/1/g\nj&:w a2\nj:s\n:w a3\nu:w a4\n'
+                    r':%s\n:w a5\n:2,3s/two/x/\n1G&:w a6\n', [
+        ('a1', b'ONE TWO ONE\nTWO ONE TWO\nTHREE ONE\nFOUR'),
+        ('a2', b'1 TWO 1\nTWO 1 TWO\nTHREE ONE\nFOUR'),
+        ('a3', b'1 TWO 1\nTWO 1 TWO\nTHREE 1\nFOUR'),
+        ('a4', b'1 TWO 1\nTWO 1 TWO\nTHREE ONE\nFOUR'),
+        ('a5', b'1 TWO 1\nTWO 1 TWO\nTHREE 1\nFOUR'),
+        ('a6', b'1 X 1\nX 1 TWO\nTHREE 1\nFOUR'),
+    ], b'ONE TWO ONE\nTWO ONE TWO\nTHREE ONE\nFOUR'),
     # :r $ reads the directory below the cursor line, without the drive's
     # padding and control codes (d1); u takes it all back (d2)
     ('read-dir', r'1G:r $\n:w d1\nu:w d2\n', [
