@@ -380,16 +380,28 @@ emu-c128reu:	build/p8vi-c128reu.prg disk
 	$(EMU128) $(EMU_REU) -autostartprgmode 1 build/p8vi-c128reu.prg
 
 # the TRS-80s in trs80gp (TRS80GP, the path of its binary): it boots the
-# DOS and runs p8vi.  drive 1 has the DOS's utility disk with FreHD's
-# IMPORT2 and EXPORT2, and the FreHD's directory is samples/, so
-# "IMPORT2 sample.txt SAMPLE/TXT:1" brings a file in (changes to the
-# built-in disks aren't kept).  the Model III with LDOS, the Model 4 with
-# TRSDOS 6
+# DOS with its utility disk in drive 1 (FreHD's IMPORT2 and EXPORT2) and
+# build/frehd as the FreHD's directory (p8vi and samples/), copies p8vi to
+# drive 1 and types P8VI at the prompt.  (not trs80gp's own way of running
+# a .cmd: it gives no command line, and z88dk's start-up code then looks
+# for the CR that ends one anywhere in memory and zeroes it: on the Model
+# 4 that was the DOS keyboard driver's ENTER.)  "IMPORT2 sample.txt
+# SAMPLE/TXT:1" brings in a sample (changes to the built-in disks aren't
+# kept).  the Model III with LDOS, the Model 4 with TRSDOS 6
 TRS80GP ?= $(HOME)/Applications/trs80gp.app/Contents/MacOS/trs80gp
+FREHD=build/frehd
+TRS80RUN=-frehd -frehd_dir $(FREHD) -itime 0 -iw Ready -id 60 \
+	-i 'IMPORT2 p8vi.cmd P8VI/CMD:1\r' -id 600 -i 'P8VI\r'
 emu-trs80:	build/p8vi-trs80.cmd
-	$(TRS80GP) -m3 -ld -d1 :lu3 -frehd -frehd_dir samples build/p8vi-trs80.cmd
+	$(MD) $(FREHD)
+	$(CP) samples$(SEP)*.txt $(FREHD)
+	$(CP) build$(SEP)p8vi-trs80.cmd $(FREHD)$(SEP)p8vi.cmd
+	$(TRS80GP) -m3 -ld -d1 :lu3 $(TRS80RUN)
 emu-trs80m4:	build/p8vi-trs80m4.cmd
-	$(TRS80GP) -m4 -d1 :lu4 -frehd -frehd_dir samples build/p8vi-trs80m4.cmd
+	$(MD) $(FREHD)
+	$(CP) samples$(SEP)*.txt $(FREHD)
+	$(CP) build$(SEP)p8vi-trs80m4.cmd $(FREHD)$(SEP)p8vi.cmd
+	$(TRS80GP) -m4 -d1 :lu4 $(TRS80RUN)
 
 # self checking text store tests (gap buffer and page store) on the
 # virtual target
