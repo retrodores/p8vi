@@ -19,31 +19,37 @@ platform {
     ; memory for the text (the gap buffer), set by init()
     pointer textstart
     pointer texttop         ; 1 byte past the last usable byte
-    ; (no spare memory elsewhere)
+    ; spare memory: between the heap and the stack (see init), for the key
+    ; buffers and the like
     pointer sparestart
     pointer sparetop
 
-    ; z88dk's heap: from the end of the program up to the stack, which the
-    ; profile puts at HIGH$ (below $f400).  the file routines take
-    ; their buffers from it too (a sector and the file's control block for
-    ; each open file; 2 are open in rename_file()), and the stack needs
-    ; room to grow down: the text leaves FILE_ROOM and STACK_ROOM of it.
-    ; (z88dk's malloc takes a block from the top of the free memory: first
-    ; STACK_ROOM, which nothing uses but the stack, then the text, which
-    ; leaves FILE_ROOM below it.)
+    ; z88dk's heap: from the end of the program up.  the file routines take
+    ; their buffers from it (a sector and the file's control block for the
+    ; open file; the DOS renames, so one is open at a time): the text leaves
+    ; FILE_ROOM of it.  z88dk's malloc takes a block from the top of the
+    ; free memory, so the text is at the top, FILE_ROOM below it.
+    ; The profile puts the stack at HIGH$ (below $f400), and z88dk's AMALLOC
+    ; makes the heap only 75% of the memory up to it: the rest, less
+    ; STACK_ROOM for the stack, is spare memory.  (if the heap goes up to the
+    ; stack, STACK_ROOM of it is kept free instead.)
     extsub malloc(uword size) -> uword
     extsub free(uword block)
-    const uword FILE_ROOM = 2048
-    ; (measured: running the edits and big test suites, the stack used under
-    ; 64 bytes of it)
+    const uword FILE_ROOM = 1024
+    ; (measured on the Model III: running the edits and big test suites, the
+    ; stack used under 64 bytes of it)
     const uword STACK_ROOM = 512
+
+    ; the stack pointer: ld hl,0 / add hl,sp / ret
+    ubyte[] get_sp = [$21, $00, $00, $39, $c9]
 
     sub init() {
         uword size = $c000
         ; the DOS's cursor off until the editor shows it (DOS_CURSOR)
         txt.cursor_off()
-        ; the text gets the biggest block the heap has, less FILE_ROOM and
-        ; STACK_ROOM
+        uword stack
+        ; the text gets the biggest block the heap has, less FILE_ROOM: it
+        ; ends where the heap does
         repeat {
             textstart = malloc(size) as pointer
             if textstart != 0
@@ -51,8 +57,18 @@ platform {
             size -= $100
         }
         free(textstart)
-        void malloc(STACK_ROOM)
-        size -= FILE_ROOM + STACK_ROOM
+        ; from there up to the stack, less STACK_ROOM: spare memory
+        sparestart = textstart + size
+        sparetop = sparestart
+        stack = &get_sp
+        stack = call(stack)
+        if stack > sparestart and stack - sparestart > STACK_ROOM
+            sparetop = stack - STACK_ROOM
+        else {
+            void malloc(STACK_ROOM)
+            size -= STACK_ROOM
+        }
+        size -= FILE_ROOM
         repeat {
             textstart = malloc(size) as pointer
             if textstart != 0

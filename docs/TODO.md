@@ -216,8 +216,12 @@ and editing then go about as with an REU.
     went from 512 to 256 for the fix's 10 bytes.
 - **TRS-80 Model 4** (`p8vi-trs80m4.cmd`, `make trs80m4`; the z80-trs80-m4
   profile; src/trs80m4, with src/trs80's other files).  TRSDOS 6 or
-  LS-DOS 6.3, 80 x 24.  About 8.3 KB for text, so marks and zt zz zb are
-  in.  The screen: rows and scrolling go straight to the video RAM at
+  LS-DOS 6.3, 80 x 24.  About 12.5 KB for text, so marks and zt zz zb
+  are in.  z88dk's AMALLOC makes the heap only 75% of the memory below the
+  stack: the platform uses the rest as spare memory (the key buffers), and
+  FILE_ROOM is 1 KB (the DOS renames: one file open at a time).  The
+  profile could do this itself: `-pragma-define:CRT_STACK_SIZE=512` gives
+  the heap everything but the stack.  The screen: rows and scrolling go straight to the video RAM at
   $f800 (memory map 2, port $84; TRSDOS 6 leaves it on), with interrupts
   off; the cursor is the DOS's own (DOS_CURSOR: txt.plot and display
   codes 14/15), which it blinks, off while the screen is drawn.  Keys from
@@ -228,7 +232,20 @@ and editing then go about as with an REU.
   test build (`make trs80m4-test`; trstest.py --model 4).  If the DOS's
   cursor ever misbehaves, DOS_CURSOR false gives p8vi's own (a blink
   every 400 keyboard polls looked right in trs80gp).  Open:
-  - Text in the Model 4's second 64 KB (the 128 KB machine's banks).
+  - **p8vi-trs80m4x** (`make trs80m4x`, done): the text in the second
+    64 KB, up to about 60 KB (62 pages of 1 KB and two headers for :rec),
+    src/trs80m4x.  Port $84 bits 6-4 = 110 / 111 put one of its 32 KB
+    halves at $0000-$7fff (MAME's table; trs80gp does it; not yet seen on
+    a real Model 4): a copy routine above $8000 does the copying with
+    interrupts off, between that window and 2 to 4 slots above $8000 (as
+    many as fit: the program is about 43 KB, the page store is big in Z80
+    code).  The start screen, marks, zt zz zb and SCROLL are off for room.
+    fastmem has Prog8 loops here (the page store needs them; the TRS-80's
+    were stubs, the gap buffer has its own).  `make test-trs80m4x` runs the
+    file suites with -mem 128, and the page store's (not huge).  Open:
+    recovery after a reset (`:rec`) is untested; a 64 KB Model 4 falls
+    back to main RAM with only a page or two (use p8vi-trs80m4 there); an
+    NMI while a page is in the window would find no handler.
   - The function keys (F1-F3), `:r $` / `:@$` (the DOS has a directory).
   - Screen tests: trs80gp's `-it` writes the text screen to a file.
 

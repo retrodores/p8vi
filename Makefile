@@ -236,15 +236,27 @@ trs80m4-test: build/p8vi-trs80m4test.cmd
 build/p8vi-trs80m4test.cmd: src/p8vi_trs80m4test.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/trs80m4/*.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSTRS80M4) -o build/p8vi-trs80m4test $<
 
+# the Model 4 with 128 KB: the text in the second 64 KB (src/trs80m4x, the
+# page store), up to about 62 KB
+PCCARGSTRS80M4X=-srcdirs src:src/trs80m4x:src/trs80m4:src/trs80 -target llvm16 -triple z80-trs80-m4
+trs80m4x: build/p8vi-trs80m4x.cmd
+build/p8vi-trs80m4x.cmd: src/p8vi_trs80m4x.p8 src/editor.p8 src/buffer.p8 src/pagestore.p8 src/trs80m4x/* src/trs80m4/*.p8 src/trs80/*.p8
+	$(PCC) $(PCCARGSTRS80M4X) -o build/p8vi-trs80m4x $<
+test-trs80m4x:	build/p8vi-trs80m4xtest.cmd
+	python3 -B tests/trs80/trstest.py --model 4x -j 3
+trs80m4x-test: build/p8vi-trs80m4xtest.cmd
+build/p8vi-trs80m4xtest.cmd: src/p8vi_trs80m4xtest.p8 src/editor.p8 src/buffer.p8 src/pagestore.p8 src/trs80m4x/* src/trs80m4/*.p8 src/trs80/*.p8
+	$(PCC) $(PCCARGSTRS80M4X) -o build/p8vi-trs80m4xtest $<
+
 clean:
 	$(RM) build$(SEP)*
 
 # the programs and the quick start guide, copied to release/ (kept in git:
 # the last known good version, whatever build/ holds).  the quick checks
 # run first; run make test-c64, test-c64reu and test-c64-screen too before
-# a release that matters.  (p8vi-trs80.cmd and p8vi-trs80m4.cmd need
-# llvm-z80 and z88dk, see trs80 above)
-release:	$(PROGS) font build/p8vi-trs80.cmd build/p8vi-trs80m4.cmd test audit size
+# a release that matters.  (the TRS-80 builds need llvm-z80 and z88dk, see
+# trs80 above)
+release:	$(PROGS) font build/p8vi-trs80.cmd build/p8vi-trs80m4.cmd build/p8vi-trs80m4x.cmd test audit size
 	$(MD) release
 	$(CP) build$(SEP)p8vi-c64.prg release
 	$(CP) build$(SEP)p8vi-c64font.prg release
@@ -262,6 +274,7 @@ release:	$(PROGS) font build/p8vi-trs80.cmd build/p8vi-trs80m4.cmd test audit si
 	$(CP) build$(SEP)p8vi-vic20.prg release
 	$(CP) build$(SEP)p8vi-trs80.cmd release
 	$(CP) build$(SEP)p8vi-trs80m4.cmd release
+	$(CP) build$(SEP)p8vi-trs80m4x.cmd release
 	$(CP) docs$(SEP)QUICKSTART.md release
 
 disk:	build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64font.prg build/oscii.fnt build/p8vi-vic20.prg
@@ -387,7 +400,7 @@ emu-c128reu:	build/p8vi-c128reu.prg disk
 # for the CR that ends one anywhere in memory and zeroes it: on the Model
 # 4 that was the DOS keyboard driver's ENTER.)  "IMPORT2 sample.txt
 # SAMPLE/TXT:1" brings in a sample (changes to the built-in disks aren't
-# kept).  the Model III with LDOS, the Model 4 with TRSDOS 6
+# kept).  the Model III with LDOS, the Model 4 with TRSDOS 6 (m4x: 128 KB)
 TRS80GP ?= $(HOME)/Applications/trs80gp.app/Contents/MacOS/trs80gp
 FREHD=build/frehd
 TRS80RUN=-frehd -frehd_dir $(FREHD) -itime 0 -iw Ready -id 60 \
@@ -402,6 +415,11 @@ emu-trs80m4:	build/p8vi-trs80m4.cmd
 	$(CP) samples$(SEP)*.txt $(FREHD)
 	$(CP) build$(SEP)p8vi-trs80m4.cmd $(FREHD)$(SEP)p8vi.cmd
 	$(TRS80GP) -m4 -d1 :lu4 $(TRS80RUN)
+emu-trs80m4x:	build/p8vi-trs80m4x.cmd
+	$(MD) $(FREHD)
+	$(CP) samples$(SEP)*.txt $(FREHD)
+	$(CP) build$(SEP)p8vi-trs80m4x.cmd $(FREHD)$(SEP)p8vi.cmd
+	$(TRS80GP) -m4 -mem 128 -d1 :lu4 $(TRS80RUN)
 
 # self checking text store tests (gap buffer and page store) on the
 # virtual target

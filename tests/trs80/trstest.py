@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The editor's file tests on a TRS-80 Model III with LDOS, or a Model 4
-with LS-DOS 6.3 (--model 4), in trs80gp.
+with LS-DOS 6.3 (--model 4; --model 4x: with 128 KB, p8vi-trs80m4x), in
+trs80gp.
 
-    trstest.py [--model 3|4] [--prg build/p8vi-trs80test.cmd] [-j N] [--skip SUITE] [name...]
+    trstest.py [--model 3|4|4x] [--prg build/p8vi-trs80test.cmd] [-j N] [--skip SUITE] [name...]
 
 Runs tests/vice/edtest.py's file suites with the TRS-80 test build
 (make trs80-test: features.KEYFILE), which plays the keys in KEYS/TXT
@@ -93,11 +94,15 @@ CBM_ONLY = ['ascii', 'g-cmds', 'read-dir', 'dos', 'prefix', 'save-full']
 # the Model 4 has them)
 NO_ROOM = ['marks', 'zview']
 
-# per model: trs80gp's machine, its utility disk (IMPORT2, EXPORT2), the
-# test build, and the suites left out for room
+# per model: trs80gp's machine options, its utility disk (IMPORT2,
+# EXPORT2), the test build, the suites left out for room, and whether it
+# has the page store (edtest's REU_SUITES too: not huge, about 87 KB of
+# text, nor bigundo, 30 KB with its undo and a yank of it: more than 4x's
+# 62 pages hold, as on the C128's bank 1)
 MODELS = {
-    '3': ('-m3', ':lu3', 'build/p8vi-trs80test.cmd', NO_ROOM),
-    '4': ('-m4', ':lu4', 'build/p8vi-trs80m4test.cmd', []),
+    '3': (['-m3'], ':lu3', 'build/p8vi-trs80test.cmd', NO_ROOM, False),
+    '4': (['-m4'], ':lu4', 'build/p8vi-trs80m4test.cmd', [], False),
+    '4x': (['-m4', '-mem', '128'], ':lu4', 'build/p8vi-trs80m4xtest.cmd', NO_ROOM + ['huge', 'bigundo'], True),
 }
 
 
@@ -133,8 +138,8 @@ def run_suite(args, suite):
     typed += ['-id', '900', '-ics', '-ix']
     # (drive 0, LDOS's, has 10.5K free, a few files: write-protected, the
     # new files go to drive 1)
-    machine, disk, _, _ = MODELS[args.model]
-    command = [TRS80GP, '-ee', '-batch', '-turbo', '-im', 'wp', '0', 'on', machine, '-ld',
+    machine, disk, _, _, _ = MODELS[args.model]
+    command = [TRS80GP, '-ee', '-batch', '-turbo', '-im', 'wp', '0', 'on'] + machine + ['-ld',
                '-d1', disk, '-frehd', '-frehd_dir', work, '-itime', '0'] + typed
     lines = []
     try:
@@ -164,7 +169,7 @@ def main():
     ap = argparse.ArgumentParser(description='p8vi file tests on a TRS-80 in trs80gp')
     ap.add_argument('names', nargs='*', help='only run these suites')
     ap.add_argument('--model', default='3', choices=sorted(MODELS),
-                    help='the Model III (LDOS) or the Model 4 (LS-DOS 6.3)')
+                    help='the Model III (LDOS), the Model 4 (LS-DOS 6.3), or 4x (with 128 KB)')
     ap.add_argument('--prg', help='the test build (the model\'s by default)')
     ap.add_argument('--work', default='build')
     ap.add_argument('-j', type=int, default=1)
@@ -172,10 +177,10 @@ def main():
     args = ap.parse_args()
     if not os.path.exists(TRS80GP):
         sys.exit('trs80gp not found: set TRS80GP to its path')
-    _, _, prg, no_room = MODELS[args.model]
+    _, _, prg, no_room, paged = MODELS[args.model]
     args.prg = os.path.abspath(args.prg or prg)
     args.work = os.path.abspath(args.work)
-    suites = [s for s in edtest.FILE_SUITES
+    suites = [s for s in edtest.FILE_SUITES + (edtest.REU_SUITES if paged else [])
               if (not args.names or s[0] in args.names) and s[0] not in args.skip
               and (args.names or s[0] not in CBM_ONLY + no_room)]
     if not suites:

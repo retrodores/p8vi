@@ -42,7 +42,8 @@ whether it is done.
 | `p8vi-mega65.prg` | MEGA65 (in MEGA65 mode, not `GO64`) | about 6.7 KB |
 | `p8vi-mega65dma.prg` | MEGA65 | up to 64 KB (in attic RAM, or chip RAM banks 4 and 5 without it) |
 | `p8vi-trs80.cmd` | TRS-80 Model III (48 KB) with LDOS | about 6.6 KB |
-| `p8vi-trs80m4.cmd` | TRS-80 Model 4 (64 KB, in its own mode, 80 columns) with TRSDOS 6 or LS-DOS 6.3 | about 8.3 KB |
+| `p8vi-trs80m4.cmd` | TRS-80 Model 4 (64 KB, in its own mode, 80 columns) with TRSDOS 6 or LS-DOS 6.3 | about 12.5 KB |
+| `p8vi-trs80m4x.cmd` | TRS-80 Model 4 with 128 KB | up to about 60 KB (in the second 64 KB) |
 
 The MEGA65, PET, Plus/4, C128 and TRS-80 versions and `p8vi-c64disk` are
 new and still being worked on.
@@ -61,8 +62,8 @@ whichever is active.
 
 On the TRS-80, copy `p8vi-trs80.cmd` to an LDOS disk as `P8VI/CMD` (for
 example with a FreHD's `IMPORT2`) and type `P8VI` at the LDOS prompt.  On
-a Model 4 the same with `p8vi-trs80m4.cmd`, at the TRSDOS 6 or LS-DOS 6.3
-prompt.
+a Model 4 the same with `p8vi-trs80m4.cmd`, or `p8vi-trs80m4x.cmd` with
+128 KB, at the TRSDOS 6 or LS-DOS 6.3 prompt.
 
 Then `:e name` opens a file (a name that isn't on the disk starts a new,
 empty file), and `:q` quits.  `Ctrl-G` shows how many lines there are and
@@ -444,7 +445,10 @@ needs for its text.  `p8vi-mega65` has everything.
 The TRS-80 Model III version leaves out the disk commands (`:@`, `:@$`,
 `:r $`), recovery, marks, `zt` `zz` `zb`, and `:set ascii` and `:set
 petscii` (its files are ASCII).  The Model 4 version has marks and `zt`
-`zz` `zb`, but not the rest.
+`zz` `zb`, but not the rest.  `p8vi-trs80m4x` leaves out what the Model 4
+version leaves out, and the start screen, marks, `zt` `zz` `zb` and
+scrolling one row at a time (the screen is drawn again instead): its
+program has to leave room below $f400 for its page slots.
 
 <div style="page-break-before: always"></div>
 
