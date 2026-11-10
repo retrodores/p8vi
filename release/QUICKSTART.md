@@ -41,8 +41,8 @@ whether it is done.
 | `p8vi-pet32.prg` | PET 4032 (32 KB, BASIC 4, 40 columns) | about 3.3 KB |
 | `p8vi-mega65.prg` | MEGA65 (in MEGA65 mode, not `GO64`) | about 6.7 KB |
 | `p8vi-mega65dma.prg` | MEGA65 | up to 64 KB (in attic RAM, or chip RAM banks 4 and 5 without it) |
-| `p8vi-trs80.cmd` | TRS-80 Model III (48 KB) with LDOS | about 6.6 KB |
-| `p8vi-trs80m4.cmd` | TRS-80 Model 4 (64 KB, in its own mode, 80 columns) with TRSDOS 6 or LS-DOS 6.3 | about 12.5 KB |
+| `p8vi-trs80.cmd` | TRS-80 Model III (48 KB) with LDOS | about 9.6 KB |
+| `p8vi-trs80m4.cmd` | TRS-80 Model 4 (64 KB, in its own mode, 80 columns) with TRSDOS 6 or LS-DOS 6.3 | about 15 KB |
 | `p8vi-trs80m4x.cmd` | TRS-80 Model 4 with 128 KB | up to about 60 KB (in the second 64 KB) |
 
 The MEGA65, PET, Plus/4, C128 and TRS-80 versions and `p8vi-c64disk` are

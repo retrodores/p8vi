@@ -190,7 +190,8 @@ and editing then go about as with an REU.
 - **TRS-80 Model III with LDOS** (`p8vi-trs80.cmd`, `make trs80`; llvm16
   with the z80-trs80-cmd profile, llvm-z80 and z88dk; src/trs80).  Edits,
   saves and reads files (checked by hand in trs80gp, 2026-11-08); about
-  6.6 KB for text with LDOS's HIGH$ at $FFFF.  Keys: shift + up arrow is
+  9.6 KB for text with LDOS's HIGH$ at $FFFF (6.6 KB before the compiler's
+  -Oz default, 2026-11-10).  Keys: shift + up arrow is
   Escape, BREAK too, the left arrow is backspace (DEL), shift + left moves
   left, Ctrl is shift + down arrow + a letter, or @ then a letter in
   normal mode.  p8vi clears the caps lock
@@ -212,11 +213,11 @@ and editing then go about as with an REU.
   - Scrolling (features.SCROLL) copied the wrong memory until 2026-11-09
     (`VIDEO + (r + count) as uword * COLUMNS` is `(VIDEO + r + count) *
     COLUMNS`: the ROM, so nothing moved) and no test looks at the screen.
-    The text room is down to a few bytes for edtest's big g3: STACK_ROOM
-    went from 512 to 256 for the fix's 10 bytes.
+    The text room was down to a few bytes for edtest's big g3 (STACK_ROOM
+    went from 512 to 256 for the fix's 10 bytes); -Oz gave 3.5 KB back.
 - **TRS-80 Model 4** (`p8vi-trs80m4.cmd`, `make trs80m4`; the z80-trs80-m4
   profile; src/trs80m4, with src/trs80's other files).  TRSDOS 6 or
-  LS-DOS 6.3, 80 x 24.  About 12.5 KB for text, so marks and zt zz zb
+  LS-DOS 6.3, 80 x 24.  About 15 KB for text, so marks and zt zz zb
   are in.  z88dk's AMALLOC makes the heap only 75% of the memory below the
   stack: the platform uses the rest as spare memory (the key buffers), and
   FILE_ROOM is 1 KB (the DOS renames: one file open at a time).  The
