@@ -286,8 +286,11 @@ and editing then go about as with an REU.
   17,202 bytes free with its 64K CP/M; tools/cpm/dmk.py and cpmtools put
   p8vi.com on the DMK disk, made room by deleting MBASIC.COM and ASM.COM
   from a copy).  Open:
-  - File tests: a KEYFILE test build under `tnylpo -b` running the edtest
-    suites (and the screens per terminal), as tests/trs80/trstest.py does.
+  - Tests (`make test-cpm`, tests/cpm): edtest's file suites and its
+    screen suites on each terminal (against a Ctrl-L redraw) in tnylpo,
+    and a smoke test on Montezuma CP/M in trs80gp (m4test.py, only with
+    the disk image: CPM_DISK or build/cpm222_work.dsk).  Each is skipped
+    without its emulator.
   - Arrow keys: terminals send escape sequences (ESC [ A, ESC A, ^K ...);
     hjkl only for now.
   - Montezuma's keyboard: capitals until CAPS is pressed; BREAK is

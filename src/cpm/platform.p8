@@ -321,7 +321,17 @@ main {
     uword key_pos
     sub get_key() -> ubyte {
         if features.KEYFILE and key_pos < key_count {
+            ; (the test build) the screen is sent before each key, as
+            ; txt.getkey() does; $ff marks the screen for the test with three
+            ; NULs (tests/cpm/cpmtest.py)
+            txt.flush()
             key_pos++
+            if key_buf[key_pos - 1] == $ff {
+                txt.out(0)
+                txt.out(0)
+                txt.out(0)
+                return 0
+            }
             return key_buf[key_pos - 1]
         }
         ubyte k = txt.getkey()

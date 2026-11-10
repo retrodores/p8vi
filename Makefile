@@ -259,6 +259,17 @@ PCCARGSCPM=-srcdirs src:src/cpm:src/trs80 -target llvm16 -triple z80-cpm \
 cpm: build/p8vi-cpm.com
 build/p8vi-cpm.com: src/p8vi_cpm.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/cpm/*.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSCPM) -o build/p8vi-cpm $<
+# the tests in tnylpo (skipped without it): the file suites, and the screen
+# suites on each terminal (see tests/cpm/cpmtest.py); then the TRS-80 Model 4
+# with Montezuma Micro CP/M in trs80gp, if its disk image is there
+# (tests/cpm/m4test.py: CPM_DISK, or build/cpm222_work.dsk)
+test-cpm:	build/p8vi-cpmtest.com build/p8vi-cpm.com
+	python3 -B tests/cpm/cpmtest.py files
+	python3 -B tests/cpm/cpmtest.py screen
+	python3 -B tests/cpm/m4test.py
+cpm-test: build/p8vi-cpmtest.com
+build/p8vi-cpmtest.com: src/p8vi_cpmtest.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/cpm/*.p8 src/trs80/*.p8
+	$(PCC) $(PCCARGSCPM) -o build/p8vi-cpmtest $<
 
 clean:
 	$(RM) build$(SEP)*
