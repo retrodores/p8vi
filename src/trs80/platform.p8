@@ -180,6 +180,10 @@ main {
 
     ; platform.stop() puts LDOS's caps lock and cursor back
     const bool PLATFORM_STOP = true
+    ; p8vi draws its own cursor (LDOS's is moved out of the way)
+    const bool DOS_CURSOR = false
+    sub dos_cursor(bool on) {
+    }
 
     ; special characters
 
@@ -368,11 +372,11 @@ main {
 
     ; rename a file.  no DOS call renames one: the profile's rename
     ; (z80-trs80-files.c) copies old to new and deletes old, or deletes the
-    ; partial copy.  diskio.rename() gives no result, so the old file still
-    ; there means it failed: sets io_failed then.
+    ; partial copy.  sets io_failed if it failed (diskio.status_code() is 0
+    ; when the last disk operation worked, 1 when it failed).
     sub rename_file(str old, str new) {
         diskio.rename(old, new)
-        io_failed = file_exists(old)
+        io_failed = diskio.status_code() != 0
     }
 
     ; (features.DOS, features.DIR, features.PREFIX: CBM DOS only, off here)

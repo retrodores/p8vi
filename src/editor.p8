@@ -299,9 +299,16 @@ main {
     ; cursor display
     ;
 
+    ; (DOS_CURSOR, the TRS-80 Model 4: the DOS's own cursor, which it
+    ; blinks.  it is off while the screen is drawn, which writes the video
+    ; RAM directly: the DOS puts back the character under it when it goes
+    ; off, and that must not undo a new one.)
     sub cursor_off() {
         if cursor_active {
-            txt.setchr(view.column, view.row, char_save)
+            if DOS_CURSOR
+                dos_cursor(false)
+            else
+                txt.setchr(view.column, view.row, char_save)
             cursor_active = false
         }
     }
@@ -309,14 +316,19 @@ main {
     ; show the cursor on the character under it (in reverse on CBM)
     sub cursor_on() {
         if not cursor_active {
-            char_save = txt.getchr(view.column, view.row)
-            txt.setchr(view.column, view.row, cursor_char(char_save))
+            if DOS_CURSOR {
+                txt.plot(view.column, view.row)
+                dos_cursor(true)
+            } else {
+                char_save = txt.getchr(view.column, view.row)
+                txt.setchr(view.column, view.row, cursor_char(char_save))
+            }
             cursor_active = true
         }
     }
 
     sub draw_cursor() {
-        if not blink_timer() return
+        if DOS_CURSOR or not blink_timer() return
         if cursor_active
             cursor_off()
         else

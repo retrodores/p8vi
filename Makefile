@@ -228,6 +228,9 @@ PCCARGSTRS80M4=-srcdirs src:src/trs80m4:src/trs80 -target llvm16 -triple z80-trs
 trs80m4: build/p8vi-trs80m4.cmd
 build/p8vi-trs80m4.cmd: src/p8vi_trs80m4.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/trs80m4/*.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSTRS80M4) -o build/p8vi-trs80m4 $<
+# the file tests, as test-trs80 (LS-DOS 6.3 here), marks and zview too
+test-trs80m4:	build/p8vi-trs80m4test.cmd
+	python3 -B tests/trs80/trstest.py --model 4 -j 3
 # the test build: it plays the keys in KEYS/TXT first (features.KEYFILE)
 trs80m4-test: build/p8vi-trs80m4test.cmd
 build/p8vi-trs80m4test.cmd: src/p8vi_trs80m4test.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/trs80m4/*.p8 src/trs80/*.p8
@@ -239,9 +242,9 @@ clean:
 # the programs and the quick start guide, copied to release/ (kept in git:
 # the last known good version, whatever build/ holds).  the quick checks
 # run first; run make test-c64, test-c64reu and test-c64-screen too before
-# a release that matters.  (p8vi-trs80.cmd needs llvm-z80 and z88dk, see
-# trs80 above)
-release:	$(PROGS) font build/p8vi-trs80.cmd test audit size
+# a release that matters.  (p8vi-trs80.cmd and p8vi-trs80m4.cmd need
+# llvm-z80 and z88dk, see trs80 above)
+release:	$(PROGS) font build/p8vi-trs80.cmd build/p8vi-trs80m4.cmd test audit size
 	$(MD) release
 	$(CP) build$(SEP)p8vi-c64.prg release
 	$(CP) build$(SEP)p8vi-c64font.prg release
@@ -258,6 +261,7 @@ release:	$(PROGS) font build/p8vi-trs80.cmd test audit size
 	$(CP) build$(SEP)p8vi-plus4.prg release
 	$(CP) build$(SEP)p8vi-vic20.prg release
 	$(CP) build$(SEP)p8vi-trs80.cmd release
+	$(CP) build$(SEP)p8vi-trs80m4.cmd release
 	$(CP) docs$(SEP)QUICKSTART.md release
 
 disk:	build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64font.prg build/oscii.fnt build/p8vi-vic20.prg

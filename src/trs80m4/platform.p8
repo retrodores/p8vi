@@ -40,7 +40,7 @@ platform {
 
     sub init() {
         uword size = $c000
-        ; the DOS's cursor off: p8vi draws its own
+        ; the DOS's cursor off until the editor shows it (DOS_CURSOR)
         txt.cursor_off()
         ; the text gets the biggest block the heap has, less FILE_ROOM and
         ; STACK_ROOM
@@ -183,6 +183,14 @@ main {
 
     ; platform.stop() puts the DOS's cursor back
     const bool PLATFORM_STOP = true
+    ; the DOS's cursor, which it blinks (editor.p8's cursor_on)
+    const bool DOS_CURSOR = true
+    sub dos_cursor(bool on) {
+        if on
+            txt.cursor_on()
+        else
+            txt.cursor_off()
+    }
 
     ; special characters
 
@@ -255,8 +263,9 @@ main {
     const ubyte KEY_SHIFT_Y     = 'Y'
     const ubyte KEY_SHIFT_Z     = 'Z'
 
-    ; the cursor blinks by the number of times the keyboard was looked at
-    ; (the DOS's clock isn't at a known address)
+    ; (DOS_CURSOR: the DOS blinks its own cursor.  without it p8vi's
+    ; blinks by the number of times the keyboard was looked at, as the
+    ; DOS's clock isn't at a known address; 400 looked right in trs80gp)
     const uword BLINK_POLLS = 400
     uword polls
     sub blink_timer() -> bool {
@@ -363,11 +372,11 @@ main {
     }
 
     ; rename a file: the DOS's own rename (it fails when new exists).
-    ; diskio.rename() gives no result, so the old file still there means it
-    ; failed: sets io_failed then.
+    ; sets io_failed if it failed (diskio.status_code() is 0 when the last
+    ; disk operation worked, 1 when it failed).
     sub rename_file(str old, str new) {
         diskio.rename(old, new)
-        io_failed = file_exists(old)
+        io_failed = diskio.status_code() != 0
     }
 
     ; (features.DOS, features.DIR, features.PREFIX: CBM DOS only, off here)

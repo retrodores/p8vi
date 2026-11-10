@@ -206,9 +206,9 @@ and editing then go about as with an REU.
   - Saves are slow: about 6.5 s of turbo trs80gp time per :w on top of
     the writing, nearly all the DOS's directory work (about 8 searches:
     deletes, opens, the copy).  The safe save uses diskio.rename(), the
-    profile's copy and delete (no DOS call renames), and as it gives no
-    result, checks that p8vi.tmp is gone.  Left as it is on purpose: when
-    the compiler's rename gets faster or gives a result, use that.
+    profile's copy and delete (no DOS call renames), and checks
+    diskio.status_code() after it.  Left as it is on purpose: when the
+    compiler's rename gets faster, use that.
   - Scrolling (features.SCROLL) copied the wrong memory until 2026-11-09
     (`VIDEO + (r + count) as uword * COLUMNS` is `(VIDEO + r + count) *
     COLUMNS`: the ROM, so nothing moved) and no test looks at the screen.
@@ -219,14 +219,15 @@ and editing then go about as with an REU.
   LS-DOS 6.3, 80 x 24.  About 8.3 KB for text, so marks and zt zz zb are
   in.  The screen: rows and scrolling go straight to the video RAM at
   $f800 (memory map 2, port $84; TRSDOS 6 leaves it on), with interrupts
-  off; the cursor goes through @VDCTL (txt.setchr, getchr).  Keys from
+  off; the cursor is the DOS's own (DOS_CURSOR: txt.plot and display
+  codes 14/15), which it blinks, off while the screen is drawn.  Keys from
   @KBD: up 11, down 10, left 8, right 9, BREAK 128, shift + up 27, CTRL
-  + letter 1-26, F1-F3 129-131.  The DOS renames files.  The cursor
-  blinks by counted keyboard polls (no clock address known).  The file
-  suites pass (19, with marks and zview) in trs80gp with the LS-DOS 6.3
-  utility disk (`:lu4`, IMPORT2 and EXPORT2) and a test build
-  (`make trs80m4-test`); tests/trs80/trstest.py only runs the Model III
-  for now.  Open:
+  + letter 1-26, F1-F3 129-131.  The DOS renames files.  `make
+  test-trs80m4` runs the file suites (19, with marks and zview) in trs80gp
+  with the LS-DOS 6.3 utility disk (`:lu4`, IMPORT2 and EXPORT2) and a
+  test build (`make trs80m4-test`; trstest.py --model 4).  If the DOS's
+  cursor ever misbehaves, DOS_CURSOR false gives p8vi's own (a blink
+  every 400 keyboard polls looked right in trs80gp).  Open:
   - Text in the Model 4's second 64 KB (the 128 KB machine's banks).
   - The function keys (F1-F3), `:r $` / `:@$` (the DOS has a directory).
   - Screen tests: trs80gp's `-it` writes the text screen to a file.

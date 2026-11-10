@@ -13,6 +13,10 @@ main {
 
     ; platform.stop() is only for the font builds here (features.FONT)
     const bool PLATFORM_STOP = false
+    ; p8vi draws its own cursor (only the TRS-80 Model 4 has the DOS's)
+    const bool DOS_CURSOR = false
+    sub dos_cursor(bool on) {
+    }
 
     ; a key from the keyboard buffer, 0 for none
     alias get_key = cbm.GETIN2

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""The editor's file tests on a TRS-80 Model III with LDOS, in trs80gp.
+"""The editor's file tests on a TRS-80 Model III with LDOS, or a Model 4
+with LS-DOS 6.3 (--model 4), in trs80gp.
 
-    trstest.py [--prg build/p8vi-trs80test.cmd] [-j N] [--skip SUITE] [name...]
+    trstest.py [--model 3|4] [--prg build/p8vi-trs80test.cmd] [-j N] [--skip SUITE] [name...]
 
 Runs tests/vice/edtest.py's file suites with the TRS-80 test build
 (make trs80-test: features.KEYFILE), which plays the keys in KEYS/TXT
@@ -13,7 +14,8 @@ hangs.  So, for each suite, in a directory of its own:
   - keys.txt gets ":e t.txt", the suite's keys and ":q!" as the editor's
     key codes (edtest's: \\n RETURN, \\x1b Escape, ...), t.txt the text
   - trs80gp boots LDOS (-ld) with its LDOS utility disk in drive 1 (:lu3,
-    which has FreHD's IMPORT2 and EXPORT2) and the directory as the FreHD's
+    which has FreHD's IMPORT2 and EXPORT2; on the Model 4 LS-DOS 6.3 and
+    :lu4, the same for it) and the directory as the FreHD's
     (-frehd_dir), and types, at the LDOS prompt, where its paste works:
     IMPORT2 of the program, the text and the keys to drive 1, P8VI, and
     after p8vi has quit, EXPORT2 of each file the suite checks
@@ -87,8 +89,16 @@ NEW_TEXTS = {('final-eol', 'new')}
 # the suites for CBM things: PETSCII and ASCII files, the C64's graphics
 # keys, CBM DOS commands and drive prefixes, a disk filled with c1541
 CBM_ONLY = ['ascii', 'g-cmds', 'read-dir', 'dos', 'prefix', 'save-full']
-# and what the TRS-80 build leaves out for room (features.MARKS, Z_VIEW)
+# and what the Model III build leaves out for room (features.MARKS, Z_VIEW;
+# the Model 4 has them)
 NO_ROOM = ['marks', 'zview']
+
+# per model: trs80gp's machine, its utility disk (IMPORT2, EXPORT2), the
+# test build, and the suites left out for room
+MODELS = {
+    '3': ('-m3', ':lu3', 'build/p8vi-trs80test.cmd', NO_ROOM),
+    '4': ('-m4', ':lu4', 'build/p8vi-trs80m4test.cmd', []),
+}
 
 
 def trs_name(name):
@@ -123,8 +133,9 @@ def run_suite(args, suite):
     typed += ['-id', '900', '-ics', '-ix']
     # (drive 0, LDOS's, has 10.5K free, a few files: write-protected, the
     # new files go to drive 1)
-    command = [TRS80GP, '-ee', '-batch', '-turbo', '-im', 'wp', '0', 'on', '-m3', '-ld',
-               '-d1', ':lu3', '-frehd', '-frehd_dir', work, '-itime', '0'] + typed
+    machine, disk, _, _ = MODELS[args.model]
+    command = [TRS80GP, '-ee', '-batch', '-turbo', '-im', 'wp', '0', 'on', machine, '-ld',
+               '-d1', disk, '-frehd', '-frehd_dir', work, '-itime', '0'] + typed
     lines = []
     try:
         subprocess.run(command, cwd=work, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
@@ -152,18 +163,21 @@ def run_suite(args, suite):
 def main():
     ap = argparse.ArgumentParser(description='p8vi file tests on a TRS-80 in trs80gp')
     ap.add_argument('names', nargs='*', help='only run these suites')
-    ap.add_argument('--prg', default='build/p8vi-trs80test.cmd')
+    ap.add_argument('--model', default='3', choices=sorted(MODELS),
+                    help='the Model III (LDOS) or the Model 4 (LS-DOS 6.3)')
+    ap.add_argument('--prg', help='the test build (the model\'s by default)')
     ap.add_argument('--work', default='build')
     ap.add_argument('-j', type=int, default=1)
     ap.add_argument('--skip', action='append', default=[], metavar='SUITE')
     args = ap.parse_args()
     if not os.path.exists(TRS80GP):
         sys.exit('trs80gp not found: set TRS80GP to its path')
-    args.prg = os.path.abspath(args.prg)
+    _, _, prg, no_room = MODELS[args.model]
+    args.prg = os.path.abspath(args.prg or prg)
     args.work = os.path.abspath(args.work)
     suites = [s for s in edtest.FILE_SUITES
               if (not args.names or s[0] in args.names) and s[0] not in args.skip
-              and (args.names or s[0] not in CBM_ONLY + NO_ROOM)]
+              and (args.names or s[0] not in CBM_ONLY + no_room)]
     if not suites:
         sys.exit('no such suite')
     failed = 0
