@@ -204,6 +204,10 @@ main {
     ; a drive spec comes after the file name: name/ext:1 (editor.p8's
     ; save_file puts its temporary file on the same drive)
     const bool DRIVE_SUFFIX = true
+    ; the drive the DOS opened the last file on (0-7, 255 if unknown)
+    sub opened_drive() -> ubyte {
+        return diskio.last_drive()
+    }
     sub dos_cursor(bool on) {
         if on
             txt.cursor_on()

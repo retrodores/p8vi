@@ -20,6 +20,9 @@ main {
     ; a drive spec comes after the file name (the TRS-80's name:1), not
     ; before it (features.PREFIX)
     const bool DRIVE_SUFFIX = false
+    sub opened_drive() -> ubyte {
+        return 255
+    }
 
     ; a key from the keyboard buffer, 0 for none
     alias get_key = cbm.GETIN2

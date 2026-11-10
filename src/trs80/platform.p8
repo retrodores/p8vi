@@ -44,7 +44,10 @@ platform {
     ; leaves FILE_ROOM below it.)
     extsub malloc(uword size) -> uword
     extsub free(uword block)
-    const uword FILE_ROOM = 2048
+    ; (2 open files: a sector buffer and the FILE with its control block
+    ; each, about 600 bytes.  it was 2048: the compiler's ENTER fix and
+    ; :e's drive (DRIVE_SUFFIX) took edtest's big g3 over the edge)
+    const uword FILE_ROOM = 1024
     ; (measured: running the edits and big test suites, the stack used under
     ; 64 bytes of it.  it was 512: edtest's big g3 needed the room)
     const uword STACK_ROOM = 256
@@ -185,6 +188,10 @@ main {
     ; a drive spec comes after the file name: name/ext:1 (editor.p8's
     ; save_file puts its temporary file on the same drive)
     const bool DRIVE_SUFFIX = true
+    ; the drive the DOS opened the last file on (0-7, 255 if unknown)
+    sub opened_drive() -> ubyte {
+        return diskio.last_drive()
+    }
     sub dos_cursor(bool on) {
     }
 

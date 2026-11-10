@@ -83,8 +83,9 @@ file), so a save takes a while on a floppy.
 
 A drive number goes after the name, as in the DOS: `:w t.txt:1` saves on
 drive 1 (and `p8vi.tmp` goes there too).  Without one the DOS finds the
-file on any drive, but a save puts it on the first drive it can write to,
-so give the drive when the file is on another one.
+file on any drive, and `:e` adds the drive it was on to the name
+(`t.txt:1`), so `:w` saves it there again.  A new file without a drive
+number goes on the first drive the DOS can write to.
 
 The Model 4 version (`p8vi-trs80m4.cmd`, for TRSDOS 6 and LS-DOS 6.3, 80
 columns) has a `CTRL` key: `CTRL` + a letter is Ctrl.  `Esc` is `Shift` +

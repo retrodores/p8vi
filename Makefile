@@ -244,6 +244,7 @@ build/p8vi-trs80m4x.cmd: src/p8vi_trs80m4x.p8 src/editor.p8 src/buffer.p8 src/pa
 	$(PCC) $(PCCARGSTRS80M4X) -o build/p8vi-trs80m4x $<
 test-trs80m4x:	build/p8vi-trs80m4xtest.cmd
 	python3 -B tests/trs80/trstest.py --model 4x -j 3
+	python3 -B tests/trs80/rectest.py
 trs80m4x-test: build/p8vi-trs80m4xtest.cmd
 build/p8vi-trs80m4xtest.cmd: src/p8vi_trs80m4xtest.p8 src/editor.p8 src/buffer.p8 src/pagestore.p8 src/trs80m4x/* src/trs80m4/*.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSTRS80M4X) -o build/p8vi-trs80m4xtest $<
@@ -393,33 +394,32 @@ emu-c128reu:	build/p8vi-c128reu.prg disk
 	$(EMU128) $(EMU_REU) -autostartprgmode 1 build/p8vi-c128reu.prg
 
 # the TRS-80s in trs80gp (TRS80GP, the path of its binary): it boots the
-# DOS with its utility disk in drive 1 (FreHD's IMPORT2 and EXPORT2) and
-# build/frehd as the FreHD's directory (p8vi and samples/), copies p8vi to
-# drive 1 and types P8VI at the prompt.  (not trs80gp's own way of running
-# a .cmd: it gives no command line, and z88dk's start-up code then looks
-# for the CR that ends one anywhere in memory and zeroes it: on the Model
-# 4 that was the DOS keyboard driver's ENTER.)  "IMPORT2 sample.txt
-# SAMPLE/TXT:1" brings in a sample (changes to the built-in disks aren't
-# kept).  the Model III with LDOS, the Model 4 with TRSDOS 6 (m4x: 128 KB)
+# DOS and runs p8vi itself, with its utility disk in drive 1 (FreHD's
+# IMPORT2 and EXPORT2) and build/frehd as the FreHD's directory (p8vi and
+# samples/).  "IMPORT2 sample.txt SAMPLE/TXT:1" brings in a sample, and
+# "IMPORT2 p8vi.cmd P8VI/CMD:1" p8vi to run it again (changes to the
+# built-in disks aren't kept).  (this needs a compiler from 2026-11-10 or
+# later: before, z88dk's start-up code zeroed the DOS's ENTER when trs80gp
+# ran a .cmd itself, bugs/trs80m4_enter_key.md.)  the Model III with
+# LDOS, the Model 4 with TRSDOS 6 (m4x: 128 KB)
 TRS80GP ?= $(HOME)/Applications/trs80gp.app/Contents/MacOS/trs80gp
 FREHD=build/frehd
-TRS80RUN=-frehd -frehd_dir $(FREHD) -itime 0 -iw Ready -id 60 \
-	-i 'IMPORT2 p8vi.cmd P8VI/CMD:1\r' -id 600 -i 'P8VI\r'
+TRS80RUN=-frehd -frehd_dir $(FREHD)
 emu-trs80:	build/p8vi-trs80.cmd
 	$(MD) $(FREHD)
 	$(CP) samples$(SEP)*.txt $(FREHD)
 	$(CP) build$(SEP)p8vi-trs80.cmd $(FREHD)$(SEP)p8vi.cmd
-	$(TRS80GP) -m3 -ld -d1 :lu3 $(TRS80RUN)
+	$(TRS80GP) -m3 -ld -d1 :lu3 $(TRS80RUN) build/p8vi-trs80.cmd
 emu-trs80m4:	build/p8vi-trs80m4.cmd
 	$(MD) $(FREHD)
 	$(CP) samples$(SEP)*.txt $(FREHD)
 	$(CP) build$(SEP)p8vi-trs80m4.cmd $(FREHD)$(SEP)p8vi.cmd
-	$(TRS80GP) -m4 -d1 :lu4 $(TRS80RUN)
+	$(TRS80GP) -m4 -d1 :lu4 $(TRS80RUN) build/p8vi-trs80m4.cmd
 emu-trs80m4x:	build/p8vi-trs80m4x.cmd
 	$(MD) $(FREHD)
 	$(CP) samples$(SEP)*.txt $(FREHD)
 	$(CP) build$(SEP)p8vi-trs80m4x.cmd $(FREHD)$(SEP)p8vi.cmd
-	$(TRS80GP) -m4 -mem 128 -d1 :lu4 $(TRS80RUN)
+	$(TRS80GP) -m4 -mem 128 -d1 :lu4 $(TRS80RUN) build/p8vi-trs80m4x.cmd
 
 # self checking text store tests (gap buffer and page store) on the
 # virtual target

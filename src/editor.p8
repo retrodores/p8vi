@@ -2123,6 +2123,18 @@ main {
         }
         if load_file(name, false) {
             void strings.copy(name, filename)
+            ; (the TRS-80) the drive the DOS found the file on goes into
+            ; its name ("t/txt:1"), so :w puts it back there and not on the
+            ; first drive the DOS can write to
+            if DRIVE_SUFFIX {
+                ubyte n = strings.length(filename)
+                ubyte d = opened_drive()
+                if d < 8 and (n < 2 or filename[n - 2] != ':') {
+                    filename[n] = ':'
+                    filename[n + 1] = '0' + d
+                    filename[n + 2] = 0
+                }
+            }
         } else if disk_code == 62 and arg[0] != 0 {
             ; like vi, a file that does not exist yet starts out empty
             void strings.copy(name, filename)

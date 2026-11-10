@@ -1,5 +1,7 @@
 # Request: diskio.last_drive() for the TRS-80 profiles
 
+**Done** in prog8c-llvm (commit b8d63d11, 2026-11-10); p8vi uses it.
+
 A prompt for the prog8c-llvm (compiler) side, from p8vi, 2026-11-10.
 
 ---

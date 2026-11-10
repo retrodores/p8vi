@@ -1,5 +1,7 @@
 # TRS-80 Model 4: ENTER stops working after a program trs80gp runs itself
 
+**Fixed** in prog8c-llvm (commit b8d63d11, 2026-11-10).
+
 prog8c 14.0-BETA3-llvm.1, `-target llvm16 -triple z80-trs80-m4`, trs80gp
 (Model 4, TRSDOS 06.02.01), 2026-11-09.
 
