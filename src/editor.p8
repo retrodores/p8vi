@@ -69,7 +69,7 @@ main {
     ; gets the C64's characters back (ascii_mode())
     bool font_ascii
     bool swap_full              ; (the disk build) "swap disk full" is shown
-    ubyte line_ending           ; the file's ENDING_*; CRLF is CR in memory
+    ubyte line_ending = NEW_ENDING  ; the file's ENDING_*; CRLF is CR in memory
     ; the file ends with a line ending.  like vi, the text doesn't keep it
     ; (it ends the last line, it doesn't start an empty one): reading takes
     ; it off, writing puts it back.  new texts have one.  (features.FINAL_EOL:
@@ -2143,7 +2143,7 @@ main {
             cut_short = false
             ascii_file = false
             ascii_mode()
-            line_ending = ENDING_CR
+            line_ending = NEW_ENDING
             status("new file")
         }
     }
@@ -2277,6 +2277,14 @@ main {
                 n += diskio.f_read(p + n, room - n)
             } else
                 n = diskio.f_read(p, room)
+            ; (CP/M) the text ends at the first ^Z: the rest of the file's
+            ; last 128-byte record is padding
+            if CTRL_Z_EOF {
+                m = 0
+                while m != n and p[m] != $1a
+                    m++
+                n = m
+            }
             size += n
             m = n
             if features.CRLF and n != 0 {
@@ -2457,6 +2465,7 @@ main {
     }
 
     ubyte[1] lf_byte = [$0a]
+    ubyte ctrl_z = $1a
 
     ; write count bytes at p, with CR LF for each CR in a CRLF file
     sub write_text(pointer p, uword count) -> bool {
@@ -2543,6 +2552,9 @@ main {
         ; the line ending the text doesn't keep (see final_eol)
         if features.FINAL_EOL and ok and final_eol
             ok = write_text(&buffer.eol, 1)
+        ; (CP/M) a ^Z after the text: the file is whole 128-byte records
+        if CTRL_Z_EOF and ok
+            ok = diskio.f_write(&ctrl_z, 1)
         diskio.f_close_w()
         if features.ASCII and ascii_file and not buffer.WRITE_BACK
             void translate_text(charset.TO_PETSCII)

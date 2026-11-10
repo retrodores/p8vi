@@ -19,6 +19,10 @@ main {
     }
     ; a drive spec comes after the file name (the TRS-80's name:1), not
     ; before it (features.PREFIX)
+    ; (CP/M: text files end at the first ^Z)
+    const bool CTRL_Z_EOF = false
+    ; a new text's line ending (editor.p8's ENDING_*): CR
+    const ubyte NEW_ENDING = 0
     const bool DRIVE_SUFFIX = false
     sub opened_drive() -> ubyte {
         return 255

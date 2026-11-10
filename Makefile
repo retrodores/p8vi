@@ -249,6 +249,17 @@ trs80m4x-test: build/p8vi-trs80m4xtest.cmd
 build/p8vi-trs80m4xtest.cmd: src/p8vi_trs80m4xtest.p8 src/editor.p8 src/buffer.p8 src/pagestore.p8 src/trs80m4x/* src/trs80m4/*.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSTRS80M4X) -o build/p8vi-trs80m4xtest $<
 
+# CP/M 2.2 and later on a Z80 (src/cpm, with src/trs80's charset, fastmem
+# and store): a .com for any machine with a terminal (-t ansi, vt52 or
+# adm3a).  The z80-cpm profile leaves z88dk's heap off: the link options
+# turn it on (AMALLOC: from the program's end up toward the stack).
+# tnylpo runs it on the host: copy it as p8vi.com, then tnylpo -s p8vi -t vt52
+PCCARGSCPM=-srcdirs src:src/cpm:src/trs80 -target llvm16 -triple z80-cpm \
+	-Xlink -pragma-define:CRT_HEAP_AMALLOC=1 -Xlink -pragma-define:CRT_HEAP_ENABLE=1
+cpm: build/p8vi-cpm.com
+build/p8vi-cpm.com: src/p8vi_cpm.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/cpm/*.p8 src/trs80/*.p8
+	$(PCC) $(PCCARGSCPM) -o build/p8vi-cpm $<
+
 clean:
 	$(RM) build$(SEP)*
 
