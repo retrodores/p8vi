@@ -17,6 +17,9 @@ main {
     const bool DOS_CURSOR = false
     sub dos_cursor(bool on) {
     }
+    ; a drive spec comes after the file name (the TRS-80's name:1), not
+    ; before it (features.PREFIX)
+    const bool DRIVE_SUFFIX = false
 
     ; a key from the keyboard buffer, 0 for none
     alias get_key = cbm.GETIN2

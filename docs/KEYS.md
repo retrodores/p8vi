@@ -81,6 +81,11 @@ Files are named as LDOS has them: `t.txt` is `T/TXT`.  Saving writes
 `p8vi.tmp` and then copies it over the file (no LDOS call renames a
 file), so a save takes a while on a floppy.
 
+A drive number goes after the name, as in the DOS: `:w t.txt:1` saves on
+drive 1 (and `p8vi.tmp` goes there too).  Without one the DOS finds the
+file on any drive, but a save puts it on the first drive it can write to,
+so give the drive when the file is on another one.
+
 The Model 4 version (`p8vi-trs80m4.cmd`, for TRSDOS 6 and LS-DOS 6.3, 80
 columns) has a `CTRL` key: `CTRL` + a letter is Ctrl.  `Esc` is `Shift` +
 `↑` or `BREAK`, and `←` and `Shift` + `←` are as on the Model III.  The

@@ -2468,8 +2468,8 @@ main {
     ; error, a reset) leaves the old file as it was
     str save_temp = "p8vi.tmp"
     ; (features.PREFIX) the temporary file's name with the saved file's
-    ; drive or path prefix ("0:", "//dir/:"): the rename only works in the
-    ; same place
+    ; drive or path prefix ("0:", "//dir/:"), or (DRIVE_SUFFIX) its drive
+    ; suffix (":1"): the rename only works in the same place
     ubyte[40] temp_name
 
     ; how much of name is a drive or path prefix: up to and including its
@@ -2494,8 +2494,23 @@ main {
             void strings.copy(save_temp, &temp_name + plen)
             if strings.compare(name + plen, save_temp) == 0
                 target = name
-        } else if strings.compare(name, save_temp) == 0
-            target = name
+        } else {
+            if DRIVE_SUFFIX {
+                ; (the TRS-80) the temporary file gets the name's drive spec
+                ; (":1", always at the end): the rename only works on the
+                ; same drive
+                ubyte n = strings.length(name)
+                target = &temp_name
+                sys.memcopy(save_temp, target, len(save_temp) + 1)
+                if n > 2 and name[n - 2] == ':' {
+                    temp_name[len(save_temp)] = ':'
+                    temp_name[len(save_temp) + 1] = name[n - 1]
+                    temp_name[len(save_temp) + 2] = 0
+                }
+            }
+            if strings.compare(name, target) == 0
+                target = name
+        }
         ; CBM DOS can't open an existing file for writing, so delete it first.
         ; (not with diskio.exists(): probing for a missing file with a read
         ; channel hangs the 1541 after a number of tries; deleting a file
@@ -2539,7 +2554,7 @@ main {
                 dos_command('r', name, save_temp)
             } else {
                 diskio.delete(name)
-                rename_file(save_temp, name)
+                rename_file(target, name)
             }
             read_disk_status()
             if disk_code != 0 {

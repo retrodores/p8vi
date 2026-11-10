@@ -182,6 +182,9 @@ main {
     const bool PLATFORM_STOP = true
     ; p8vi draws its own cursor (LDOS's is moved out of the way)
     const bool DOS_CURSOR = false
+    ; a drive spec comes after the file name: name/ext:1 (editor.p8's
+    ; save_file puts its temporary file on the same drive)
+    const bool DRIVE_SUFFIX = true
     sub dos_cursor(bool on) {
     }
 
