@@ -250,6 +250,61 @@ and editing then go about as with an REU.
     NMI while a page is in the window would find no handler.
   - The function keys (F1-F3), `:r $` / `:@$` (the DOS has a directory).
   - Screen tests: trs80gp's `-it` writes the text screen to a file.
+- **Color Computer 2 and 3** (not started; llvm16 `mc6809-coco`).  Both are
+  blocked by the 6809's code size today.  The same program's code is 4.5
+  times the Z80's at -O2, mostly from inlining, so p8vi would be over
+  100 KB.  With size attributes and no PIC it would still be about 1.36
+  times the Z80's (bugs/mc6809_code_size.md, being looked at on the compiler
+  side).  The coco profile also has no file I/O yet (`diskio` always fails),
+  and its `txt` goes through BASIC's character output.
+  - **CoCo 2 (64 KB), a plan.**  Under Disk BASIC, $0E00-$7FFF (28.5 KB) is
+    free, too little for code and text.  In all-RAM mode (the SAM's TY bit:
+    $FFDF on, $FFDE off) $8000-$FEFF is RAM too.  Nothing from the ROM needs
+    copying if the editor only goes back to the ROM for DSKCON:
+    - $0000-$0DFF: left alone (BASIC's and Disk BASIC's variables,
+      DSKCON's request block at $00EA, its drive variables up to about
+      $0988, the interrupt vectors at $0100-$0111, the screen at $0400).
+    - $0E00-~$10FF: the stub that switches to ROM mode, calls DSKCON
+      ([$C004]) and switches back; a 256-byte sector buffer; the stack.
+    - ~$1100-$7FFF: the text, about 27 KB, used directly (RAM in both
+      modes, no banking).
+    - $8000-$FEFF: the editor's code and variables, 32,512 bytes.  It fits
+      only if the 6809's code comes close to the Z80's, or with features
+      left out as on the VIC-20.
+    - Check in XRoar whether the CPU's vectors ($FFF2-$FFFF) come from the
+      ROM or from the RAM at $BFF2 in all-RAM mode.  To be safe, copy the
+      ROM's 16 bytes at $BFF0 to RAM.
+    - Loading: writes in ROM mode don't reach the RAM under the ROM, so the
+      image goes up in pieces.  Either a BASIC program does `LOADM"ED1",offset`
+      of about 16 KB at a time into low RAM, with a few bytes of code that
+      switch modes and copy each piece up, or a small loader reads the
+      image a sector at a time with DSKCON and copies it.  Then the stub
+      starts the editor.
+    - Interrupts: in all-RAM mode BASIC's handlers jump into the editor's
+      code, so the editor needs its own 60 Hz IRQ handler (it reads $FF02
+      to clear the interrupt, and counts ticks).  Disk BASIC's IRQ turns the
+      drive motor off, so the disk stub does that itself (0 to $FF40), or
+      puts BASIC's handler back while it is in ROM mode.
+    - Screen and keyboard without the ROM: a platform `txt` that writes to
+      the VDG screen at $0400 (32x16, no lower case) and scans the keyboard
+      through the PIA at $FF00/$FF02.  A 256x192 screen with p8vi's font
+      would give lower case and more columns, but costs 6 KB of the text.
+    - Files: DSKCON only reads and writes sectors, and Disk BASIC's file
+      routines aren't meant for machine code.  So it needs an RS-DOS layer
+      of 1-2 KB, which can sit in high RAM: the FAT is in sector 2 of track
+      17, the directory (32-byte entries) in sectors 3-11, and a granule
+      is 9 sectors (68 to a disk).  p8vi reads and writes whole files, so it
+      never needs to seek.  This could go in the compiler's coco profile as
+      `diskio`, for every CoCo program.
+    - The compiler: a layout with the code and variables at $8000, the stack
+      in low RAM, no BASIC calls, and a way to call the low-RAM disk stub.
+    - A 16 KB or 32 KB CoCo 2 has no all-RAM mode.
+  - **CoCo 3.**  It has more RAM, through the GIME's 8 KB MMU pages, an
+    80-column text screen with lower case, and the same 6809 code-size
+    problem.  The text could go in MMU pages, like the m4x's second 64 KB.
+    It still needs the file layer and its own `txt`.
+    (XRoar's `-type` drops keys on a CoCo 3, so tests would need another way
+    to type keys, see the compiler's coco-build notes.)
 
 ## Tests
 
