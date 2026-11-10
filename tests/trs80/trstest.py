@@ -87,8 +87,8 @@ NEW_TEXTS = {('final-eol', 'new')}
 # the suites for CBM things: PETSCII and ASCII files, the C64's graphics
 # keys, CBM DOS commands and drive prefixes, a disk filled with c1541
 CBM_ONLY = ['ascii', 'g-cmds', 'read-dir', 'dos', 'prefix', 'save-full']
-# and what the TRS-80 build leaves out for room (features.MARKS)
-NO_ROOM = ['marks']
+# and what the TRS-80 build leaves out for room (features.MARKS, Z_VIEW)
+NO_ROOM = ['marks', 'zview']
 
 
 def trs_name(name):

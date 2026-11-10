@@ -315,6 +315,18 @@ FILE_SUITES = [
         ('m8', LONG.replace(b'LINE 02', b'LIN 02', 1)),
         ('m9', LONG.replace(b'LINE 15', b'INE 15', 1)),
     ], LONG),
+    # zt zz zb (features.Z_VIEW) move the screen; H M L show where it went,
+    # whatever the screen's size.  z1 zt: line 30 is the top row; z2 zb:
+    # line 40 the bottom row; z3 zz: line 20 the middle row; z4 zt near the
+    # end; z5 zz near the start leaves line 1 at the top
+    ('zview', r'30GztHx:w z1\nu40GzbLx:w z2\nu20GzzMx:w z3\nu58GztHx:w z4\n'
+              r'u5GzzHx:w z5\n', [
+        ('z1', LONG.replace(b'LINE 30', b'INE 30', 1)),
+        ('z2', LONG.replace(b'LINE 40', b'INE 40', 1)),
+        ('z3', LONG.replace(b'LINE 20', b'INE 20', 1)),
+        ('z4', LONG.replace(b'LINE 58', b'INE 58', 1)),
+        ('z5', LONG[1:]),
+    ], LONG),
 ]
 
 # a 6 KB file: more pages than the REU build's 4 cache slots, so pages go
