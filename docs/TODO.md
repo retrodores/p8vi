@@ -309,9 +309,12 @@ and editing then go about as with an REU.
     window and terminals that aren't 80 x 24; CP/M 3's SCB has the
     console's size (BDOS 49), but the C128 says 80 there on 40 columns.
     Maybe `-40`/`-80` for the C128.
-  - The C128's RUN/STOP as Escape (in x128, F9 typed Escape).  Ctrl-C is
-    already Escape (KEY_STOP), so RUN/STOP works if it sends $03;
-    otherwise map its code, or take an extra Escape code as an option.
+  - The C128's RUN/STOP as Escape (in x128, F9 types the C128's ESC key).
+    Ctrl-C is already Escape (KEY_STOP).  RUN/STOP sends nothing: the
+    BIOS key table (4 codes a key: plain, caps, shift, control; at $1290
+    in bank 0 in the 28 May 87 BIOS, RUN/STOP at $138c) has 00 00 00 f0
+    for it.  CP/M's KEYFIG can give it $1b on the boot disk; p8vi patching
+    the table would depend on the BIOS version.
   - The z80-cpm profile doesn't turn on z88dk's heap (the Makefile's link
     options do) and its txt has no getchr and plots 0-based to ANSI (one
     row and column off): worth a note to the compiler side.
