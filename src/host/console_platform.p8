@@ -5,8 +5,6 @@
 ; it goes back to normal when the program ends.  When stdin isn't a
 ; terminal, a key is the next byte of stdin, and 0 at its end.
 ;
-%import fileio
-
 console {
     sub out(ubyte char) {
         %ir {{
@@ -24,11 +22,9 @@ console {
     }
 
     ; a key, waiting for it (txt.waitkey): the editor would otherwise ask
-    ; again and again, and keep a host CPU busy.  the screen is sent first:
-    ; stdout is buffered, and the library's waitkey doesn't flush it
-    ; (fflush(NULL): all the output streams)
+    ; again and again, and keep a host CPU busy.  (the runtime flushes
+    ; stdout first, so the screen is sent)
     sub wait() -> ubyte {
-        void fileio.flush(0)
         %ir {{
             syscall 218 (): r99100.b
             returnr.b r99100.b

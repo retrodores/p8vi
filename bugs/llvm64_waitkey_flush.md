@@ -1,7 +1,9 @@
 # llvm64: txt.getkey()/waitkey() don't flush stdout before waiting
 
-**Status:** worked around in p8vi (src/host/console_platform.p8 calls
-`fileio.flush(0)`, `fflush(NULL)`, before `syscall 218`).
+**Status:** fixed in the compiler (2026-11-11): the repro's prompt shows
+before the key.  p8vi's workaround (`fileio.flush(0)` before `syscall
+218` in src/host/console_platform.p8) is gone; the host version needs
+this compiler or later.
 
 ## What happens
 
