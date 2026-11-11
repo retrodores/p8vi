@@ -306,8 +306,8 @@ and editing then go about as with an REU.
     clear to end of line would save a lot of spaces), and the C128's CP/M
     (ADM-31: clear to end of line).
   - `-40` draws 40 columns wide (70 bytes; for the C128's 40 column
-    window, which CP/M reports as 80; checked in tnylpo, not yet on the
-    C128).  Other sizes (`-w`, `-h`, or CP/M 3's SCB, BDOS 49) only if a
+    window, which CP/M reports as 80; checked in tnylpo, and by the user
+    on the C128 in x128: the splash is centred, lines wrap at 40).  Other sizes (`-w`, `-h`, or CP/M 3's SCB, BDOS 49) only if a
     terminal needs them.
   - The C128's RUN/STOP isn't Escape, and won't be: its ESC key is in a
     good spot, and Ctrl-C is Escape too (KEY_STOP).  RUN/STOP sends
