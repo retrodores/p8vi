@@ -4,7 +4,8 @@ for the host: the files are the directory's).
 
     cpmtest.py files [--prg build/p8vi-cpmtest.com] [-j N] [--skip SUITE] [name...]
     cpmtest.py screen [-j N] [name...]
-    cpmtest.py --host [files|screen] ...    (the host version, build/p8vi-host)
+    cpmtest.py number | lines [-j N] [name...]
+    cpmtest.py --host [files|screen|number|lines|big] ...    (the host version, build/p8vi-host)
 
 Both use the test build (make cpm-test: features.KEYFILE), which plays the
 keys in KEYS.TXT before it reads the console.  For each suite, in a
@@ -21,6 +22,16 @@ screen: edtest's screen suites, on each of the terminals (-t ansi, vt52,
         sends the screen before each key it plays (as it does before
         reading the console), and the key $ff marks where the suite's keys
         end: the screen there is the one compared.
+
+number: the screen suites again with :set number first (features.NUMBER),
+        and NUMBER_SUITES: a line split or joined that leaves the rows
+        after it where they were, but with other numbers.
+lines:  :[range]d and :[range]y (features.LINE_CMDS) against the
+        normal-mode keys that do the same (LINES_PAIRS): the text after
+        each, and an x for the cursor's place, must be the same.
+big:    (--host) the wide build's 32-bit positions: a 4.5 MB file of
+        120000 lines, edited on both sides of line 65535 (search, dd, x, yy
+        and p, u, :set number, :100000, a :s range); each :w is compared.
 
 tnylpo is TNYLPO (the path), else on the PATH: without it the tests are
 skipped (exit status 0).
@@ -87,6 +98,35 @@ HOST_SUITES = [
     ('vt52-keys', 'vt52', r'\x1bB\x1bB\x1bC\x1bCx\x1bAx\x1b[1~x\x1bDiz\x1b:w q\n', [
         ('q', b'alpha beta gamma\nz econd line here\nthrd, with punct!\n\nfifth line'),
     ], ARROW_TEXT),
+]
+
+# (number) name, text, keys: more screen suites for :set number.  The
+# 100-character line takes 2 rows at 74 columns, and split at 73 still
+# does: the rows after it stay where they were, with their numbers one
+# higher (main.view.drawn_num).  Joined, the same the other way.
+LONG_LINE = b'first\n' + b'a' * 100 + b'\nthird\nfourth\n'
+NUMBER_SUITES = [
+    ('split-same-rows', LONG_LINE, r'j073li\n\x1b'),
+    ('join-same-rows', b'first\n' + b'a' * 73 + b'\n' + b'b' * 27 + b'\nthird\nfourth\n', 'jJ'),
+    ('toggle-off', LONG_LINE, r'jx:set nonumber\nx'),
+    ('page-down', b'b' * 300 + b'\nlast\n', r'\x06x'),
+]
+
+# (lines) range command, the normal-mode keys that do the same
+LINES_PAIRS = [
+    (r':2,4d\n', '2G3dd'),
+    (r':3y\nGp', '3GyyGp'),
+    (r':$d\n', 'Gdd'),
+    (r'j:.,$d\n', 'j4dd'),
+    (r':%d\n', 'gg5dd'),
+    (r':%y\nGp', 'gg5yyGp'),
+    (r':4,2d\n', ''),              # backwards: bad range, nothing changes
+    (r':9d\n', ''),                # past the end
+    (r':3,99d\n', '3G3dd'),        # stops at the last line
+    (r'jj:d\n', 'jjdd'),
+    (r'jj:y\nP', 'jjyyP'),
+    (r':2,4d\nu', '2G3ddu'),       # undone (the cursor where the change was)
+    (r':1,2y\n:5\np', '1G2yy5Gp'),
 ]
 
 
@@ -211,9 +251,74 @@ def run_screen(args, suite):
     return name, not lines, lines
 
 
+def run_number(args, suite):
+    name, text, keys = suite
+    return run_screen(args, (name, text, r':set number\n' + keys))
+
+
+def lines_text(args, keys):
+    """the text after keys and an x, as :w wrote it"""
+    work, problem = setup(args, 'cpml-', trstest.to_trs(edtest.SHORT), keys + r'x:w out\n')
+    if problem:
+        return problem
+    tnylpo(work)
+    path = os.path.join(work, 'out')
+    if not os.path.exists(path):
+        return f'no file written (files in {work})'
+    with open(path, 'rb') as f:
+        got = f.read().split(b'\x1a')[0]
+    shutil.rmtree(work)
+    return got
+
+
+def run_lines(args, pair):
+    a, b = pair
+    got_a, got_b = lines_text(args, a), lines_text(args, b)
+    ok = got_a == got_b and isinstance(got_a, bytes)
+    lines = [] if ok else [f'  {a!r}: {got_a!r}', f'  {b!r}: {got_b!r}']
+    return a, ok, lines
+
+
+def run_big(args, _):
+    """(--host) the 32-bit positions on a big file"""
+    import random
+    work = tempfile.mkdtemp(prefix='cpmbig-', dir=args.work)
+    random.seed(2)
+    text = ('\n'.join(f'line {i:06d} ' + 'x' * random.randint(0, 50) for i in range(1, 120001)) + '\n').encode()
+    with open(os.path.join(work, 'big.txt'), 'wb') as f:
+        f.write(text)
+    keys = (':e big.txt\r' 'G:w g1\r' '/line 100000\rdd:w g2\r' 'ggx:w g3\r' '5Gyy' 'Gp:w g4\r' 'u:w g5\r'
+            ':100002\rdd:w g6\r' 'u:99998,100001s/line/LINE/\r:w g7\r' 'u:set number\r:99999\r' ':q!\r')
+    try:
+        r = subprocess.run([args.prg], cwd=work, input=keys.encode(), stdout=subprocess.PIPE,
+                           stderr=subprocess.DEVNULL, timeout=TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return 'big', False, [f'  did not finish in {TIMEOUT} s (files in {work})']
+    lines = text.split(b'\n')        # lines[n - 1] is line n
+    l2 = lines[:99999] + lines[100000:]
+    l3 = [l2[0][1:]] + l2[1:]
+    want = {'g1': lines, 'g2': l2, 'g3': l3, 'g4': l3[:-1] + [l3[4], b''], 'g5': l3,
+            'g6': l3[:100001] + l3[100002:],
+            'g7': l3[:99997] + [x.replace(b'line', b'LINE') for x in l3[99997:100001]] + l3[100001:]}
+    problems = []
+    for name, want_lines in want.items():
+        path = os.path.join(work, name)
+        got = open(path, 'rb').read() if os.path.exists(path) else None
+        if got != b'\n'.join(want_lines):
+            problems.append(f'  {name}: not the text it should be')
+    scr, _ = termplay.play(termplay.before_quit(r.stdout, 'ansi'), 'ansi')
+    if not any(row.startswith('   99999 line 099999 ') for row in scr):
+        problems.append('  :set number: no row starts with line 99999 and its number')
+    if problems:
+        problems.append(f'  (files in {work})')
+    else:
+        shutil.rmtree(work)
+    return 'big', not problems, problems
+
+
 def main():
     ap = argparse.ArgumentParser(description='p8vi-cpm tests in tnylpo, or the host version\'s')
-    ap.add_argument('kind', nargs='?', default='files', choices=['files', 'screen'])
+    ap.add_argument('kind', nargs='?', default='files', choices=['files', 'screen', 'number', 'lines', 'big'])
     ap.add_argument('names', nargs='*', help='only run these suites')
     ap.add_argument('--prg', help='the program (build/p8vi-cpmtest.com, with --host build/p8vi-host)')
     ap.add_argument('--host', action='store_true', help='the host version, the keys on its stdin')
@@ -241,10 +346,22 @@ def main():
             terms = {n: term for n, term, *_ in HOST_SUITES}
             suites = [s for s in suites if s[0] not in terms] + hosts
             run = lambda a, s: run_files(a, s, terms.get(s[0], 'ansi'))
-    else:
+    elif args.kind == 'screen':
         suites = [s for s in edtest.SCREEN_SUITES
                   if (not args.names or s[0] in args.names) and s[0] not in args.skip]
         run = run_screen
+    elif args.kind == 'number':
+        suites = [s for s in edtest.SCREEN_SUITES + NUMBER_SUITES
+                  if (not args.names or s[0] in args.names) and s[0] not in args.skip]
+        run = run_number
+    elif args.kind == 'lines':
+        suites = LINES_PAIRS
+        run = run_lines
+    else:
+        if not args.host:
+            sys.exit('big is for the host version (--host)')
+        suites = [None]
+        run = run_big
     if not suites:
         sys.exit('no such suite')
     failed = 0

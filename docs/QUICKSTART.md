@@ -1,7 +1,8 @@
 # p8vi quick start
 
 p8vi is a vi for 8-bit computers: the Commodore C64, VIC-20, PET, Plus/4
-and C128, the Commander X16, the MEGA65 and the TRS-80 Model III and 4.  If you
+and C128, the Commander X16, the MEGA65, the TRS-80 Model III and 4, and
+CP/M machines.  If you
 know vi or vim you know most of it already; this guide shows what is there
 and which keys to press on a Commodore (or TRS-80) keyboard.  `docs/KEYS.md` lists every vi command with
 whether it is done.
@@ -36,6 +37,7 @@ whether it is done.
 | `p8vi-c128x.prg` | C128 | up to about 60 KB (in RAM bank 1); uses `oscii.fnt` if it is on the disk |
 | `p8vi-c128reu.prg` | C128 with an REU | up to 64 KB (or about 60 KB in RAM bank 1 without an REU) |
 | `p8vi-cx16.prg` | Commander X16 | up to 64 KB (in banked RAM) |
+| `p8vi-cx16iso.prg` | Commander X16, in ISO mode: ASCII files show as they are, `{ \| } ~ _` included, and file names keep their case | up to 64 KB (in banked RAM) |
 | `p8vi-vic20.prg` | VIC-20 with 32 KB of RAM expansion (blocks 1, 2, 3 and 5) | about 4.7 KB |
 | `p8vi-plus4.prg` | Plus/4 | about 24.6 KB |
 | `p8vi-pet32.prg` | PET 4032 (32 KB, BASIC 4, 40 columns) | about 3.3 KB |
@@ -44,9 +46,10 @@ whether it is done.
 | `p8vi-trs80.cmd` | TRS-80 Model III (48 KB) with LDOS | about 9.6 KB |
 | `p8vi-trs80m4.cmd` | TRS-80 Model 4 (64 KB, in its own mode, 80 columns) with TRSDOS 6 or LS-DOS 6.3 | about 15 KB |
 | `p8vi-trs80m4x.cmd` | TRS-80 Model 4 with 128 KB | up to about 60 KB (in the second 64 KB) |
+| `p8vi-cpm.com` | CP/M 2.2 or later on a Z80, with a terminal (ANSI, VT52 or ADM-3A) | the TPA's room after the program (about 20 KB on the C128's CP/M 3) |
 
-The MEGA65, PET, Plus/4, C128 and TRS-80 versions and `p8vi-c64disk` are
-new and still being worked on.
+The MEGA65, PET, Plus/4, C128, TRS-80, X16 ISO and CP/M versions and
+`p8vi-c64disk` are new and still being worked on.
 
 Load and run it like any program, for example on a C64:
 
@@ -64,6 +67,11 @@ On the TRS-80, copy `p8vi-trs80.cmd` to an LDOS disk as `P8VI/CMD` (for
 example with a FreHD's `IMPORT2`) and type `P8VI` at the LDOS prompt.  On
 a Model 4 the same with `p8vi-trs80m4.cmd`, or `p8vi-trs80m4x.cmd` with
 128 KB, at the TRSDOS 6 or LS-DOS 6.3 prompt.
+
+On CP/M, copy `p8vi-cpm.com` as `P8VI.COM` and give the terminal:
+`p8vi -t adm3a` (the TRS-80 Model 4's Montezuma CP/M and many CP/M
+machines), `p8vi -t vt52`, or `p8vi` alone for ANSI (VT100 and later).
+`-40` is for a 40-column screen, such as the C128's 40-column one.
 
 Then `:e name` opens a file (a name that isn't on the disk starts a new,
 empty file), and `:q` quits.  `Ctrl-G` shows how many lines there are and
@@ -242,6 +250,9 @@ the operator work on whole lines.
 | `y`motion | yank, like `d` (`yw`, `y$`, `yG`) |
 | `p` `P` | put after / before the cursor (lines: below / above) |
 
+| `:d`, `:y` | delete, yank the cursor line |
+| `:5,10d`, `:%y`, `:.,$d` | delete or yank lines 5 to 10, every line, from here to the end (line ranges as for `:s`) |
+
 Deleted text goes to the yank buffer too, so `ddp` swaps two lines and
 `xp` two characters.  There is one yank buffer (no named registers).  It
 holds 1 KB on the C64 and VIC-20, and up to 64 KB with an REU and on the
@@ -316,6 +327,10 @@ while saving.)
   `:set petscii`, `:set cr`, `:set lf` and `:set crlf` change how the file
   is written (see [ASCII and PETSCII](#ascii-and-petscii)).
 * `:r` converts the file it reads to the text's format.
+
+`:set number` (or `:set nu`) shows the line numbers in front of the lines,
+`:set nonumber` (`:set nonu`) takes them away.  The text then has 6 fewer
+columns (34 on a 40-column screen).
 
 A file too big for the room left is read only partly ("too big, cut").
 Writing it back over the same file then needs `:w!`, since the end of the
@@ -438,6 +453,11 @@ there.  It is for the 4032 (40 columns) for now.
 The X16 version leaves out the start screen, marks, `&`, and `zt` `zz`
 `zb`, and the Plus/4 version nothing.
 
+`:set number`, and `:d` and `:y` with line ranges, are not in the
+VIC-20, PET, X16, `p8vi-mega65dma`, `p8vi-c64font` and `p8vi-c128x`
+versions; `p8vi-cx16iso`, `p8vi-c64reu` and `p8vi-c128reu` have `:d` and
+`:y` but not `:set number`.
+
 `p8vi-mega65dma` leaves out the start screen, marks, `zt` `zz` `zb`, `:s`
 replacing and line ranges, and `:@$` and `:r $`: its program has to fit below the room it
 needs for its text.  `p8vi-mega65` has everything.
@@ -506,6 +526,7 @@ VIC-20 or the PET, or in `p8vi-mega65dma`.
 | `/`text `?`text | search fwd / back | `n` `N` | next / previous match |
 | `*` `#` | word under cursor | `:s/a/b/g` ‡ | replace in line |
 | `:%s/a/b/g` ‡ | in all lines | `:5,10s/a/b/` ‡ | in lines 5-10 |
+| `:5,10d` ‡ | delete lines 5-10 | `:%y` ‡ | yank every line |
 
 **Files and more**
 
@@ -517,6 +538,7 @@ VIC-20 or the PET, or in `p8vi-mega65dma`.
 | `:wq` `:x` `ZZ` | write and quit | `ZQ` | quit, discard |
 | `:n` | go to line n | `:$` `:.` ‡ | last / this line |
 | `:set` | show format | `:set ascii` / `petscii` / `cr` / `lf` / `crlf` | write format (MEGA65: and the characters shown) |
+| `:set nu` | line numbers | `:set nonu` | no line numbers |
 | `:@` † | drive status | `:@`cmd † | drive command |
 | `:@$` ‡ | directory | `:r $` ‡ | directory into text |
 | `:rec` | recover after a crash (REU, X16) | `Ctrl-G` | lines and room |

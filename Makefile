@@ -279,10 +279,13 @@ build/p8vi-host: src/p8vi_host.p8 src/*.p8 src/wide/*.p8 src/host/*.p8 src/cpm/*
 	python3 tools/encode_copy.py --wide $(WIDEMODS) $(HOSTWIDE) src src/trs80
 	$(PCC) $(PCCARGSHOST) -o build/p8vi-host $(HOSTWIDE)/src/p8vi_host.p8
 # edtest's file and screen suites, with the keys piped in (tests/cpm/cpmtest.py
-# --host)
+# --host); :set number, :d and :y with ranges, and a 4.5 MB file
 test-host:	build/p8vi-host
 	python3 -B tests/cpm/cpmtest.py --host files
 	python3 -B tests/cpm/cpmtest.py --host screen
+	python3 -B tests/cpm/cpmtest.py --host number
+	python3 -B tests/cpm/cpmtest.py --host lines
+	python3 -B tests/cpm/cpmtest.py --host big
 
 # CP/M 2.2 and later on a Z80 (src/cpm, with src/trs80's charset, fastmem
 # and store): a .com for any machine with a terminal (-t ansi, vt52 or
@@ -301,6 +304,8 @@ build/p8vi-cpm.com: src/p8vi_cpm.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8
 test-cpm:	build/p8vi-cpmtest.com build/p8vi-cpm.com
 	python3 -B tests/cpm/cpmtest.py files
 	python3 -B tests/cpm/cpmtest.py screen
+	python3 -B tests/cpm/cpmtest.py number
+	python3 -B tests/cpm/cpmtest.py lines
 	python3 -B tests/cpm/m4test.py
 cpm-test: build/p8vi-cpmtest.com
 build/p8vi-cpmtest.com: src/p8vi_cpmtest.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/cpm/*.p8 src/trs80/*.p8
@@ -335,7 +340,7 @@ clean:
 # run first; run make test-c64, test-c64reu and test-c64-screen too before
 # a release that matters.  (the TRS-80 builds need llvm-z80 and z88dk, see
 # trs80 above)
-release:	$(PROGS) font build/p8vi-trs80.cmd build/p8vi-trs80m4.cmd build/p8vi-trs80m4x.cmd test audit size
+release:	$(PROGS) font build/p8vi-trs80.cmd build/p8vi-trs80m4.cmd build/p8vi-trs80m4x.cmd build/p8vi-cpm.com test audit size
 	$(MD) release
 	$(CP) build$(SEP)p8vi-c64.prg release
 	$(CP) build$(SEP)p8vi-c64font.prg release
@@ -346,6 +351,7 @@ release:	$(PROGS) font build/p8vi-trs80.cmd build/p8vi-trs80m4.cmd build/p8vi-tr
 	$(CP) build$(SEP)p8vi-c128x.prg release
 	$(CP) build$(SEP)p8vi-c128reu.prg release
 	$(CP) build$(SEP)p8vi-cx16.prg release
+	$(CP) build$(SEP)p8vi-cx16iso.prg release
 	$(CP) build$(SEP)p8vi-mega65.prg release
 	$(CP) build$(SEP)p8vi-mega65dma.prg release
 	$(CP) build$(SEP)p8vi-pet32.prg release
@@ -354,6 +360,7 @@ release:	$(PROGS) font build/p8vi-trs80.cmd build/p8vi-trs80m4.cmd build/p8vi-tr
 	$(CP) build$(SEP)p8vi-trs80.cmd release
 	$(CP) build$(SEP)p8vi-trs80m4.cmd release
 	$(CP) build$(SEP)p8vi-trs80m4x.cmd release
+	$(CP) build$(SEP)p8vi-cpm.com release
 	$(CP) docs$(SEP)QUICKSTART.md release
 
 disk:	build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64font.prg build/oscii.fnt build/p8vi-vic20.prg
