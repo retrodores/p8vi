@@ -82,6 +82,16 @@ aren't.
   are in golden RAM, after the page store's buffers): the page store's
   code is big.  Parts in assembler, or more feature switches
   (`src/p8vi_cx16.p8`), before adding much there.
+- **ISO mode on the X16** (`txt.iso()`: ASCII/ISO files shown as they
+  are, `{ | } ~ _` included) is preferred to PETSCII, but the editor's
+  literals are PETSCII on cx16 and the keyboard gives ISO codes in ISO
+  mode.  The plan is ISO text inside, as on the TRS-80 and CP/M
+  (`features.ASCII` off, the line-ending-only charset, a simpler
+  `put_row`), which probably saves room.  It needs the whole compile in
+  ISO: `bugs/encoding_option.md` (a `-encoding iso` request).  For now
+  that means two X16 builds, PETSCII and ISO.  To check in x16emu: the
+  cursor and DEL key codes in ISO mode, and whether the X16's DOS finds
+  file names typed in ISO.
 - **The start screen** is off on the VIC-20 (its room went to the safe
   save) and on the X16 (`features.SPLASH`).
 - **More text on the VIC-20.**  With RAM in block 5 the text is at
