@@ -31,21 +31,26 @@ compile:
 prog8c -target cx16 -encoding iso -srcdirs src:src/cx16iso src/p8vi_cx16iso.p8
 ```
 
-- Literals without a prefix, in modules without their own `%encoding`,
-  use the given encoding instead of the target's default.
-- `%encoding` in a module still overrides it for that module, and
-  explicit prefixes (`petscii:"x"`, `sc:'a'`) still win.
-- The name is any of the recognised encodings, as for `%encoding`; an
+- It applies to the program's own modules. Those are the main file and
+  every module imported from its directory or from `-srcdirs`, including
+  a local module that replaces a library one (p8vi's `src/cpm/textio.p8`
+  is its own `txt`).
+- It does not apply to modules loaded from the compiler's built-in
+  `prog8lib:`. Those are written for the target's default encoding, such
+  as the X16's `txt`/`diskio` with PETSCII literals for drive commands
+  and directory parsing, so they keep it.
+- In the program's modules, literals without a prefix use the given
+  encoding instead of the target's default. A module's own `%encoding`
+  still overrides it, and explicit prefixes (`petscii:"x"`, `sc:'a'`)
+  still win.
+- The name is any of the recognised encodings, as for `%encoding`. An
   encoding the target doesn't support is an error, as for `%encoding`.
 
-**Open question: the library modules.** They are written for the target's
-default. One example is the X16's `txt`/`diskio` code with PETSCII literals
-(drive commands, directory parsing). p8vi only needs its own modules
-changed, so either of these would do:
-- the option applies only to the program's modules and not to the
-  library (the safest choice); or
-- it applies to all modules, and the library modules that depend on
-  their encoding get an explicit `%encoding`.
+A library routine that compares against its own literals, such as the
+case-insensitive compares in `strings`, keeps working in the target's
+encoding. A program built with `-encoding iso` calls the `_iso` variants
+instead (`compare_nocase_iso`, `lowerchar_iso`, ...). Digits from `conv`
+and the bytes of file names passed to `diskio` are the same either way.
 
 Something like `-encoding iso` showing in the IR/asm header, or a
 `target.ENCODING` style constant, would let a program check which way it
