@@ -41,6 +41,8 @@ main {
     }
 
     ; a character as txt.setchr wants it
+    ; (only the start screen uses it, which the X16's ISO build hasn't:
+    ; in ISO mode it would be the character itself)
     inline sub screen_code(ubyte char) -> ubyte {
         return txt.petscii2scr(char)
     }
@@ -145,6 +147,30 @@ main {
         if features.DIR and command[0] == '$' {
             dir_cmd(command, false)
             return
+        }
+        ; (features.ISO, the X16's ISO mode) the command's letters, before
+        ; the ':', in capitals: CMDR-DOS wants S, not ISO's s ($73)
+        if features.ISO {
+            %asm {{
+                lda  p8v_command
+                sta  P8ZP_SCRATCH_W1
+                lda  p8v_command+1
+                sta  P8ZP_SCRATCH_W1+1
+                ldy  #0
+_letter         lda  (P8ZP_SCRATCH_W1),y
+                beq  _done
+                cmp  #$3a           ; ':'
+                beq  _done
+                cmp  #$61           ; 'a'
+                bcc  +
+                cmp  #$7b           ; after 'z'
+                bcs  +
+                and  #$df
+                sta  (P8ZP_SCRATCH_W1),y
++               iny
+                bne  _letter
+_done
+            }}
         }
         ; opening the command channel with a name runs it as a command
         cbm.SETNAM(strings.length(command), command)

@@ -307,18 +307,24 @@ main {
         if cursor_active {
             if DOS_CURSOR
                 dos_cursor(false)
+            else if features.ISO
+                platform.color_cursor(view.column, view.row)
             else
                 txt.setchr(view.column, view.row, char_save)
             cursor_active = false
         }
     }
 
-    ; show the cursor on the character under it (in reverse on CBM)
+    ; show the cursor on the character under it (in reverse on CBM; in the
+    ; X16's ISO mode, which has no reverse characters, with its colors
+    ; swapped)
     sub cursor_on() {
         if not cursor_active {
             if DOS_CURSOR {
                 txt.plot(view.column, view.row)
                 dos_cursor(true)
+            } else if features.ISO {
+                platform.color_cursor(view.column, view.row)
             } else {
                 char_save = txt.getchr(view.column, view.row)
                 txt.setchr(view.column, view.row, cursor_char(char_save))
@@ -1753,7 +1759,8 @@ main {
     ;
 
     sub init() {
-        txt.lowercase()
+        if not features.ISO
+            txt.lowercase()     ; (ISO: platform.init switches to ISO mode)
         platform.init()
         ; the yank buffer, undo log and key buffers go in the platform's
         ; spare memory if they fit, otherwise at the top of the text memory,
@@ -2104,7 +2111,7 @@ main {
         ; nothing to recover after this
         if buffer.PAGED
             buffer.clean()
-        if features.FONT or PLATFORM_STOP
+        if features.FONT or features.ISO or PLATFORM_STOP
             platform.stop()
         txt.cls()
         sys.exit(0)

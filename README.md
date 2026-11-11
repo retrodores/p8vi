@@ -36,6 +36,7 @@ later.
 | `build/p8vi-c64reu.prg` | `src/p8vi.p8` | C64 with the page store, for text in an REU |
 | `build/p8vi-c64disk.prg` | `src/p8vi.p8` | An experiment: C64 with the page store, its pages in SEQ files (`p8vi.swp...`) on the drive, for fast devices (IDE64, RAMLink, CMD HD); `src/diskpage` |
 | `build/p8vi-cx16.prg` | `src/p8vi.p8` | Commander X16 |
+| `build/p8vi-cx16iso.prg` | `src/p8vi_cx16iso.p8` | Commander X16 in ISO mode: ASCII/ISO text shown as it is (`{ \| } ~ _`), file names in ISO; built from `%encoding iso` copies of the sources (`tools/encode_copy.py`, `bugs/encoding_option.md`), in progress |
 | `build/p8vi-mega65.prg` | `src/p8vi_mega65.p8` | MEGA65 (MEGA65 mode), with the ASCII characters for ASCII files, in progress |
 | `build/p8vi-mega65dma.prg` | `src/p8vi_mega65dma.p8` | The same with the page store: text in attic RAM (or chip RAM banks 4 and 5) through DMA, in progress |
 | `build/p8vi-plus4.prg` | `src/p8vi_plus4.p8` | Plus/4: the full editor with 24.6 KB of text, running with the RAM in up to `$fc00` and the KERNAL ROM switched in for its calls (`src/plus4/rammode.p8`), in progress |

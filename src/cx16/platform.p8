@@ -18,6 +18,8 @@ platform {
     pointer sparetop
 
     sub init() {
+       if features.ISO
+           txt.iso()
        textstart = sys.progend()
        texttop = $9f00
        ; spare memory for the key buffers: the end of golden RAM, after the
@@ -35,8 +37,10 @@ platform {
        main.STATUS_LINE     = main.SCREEN_HEIGHT - 1
     }
 
-    ; before the program ends (nothing to undo here)
+    ; before the program ends: (features.ISO) back to PETSCII for BASIC
     sub stop() {
+        if features.ISO
+            txt.iso_off()
     }
 
     ; (the C128: the 40/80 DISPLAY key switches the screen, see
@@ -53,14 +57,42 @@ platform {
         return false
     }
 
+    ; (features.ISO) the cursor at col, row on or off: ISO mode has no
+    ; reverse characters, so the colors of the character there are swapped
+    ; (twice puts them back)
+    asmsub color_cursor(ubyte col @X, ubyte row @Y) clobbers(A) {
+        %asm {{
+            stz  cx16.VERA_CTRL
+            txa
+            asl  a
+            ora  #1                     ; the color byte: col * 2 + 1
+            sta  cx16.VERA_ADDR_L
+            tya
+            clc
+            adc  #>txt.VERA_TEXTMATRIX
+            sta  cx16.VERA_ADDR_M
+            lda  #txt.VERA_TEXTMATRIX >> 16
+            sta  cx16.VERA_ADDR_H
+            lda  cx16.VERA_DATA0
+            asl  a                      ; swap the nibbles
+            adc  #$80
+            rol  a
+            asl  a
+            adc  #$80
+            rol  a
+            sta  cx16.VERA_DATA0
+            rts
+        }}
+    }
+
     ; open a file for writing with diskio.f_write as a SEQ file.
     ; the cx16 diskio.f_open_w adds ",s,w" and checks the drive status itself.
     ; the file must not exist yet.
     sub open_write(str name) -> bool {
         return diskio.f_open_w(name)
     }
-    ; put n characters of PETSCII text at text on screen row r, from column
-    ; col: as screen codes, control characters as '.'.  the columns before
+    ; put n characters of PETSCII (features.ISO: ISO) text at text on
+    ; screen row r, from column col: as screen codes, control characters as '.'.  the columns before
     ; col and after the text become spaces.  (into VERA's text map with an
     ; increment of 2: the characters, not their colors)
     asmsub put_row(ubyte r @Y, ubyte col @X, uword text @R0, ubyte n @A) clobbers(A, X, Y) {
@@ -91,7 +123,8 @@ platform {
             beq  _spaces
 _char
             ; PETSCII to a screen code (like txt.petscii2scr), control
-            ; characters ($00-$1f, $80-$9f) as '.'
+            ; characters ($00-$1f, $80-$9f) as '.'.  (features.ISO: in ISO
+            ; mode the screen code is the character itself)
             lda  (P8ZP_SCRATCH_W1),y
             sta  P8ZP_SCRATCH_REG
             lsr  a
@@ -127,7 +160,11 @@ _spaces
             bne  -
 +           rts
 
+            .if  p8b_main.ISO == 0
 _offsets    .byte  1, 0, 64, 32, 1, 192, 128, 128   ; 1: a control character
+            .else
+_offsets    .byte  1, 0, 0, 0, 1, 0, 0, 0
+            .endif
 _col        .byte  0
             ; !notreached!
         }}

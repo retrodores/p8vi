@@ -47,6 +47,11 @@ PCCARGSC64DISK=-srcdirs src:src/diskpage:src/c64 -asmlist -target c64 -out build
 # the C64 font build: the REU build with its own font (src/c64/font.p8)
 PCCARGSC64FONT=$(PCCARGSC64REU)
 PCCARGSCX16=-srcdirs src:src/cx16 -asmlist -target cx16 -out build
+# the X16's ISO mode build: every module of the program compiled with
+# %encoding iso, from copies tools/encode_copy.py makes in build/cx16iso
+# (the library keeps PETSCII; bugs/encoding_option.md)
+CX16ISO=build/cx16iso
+PCCARGSCX16ISO=-srcdirs $(CX16ISO)/src:$(CX16ISO)/cx16 -asmlist -target cx16 -out build
 PCCARGSM65=-srcdirs src:src/mega65 -asmlist -target config/mega65.properties -out build
 # the MEGA65 page store build: text in chip RAM banks 4 and 5 through DMA
 PCCARGSM65DMA=-srcdirs src:src/mega65dma:src/mega65 -asmlist -target config/mega65.properties -out build
@@ -68,7 +73,7 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 # editor.p8.  The C64 has two builds: p8vi-c64
 # with the gap buffer (the most room for text in main RAM) and p8vi-c64reu
 # with the page store (for text in an REU, docs/XMEM-DESIGN.md)
-PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64disk.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-pet32.prg build/p8vi-plus4.prg build/p8vi-c128.prg build/p8vi-c128x.prg build/p8vi-c128reu.prg build/p8vi-vic20.prg
+PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64disk.prg build/p8vi-cx16.prg build/p8vi-cx16iso.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-pet32.prg build/p8vi-plus4.prg build/p8vi-c128.prg build/p8vi-c128x.prg build/p8vi-c128reu.prg build/p8vi-vic20.prg
 # an experiment, not in the release yet: p8vi-c64font (src/p8vi_c64font.p8)
 # is p8vi-c64reu with a font that has the ASCII characters PETSCII lacks.
 # it loads the font from oscii.fnt (make font, from FONTSRC).
@@ -124,6 +129,14 @@ build/p8vi-cx16.prg: src/p8vi_cx16.p8 $(SRCS)
 	$(CP) build/p8vi_cx16.list build/p8vi-cx16.list
 	$(CP) build/p8vi_cx16.asm build/p8vi-cx16.asm
 	$(RM) build/p8vi_cx16.prg
+
+build/p8vi-cx16iso.prg: src/p8vi_cx16iso.p8 $(SRCS) tools/encode_copy.py
+	python3 tools/encode_copy.py iso $(CX16ISO) src src/cx16
+	$(PCC) $(PCCARGSCX16ISO) $(CX16ISO)/src/p8vi_cx16iso.p8
+	$(CP) build/p8vi_cx16iso.prg $@
+	$(CP) build/p8vi_cx16iso.list build/p8vi-cx16iso.list
+	$(CP) build/p8vi_cx16iso.asm build/p8vi-cx16iso.asm
+	$(RM) build/p8vi_cx16iso.prg
 
 # the MEGA65 builds have the font build's character set (the font follows
 # the text: ASCII or PETSCII).  p8vi-mega65 (src/p8vi_mega65.p8): the gap
@@ -361,6 +374,9 @@ emu-c64font:	build/p8vi-c64font.prg disk
 emu-cx16:	build/p8vi-cx16.prg
 	x16emu -debug -scale 2 -rtc -fsroot samples/ -run -prg build/p8vi-cx16.prg
 
+emu-cx16iso:	build/p8vi-cx16iso.prg
+	x16emu -debug -scale 2 -rtc -fsroot samples/ -run -prg build/p8vi-cx16iso.prg
+
 emu-mega65:	build/p8vi-mega65.prg
 	xmega65 -prg build/p8vi-mega65.prg
 
@@ -493,6 +509,7 @@ size:	$(PROGS) $(FONTPROG)
 	python3 tools/listsize.py build/p8vi-c64disk.list --map
 	python3 tools/listsize.py build/p8vi-c64font.list --map --memtop 0xc800
 	python3 tools/listsize.py build/p8vi-cx16.list --map
+	python3 tools/listsize.py build/p8vi-cx16iso.list --map
 	python3 tools/listsize.py build/p8vi-mega65.list --map --memtop 0xc000
 	python3 tools/listsize.py build/p8vi-mega65dma.list --map --memtop 0xc000
 	python3 tools/listsize.py build/p8vi-pet32.list --map --memtop 0x8000

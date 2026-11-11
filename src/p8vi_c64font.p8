@@ -20,6 +20,7 @@ features {
     const bool SCROLL = true     ; scroll the screen one row when the cursor goes just off it (not draw it all again)
     const bool DIR = true       ; :@$ shows the disk directory
     const bool FONT = true      ; the C64 font build: oscii.fnt shows the ASCII characters (src/c64/font.p8)
+    const bool ISO = false     ; (the X16) ISO mode: the text, keys and screen in ISO-8859-15, not PETSCII (p8vi-cx16iso)
     const bool SWITCH = false    ; (the C128) the 40/80 DISPLAY key switches the screen while p8vi runs
     const bool PREFIX = true     ; :w keeps a drive or path prefix (0:name, //dir/:name) for the safe save (164 bytes)
     const bool CTRL_AT = false    ; @ then a letter is Ctrl + the letter in normal mode (for keyboards without Ctrl)

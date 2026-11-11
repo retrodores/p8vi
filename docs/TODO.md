@@ -82,16 +82,27 @@ aren't.
   are in golden RAM, after the page store's buffers): the page store's
   code is big.  Parts in assembler, or more feature switches
   (`src/p8vi_cx16.p8`), before adding much there.
-- **ISO mode on the X16** (`txt.iso()`: ASCII/ISO files shown as they
-  are, `{ | } ~ _` included) is preferred to PETSCII, but the editor's
-  literals are PETSCII on cx16 and the keyboard gives ISO codes in ISO
-  mode.  The plan is ISO text inside, as on the TRS-80 and CP/M
-  (`features.ASCII` off, the line-ending-only charset, a simpler
-  `put_row`), which probably saves room.  It needs the whole compile in
-  ISO: `bugs/encoding_option.md` (a `-encoding iso` request).  For now
-  that means two X16 builds, PETSCII and ISO.  To check in x16emu: the
-  cursor and DEL key codes in ISO mode, and whether the X16's DOS finds
-  file names typed in ISO.
+- **ISO mode on the X16** (`build/p8vi-cx16iso.prg`, `src/p8vi_cx16iso.p8`):
+  the text, keys and screen in ISO-8859-15 (`txt.iso()`), so ASCII files
+  show as they are, `{ | } ~ _` included.  Every module of the program is
+  compiled with `%encoding iso`, from copies `tools/encode_copy.py` makes in
+  `build/cx16iso` (`bugs/encoding_option.md`); the library keeps PETSCII.
+  `features.ISO`: `features.ASCII` off (nothing to translate), the cursor
+  shown by swapping the colors (`platform.color_cursor`), `:@` commands'
+  letters before the `:` in capitals (CMDR-DOS wants `S:`, not ISO's `s`),
+  PETSCII again at `:q`.  276 bytes free, against the PETSCII build's 104.
+  Tried in x16emu (ROM R49) on HostFS and on an SD card image:
+  - `:e`, edits, `:w`, `:@s:name` and `:@$` all work;
+  - CMDR-DOS stores names as typed, so the ISO build writes `new.txt` and
+    `Mixed.txt`, where the PETSCII build writes `NEW.TXT` and `ÍIXED.TXT`.
+
+  Still to do:
+  - check the real keyboard's codes in ISO mode (the test typed raw bytes
+    through `-bas`): the cursor keys, DEL, Esc, Ctrl;
+  - the rows after the text could show vi's `~` (EMPTY_ROW is `-`);
+  - new texts still get CR endings, where LF may suit ISO better;
+  - PETSCII files show wrong, as there's no `:set ascii` the other way;
+  - put it in `release/`.
 - **The start screen** is off on the VIC-20 (its room went to the safe
   save) and on the X16 (`features.SPLASH`).
 - **More text on the VIC-20.**  With RAM in block 5 the text is at

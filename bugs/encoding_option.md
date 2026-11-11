@@ -1,6 +1,8 @@
 # Feature request: `-encoding <name>`, the default text encoding for a whole compile
 
-**Status:** requested 2026-11-11 (prog8c 12.3.4).
+**Status:** requested 2026-11-11 (prog8c 12.3.4); not added to the compiler
+(see Resolution). p8vi does it in its build instead: `build/p8vi-cx16iso.prg`
+(src/p8vi_cx16iso.p8, `tools/encode_copy.py`), tried in x16emu 2026-11-11.
 
 ## What it is for
 
@@ -82,3 +84,25 @@ mode).
 The X16 version stays PETSCII. An ISO version would be a second X16 build
 that keeps PETSCII inside and translates at the edges, and that doesn't
 fit in the 104 bytes free (see docs/TODO.md).
+
+## Resolution (compiler side, 2026-11-11)
+
+Not added to the compiler, to keep the language the same as upstream Prog8: the option would change the shared front
+end. p8vi's build gives the ISO version the same result with the current compiler:
+
+1. Copy the shared modules (src/editor.p8, gapbuffer.p8, pagestore.p8, ...) to a build directory, such as
+   build/cx16iso/src.
+2. Append the line `%encoding iso` at the end of each copy. The compiler moves directives to the top itself, and at
+   the end the line keeps the line numbers of error messages the same as in the original file (only the path is the
+   copy's).
+3. Compile with `-srcdirs` pointing at the copies before the per-target directories, as now.
+
+The built-in library modules aren't copied, so they keep the target's PETSCII, as the proposal wants. A module that
+already has an `%encoding` must not get a second one; leave those as they are. Checked with prog8c on cx16: `'a'`
+compiles to `lda #$61` with the line at the end of the module and to `lda #$41` without it.
+
+Still to check on the X16 in ISO mode: the bytes of file names. Only digits and punctuation are the same in ISO and
+PETSCII (`"file.txt"` starts with `$66` in ISO and `$46` in PETSCII), so save and load need a test to see which form
+the X16's DOS expects there.
+
+A `-encoding` option could still be proposed upstream; if it is adopted, the build step can go.

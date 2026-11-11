@@ -56,6 +56,10 @@ platform {
         return false
     }
 
+    ; (the X16's ISO build: the cursor as swapped colors; not here)
+    sub color_cursor(ubyte col, ubyte row) {
+    }
+
     ; open a file for writing with diskio.f_write as a SEQ file.
     ; the CBM diskio.f_open_w doesn't add the type, so do that here.
     ; the drive status can't be checked until the file is closed: reading
