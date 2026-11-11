@@ -256,6 +256,10 @@ txt {
         print(conv.str_uw(value))
     }
 
+    sub print_l(long value) {
+        print(conv.str_l(value))
+    }
+
     sub print_ub(ubyte value) {
         print(conv.str_ub(value))
     }

@@ -27,14 +27,14 @@ platform {
     pointer sparetop
 
     ; the text's memory (and the editor's small buffers, off its top: see
-    ; main.take_memory).  the gap buffer's offsets are 16 bits.
-    const uword MEMORY_SIZE = 65535
-    ubyte[MEMORY_SIZE] text_memory
+    ; main.take_memory): pos.TEXT_MAX bytes, as the gap buffer's offsets
+    ; are 16 bits (32 in the wide build)
 
     sub init() {
         options()
-        textstart = &text_memory
-        texttop = textstart + MEMORY_SIZE
+        ; (pos.TEXT_MAX: 64 KB, 16 MB in the wide build)
+        textstart = memory("text", pos.TEXT_MAX, 0)
+        texttop = textstart + pos.TEXT_MAX
         sparestart = texttop
         sparetop = texttop
         main.SCREEN_WIDTH    = txt.width()

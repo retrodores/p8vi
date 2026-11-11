@@ -13,6 +13,8 @@ pos {
     const ubyte SIZE = 2
     ; no position: the largest value, so min() and < NONE work
     const uword NONE = $ffff
+    ; the most text a build can hold (the host's text area)
+    const uword TEXT_MAX = 65535
     ; a position or count as text
     alias print = txt.print_uw
     alias text = conv.str_uw
