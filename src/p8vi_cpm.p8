@@ -21,6 +21,7 @@ features {
     const bool DIR = false      ; (CBM DOS only) :@$ shows the disk directory
     const bool FONT = false     ; the C64 font build: oscii.fnt shows the ASCII characters (src/c64/font.p8)
     const bool ISO = false     ; (the X16) ISO mode: the text, keys and screen in ISO-8859-15, not PETSCII (p8vi-cx16iso)
+    const bool NUMBER = true    ; :set number: line numbers in front of the lines (about 750 bytes)
     const bool SWITCH = false   ; (the C128) the 40/80 DISPLAY key switches the screen while p8vi runs
     const bool PREFIX = true    ; :w keeps the drive prefix (B:NAME.TXT) for the safe save: p8vi.tmp goes on that drive
     const bool CTRL_AT = false   ; @ then a letter is Ctrl + the letter in normal mode (off: terminals have Ctrl)

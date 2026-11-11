@@ -15,6 +15,16 @@ aren't.
   p8vi-c64font (the REU slots) and the TRS-80 (edtest's big suite no
   longer fit).  They put the cursor's row at the top or
   bottom, where vi puts the first or last row of a long line.
+- **`:set number`** (`features.NUMBER`, done): about 740–800 bytes, 870 on the
+  TRS-80 Model 4 (Prog8's calls and loops; the logic is small).  Off on the
+  VIC-20 (and 22 columns), X16 (both builds) and p8vi-mega65dma: no room.
+  It leaves p8vi-c128reu 113 bytes and p8vi-c128x 242, and takes 800 of the
+  PET's 3.3 KB of text (it could go off there).  The numbers are 5 digits and
+  a space, so a 40-column screen has 34 for text.  Still to do:
+  - `:set relativenumber`: the same count without adding `cur_line`;
+  - a width that grows with the line count, as vi's (4 to start);
+  - rewriting `draw_row`'s number and `number_rows` in assembler, to
+    bring it to the X16.
 - **More marks:** forgetting a mark when its line is deleted, as vi does
   (now it stays where the deletion was).  (`''` and ``` `` ``` are done.)
   Marks (`features.MARKS`, about 400 bytes) are off on the VIC-20, X16,

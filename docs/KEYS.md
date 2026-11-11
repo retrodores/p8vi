@@ -267,6 +267,7 @@ Not on the VIC-20, the X16, the TRS-80 Model III, `p8vi-c64font`, `p8vi-mega65dm
 | `:set ascii`, `:set petscii` | write the file as ASCII or PETSCII | ✅ |
 | `:set cr`, `:set lf`, `:set crlf` | the file's line endings | ✅ |
 | `:set` | show the file's format, e.g. `ascii crlf` | ✅ |
+| `:set number`, `:set nonumber` (`nu`, `nonu`) | line numbers in front of the lines (5 digits; not on the VIC-20, X16 and p8vi-mega65dma: no room) | ✅ |
 | `:set` options (tabs) | | ⬜ |
 | `:g`, `:v` | | ❌ |
 | `:!cmd` | | ❌ |

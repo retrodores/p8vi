@@ -160,6 +160,9 @@ main {
     sub switch_screen() {
         cursor_off()
         platform.switch_screen()
+        ; (it sets the screen's columns again)
+        if features.NUMBER and show_numbers
+            MIN_COL += NUMBER_WIDTH
         ; the top row starts where a row starts at the new width
         buffer.set_mark(MARK_TOP, view.row_of(buffer.get_mark(MARK_TOP)))
         view.refresh(true)
@@ -2156,11 +2159,22 @@ main {
     }
 
     ; :set ascii / petscii / cr / lf / crlf - how the file is written;
-    ; :set shows it
+    ; :set shows it.  (features.NUMBER) :set number / nu, nonumber / nonu:
+    ; the line numbers in front of the lines
     str[] set_options = ["petscii", "ascii", "cr", "lf", "crlf"]
+    str[] number_options = ["number", "nu", "nonumber", "nonu"]
 
     sub set_cmd(str arg) {
         ubyte i = 0
+        if features.NUMBER {
+            for i in 0 to len(number_options) - 1 {
+                if strings.compare(arg, number_options[i]) == 0 {
+                    number_mode(i < 2)
+                    return
+                }
+            }
+            i = 0
+        }
         if arg[0] != 0 {
             ; (ascii and crlf only in a build with those features)
             while strings.compare(arg, set_options[i]) != 0 or
@@ -2184,6 +2198,23 @@ main {
         void strings.append(status_text, " ")
         void strings.append(status_text, set_options[2 + line_ending])
         status(status_text)
+    }
+
+    ; (features.NUMBER) the line numbers on or off: the text moves right by
+    ; NUMBER_WIDTH columns to make room for them
+    const ubyte NUMBER_WIDTH = 6        ; 5 digits and a space
+    bool show_numbers
+    sub number_mode(bool on) {
+        if on == show_numbers
+            return
+        show_numbers = on
+        if on
+            MIN_COL += NUMBER_WIDTH
+        else
+            MIN_COL -= NUMBER_WIDTH
+        ; the top row starts where a row starts at the new width
+        buffer.set_mark(MARK_TOP, view.row_of(buffer.get_mark(MARK_TOP)))
+        view.refresh(true)
     }
 
     ; change the line endings.  CR and LF swap in the text if the line end
@@ -2662,6 +2693,13 @@ view {
 
     ubyte[txt.DEFAULT_WIDTH] linebuf
 
+    ; (features.NUMBER) the line number (from 0) of each screen row's line,
+    ; and the low byte of the one drawn, to draw a row again when only its
+    ; number changed (a line split or joined can leave the rows after it
+    ; where they were)
+    uword[txt.DEFAULT_HEIGHT] row_num
+    ubyte[txt.DEFAULT_HEIGHT] drawn_num
+
     ; number of text columns
     sub width() -> ubyte {
         return main.MAX_COL - main.MIN_COL + 1
@@ -2721,6 +2759,8 @@ view {
             void locate()
         }
         top = buffer.get_mark(main.MARK_TOP)
+        if features.NUMBER and main.show_numbers
+            number_rows()
         if force or top != drawn_top {
             if features.SCROLL and same and scrolled(top)
                 drawn()
@@ -2733,6 +2773,31 @@ view {
             draw_changed()
         if main.mode != main.MODE_CMD
             main.status_position()
+    }
+
+    ; (features.NUMBER) the rows' line numbers, counted from the cursor's
+    ; row (its line is main.cur_line) up and down
+    sub number_rows() {
+        uword n = main.cur_line
+        ubyte r
+        ; the top row's: one less for each line that starts after it, up to
+        ; the cursor's row
+        for r in main.MIN_ROW + 1 to row {
+            if line_start(r)
+                n--
+        }
+        for r in main.MIN_ROW to main.MAX_ROW {
+            if r != main.MIN_ROW and line_start(r)
+                n++
+            row_num[r] = n
+        }
+    }
+
+    ; (features.NUMBER) true if screen row r starts a line (it isn't the
+    ; rest of a wrapped one)
+    sub line_start(ubyte r) -> bool {
+        uword start = row_start[r]
+        return start != NONE and (start == 0 or buffer.get(start - 1) == buffer.eol)
     }
 
     ; most rows the screen scrolls (further, it is drawn again)
@@ -2925,7 +2990,8 @@ view {
             if start == NONE {
                 if drawn_start[r] == NONE
                     continue
-            } else if drawn_start[r] != NONE and row_len[r] == drawn_len[r] {
+            } else if drawn_start[r] != NONE and row_len[r] == drawn_len[r] and
+                    (not features.NUMBER or not main.show_numbers or lsb(row_num[r]) == drawn_num[r]) {
                 ; (the line ending or wrap point right after the row counts too)
                 if start + row_len[r] < change_start and drawn_start[r] == start
                     continue
@@ -2943,6 +3009,8 @@ view {
         for r in main.MIN_ROW to main.MAX_ROW {
             drawn_start[r] = row_start[r]
             drawn_len[r] = row_len[r]
+            if features.NUMBER
+                drawn_num[r] = lsb(row_num[r])
         }
         drawn_top = buffer.get_mark(main.MARK_TOP)
         drawn_length = buffer.length()
@@ -2959,6 +3027,19 @@ view {
         if row_start[r] == NONE {
             ; rows past the end of the text show EMPTY_ROW (vi's ~)
             platform.put_row(r, 0, main.EMPTY_ROW, 1)
+            return
+        }
+        if features.NUMBER and main.show_numbers {
+            ; the number, right aligned, then a space; nothing on the rest
+            ; of a wrapped line
+            sys.memset(&linebuf, main.NUMBER_WIDTH, ' ')
+            if line_start(r) {
+                pointer digits = conv.str_uw(row_num[r] + 1)
+                void strings.copy(digits, &linebuf + main.NUMBER_WIDTH - 1 - strings.length(digits))
+                linebuf[main.NUMBER_WIDTH - 1] = ' '
+            }
+            void buffer.copy_out(row_start[r], row_len[r], &linebuf + main.NUMBER_WIDTH)
+            platform.put_row(r, main.MIN_COL - main.NUMBER_WIDTH, linebuf, row_len[r] + main.NUMBER_WIDTH)
             return
         }
         void buffer.copy_out(row_start[r], row_len[r], linebuf)
