@@ -320,6 +320,85 @@ txt {
         return k
     }
 
+    ; the arrow and editing keys: after an Escape from getkey(), the key
+    ; its escape sequence stands for, as the editor's code: ANSI's ESC [
+    ; ... (from any terminal: vi has no ESC [ of its own), and with -T VT52
+    ; ESC A to D.  0 for a sequence it doesn't know (dropped, or its
+    ; letters would be taken as commands), 27 for a lone Escape (what came
+    ; after it is kept for the next getkey).  (on the host the runtime's
+    ; getkey gives the arrows' codes itself, ESC [ A and ESC O A alike: the
+    ; rest comes here)
+    ;   ESC [ A B C D      up, down, right, left
+    ;   ESC [ H, ESC [ 1~ or 7~   Home (0)
+    ;   ESC [ 5~, ESC [ 6~ Page Up, Page Down (Ctrl-B, Ctrl-F)
+    sub escape_key() -> ubyte {
+        ubyte k = next_key()
+        if k == '[' {
+            ubyte n = 0
+            repeat {
+                k = next_key()
+                if k >= '0' and k <= '9'
+                    n = n * 10 + k - '0'
+                else if k != ';'
+                    break
+            }
+            when k {
+                'A' -> return main.KEY_UP
+                'B' -> return main.KEY_DOWN
+                'C' -> return main.KEY_RIGHT
+                'D' -> return main.KEY_LEFT
+                'H' -> return main.KEY_HOME
+                '~' -> {
+                    when n {
+                        1, 7 -> return main.KEY_HOME
+                        5 -> return main.KEY_CONTROL_B
+                        6 -> return main.KEY_CONTROL_F
+                    }
+                }
+            }
+            return 0
+        }
+        if term == VT52 {
+            when k {
+                'A' -> return main.KEY_UP
+                'B' -> return main.KEY_DOWN
+                'C' -> return main.KEY_RIGHT
+                'D' -> return main.KEY_LEFT
+            }
+        }
+        if k != 0
+            unget(k)
+        return 27
+    }
+
+    ; (escape_key) the next key: a queued one, or the console's, asked a
+    ; number of times (a sequence's bytes come one right after the other;
+    ; the host's runtime gives an Escape on its own only when nothing
+    ; follows it); 0 if none came
+    const ubyte SEQ_TRIES = 255
+    sub next_key() -> ubyte {
+        ubyte k
+        if key_head != key_tail {
+            k = keys[key_head]
+            key_head = (key_head + 1) & 15
+            return k
+        }
+        repeat SEQ_TRIES {
+            k = console.poll()
+            if k != 0
+                return k
+        }
+        return 0
+    }
+
+    ; a key back in front of the queue
+    sub unget(ubyte k) {
+        if (key_head - 1) & 15 == key_tail
+            return
+        key_head = (key_head - 1) & 15
+        keys[key_head] = k
+    }
+
     sub waitkey() -> ubyte {
         ubyte k
         repeat {

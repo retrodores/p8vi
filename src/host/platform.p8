@@ -273,20 +273,25 @@ main {
     }
 
     ; a key: ASCII as the terminal sends it.  DEL (127) and backspace (8)
-    ; delete (DEL), Ctrl-C is RUN/STOP (an Escape).  (the arrow keys'
-    ; escape sequences aren't read yet: hjkl.)  It waits for the key; when
+    ; delete (DEL), Ctrl-C is RUN/STOP (an Escape), the arrow keys' escape
+    ; sequences are the arrows (txt.escape_key).  It waits for the key; when
     ; stdin isn't a terminal and ends, so does the program (exit status 1).
     sub get_key() -> ubyte {
         if platform.start_keys[platform.start_pos] != 0 {
             platform.start_pos++
             return platform.start_keys[platform.start_pos - 1]
         }
-        ubyte k = txt.getkey()
-        when k {
-            0 -> {
+        ubyte k
+        do {
+            k = txt.getkey()
+            if k == 0 {
                 txt.done()
                 sys.exit(1)
             }
+            if k == 27
+                k = txt.escape_key()    ; (the arrow keys; 0: a sequence dropped)
+        } until k != 0
+        when k {
             127, 8 -> return KEY_DEL
             3 -> return KEY_STOP
             KEY_CONTROL_L -> txt.repaint()      ; (the editor draws it all again)

@@ -293,7 +293,7 @@ emu-cpm:	build/p8vi-cpm.com
 	$(CP) samples$(SEP)*.txt $(CPMDIR)
 	$(CP) samples$(SEP)sampsmall.txt $(CPMDIR)$(SEP)sampsmal.txt
 	$(CP) build$(SEP)p8vi-cpm.com $(CPMDIR)$(SEP)p8vi.com
-	cd $(CPMDIR) && tnylpo -s p8vi -t vt52
+	cd $(CPMDIR) && tnylpo -s -w p8vi -t vt52
 # the TRS-80 Model 4 with Montezuma Micro CP/M 2.2 in trs80gp: drive A a
 # copy of the system disk (CPM_DISK), drive B a new data disk with p8vi.com
 # and samples (tools/cpm/m4disk.py; made again each time, so edits there

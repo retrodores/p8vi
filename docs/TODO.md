@@ -296,8 +296,15 @@ and editing then go about as with an REU.
     and a smoke test on Montezuma CP/M in trs80gp (m4test.py, only with
     the disk image: CPM_DISK or build/cpm222_work.dsk).  Each is skipped
     without its emulator.
-  - Arrow keys: terminals send escape sequences (ESC [ A, ESC A, ^K ...);
-    hjkl only for now.
+  - Arrow keys (2026-11-10): txt.escape_key reads ANSI's ESC [ A-D, Home
+    (ESC [ H, 1~, 7~), Page Up/Down (5~ 6~: Ctrl-B/F), drops the
+    sequences it doesn't know, and with -t vt52 ESC A-D.  `make emu-cpm`
+    runs tnylpo -s -w (VT52 arrows; without -w it sends WordStar's ^E ^S
+    ^D ^X, which are vi keys).  Checked in tnylpo -s -w through a pty.
+    Not ADM-3A's (^K ^J ^H ^L are vi keys too), nor Montezuma's arrows
+    (unknown: try them in trs80gp).  On CP/M a sequence's bytes must come
+    within 255 console polls; a fast typist's Escape then A on VT52 could
+    be taken for up.
   - Montezuma's keyboard: capitals until CAPS is pressed; BREAK is
     Escape.  Keys typed while the floppy is read are lost (no type-ahead);
     txt.flush() asks for keys every 16 characters, so typing during a
@@ -333,7 +340,10 @@ and editing then go about as with an REU.
   console.wait() does.  Open:
   - The text is the 16-bit editor's: 64 KB at most.
   - The screen is 80 x 24 (or -40); the terminal's own size isn't asked.
-  - Arrow keys (ESC [ A ...), as for CP/M.
+  - Arrow keys: the runtime's getkey gives the arrows' codes itself
+    (ESC [ A, ESC [ 1;2A, ESC O A: the same as the editor's); Home, Page
+    Up/Down, unknown sequences and VT52 are txt.escape_key's.  Tested by
+    cpmtest.py --host's ansi-keys and vt52-keys suites.
   - llvm32 (wasm with WASI: no raw keyboard there), Linux and Windows
     builds not tried.
 - **Color Computer 2 and 3** (not started; llvm16 `mc6809-coco`).  Both are

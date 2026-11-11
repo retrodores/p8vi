@@ -27,7 +27,8 @@ skipped (exit status 0).
 
 --host: the same suites for the host version (make host: llvm64, in a
 terminal), with the keys piped to its stdin (it reads them as typed, and
-ends when they do).  There is no $ff mark: the screen compared is the one
+ends when they do), the arrow keys as the terminal's escape sequences
+(ANSI ESC [ A, VT52 ESC A; the file suites are ANSI).  There is no $ff mark: the screen compared is the one
 before :q! clears it, less the status row (which shows :q!).
 """
 
@@ -63,7 +64,37 @@ def text_file(text):
     return text.replace(b'\r\n', b'\n').replace(b'\r', b'\n').replace(b'\n', b'\r\n')
 
 
-def setup(args, prefix, text, keys):
+# (--host) the arrow keys as the terminal sends them: the suites' CBM codes
+# become escape sequences, which p8vi reads back (txt.escape_key).  ADM-3A
+# has none: there the codes go as they are.
+ARROWS = {'ansi': {0x91: b'\x1b[A', 0x11: b'\x1b[B', 0x1d: b'\x1b[C', 0x9d: b'\x1b[D'},
+          'vt52': {0x91: b'\x1bA', 0x11: b'\x1bB', 0x1d: b'\x1bC', 0x9d: b'\x1bD'},
+          'adm3a': {}}
+
+
+# (--host) the escape sequences themselves, typed as they are (and the
+# terminal, -t, they are for): name, keys, files, text.  (the runtime
+# decodes ANSI's arrows itself; Home, the page keys, F5 and VT52's arrows
+# are p8vi's txt.escape_key)  F5 (ESC [ 15 ~)
+# must be dropped (its 15~ would change the case of 15 characters); ESC
+# then A on ANSI is a lone Escape and A (append), on VT52 the up arrow.
+ARROW_TEXT = b'alpha beta gamma\n  second line here\nthird, with punct!\n\nfifth line'
+HOST_SUITES = [
+    ('ansi-keys', 'ansi', r'\x1b[B\x1b[B\x1b[C\x1b[Cx\x1b[Ax\x1b[Hx\x1b[15~\x1b[6~\x1b[5~gg\x1b[D'
+                          r'ione\x1bAtwo\x1b:w q\n', [
+        ('q', b'onealpha beta gammatwo\n econd line here\nthrd, with punct!\n\nfifth line'),
+    ], ARROW_TEXT),
+    ('vt52-keys', 'vt52', r'\x1bB\x1bB\x1bC\x1bCx\x1bAx\x1b[1~x\x1bDiz\x1b:w q\n', [
+        ('q', b'alpha beta gamma\nz econd line here\nthrd, with punct!\n\nfifth line'),
+    ], ARROW_TEXT),
+]
+
+
+def as_typed(keys, term):
+    return b''.join(ARROWS[term].get(k, bytes([k])) for k in keys)
+
+
+def setup(args, prefix, text, keys, term='ansi'):
     """a directory with p8vi.com, t.txt and keys.txt, and a problem (None if
     the keys fit the test build's buffer)"""
     work = tempfile.mkdtemp(prefix=prefix, dir=args.work)
@@ -72,6 +103,8 @@ def setup(args, prefix, text, keys):
     with open(os.path.join(work, 't.txt'), 'wb') as f:
         f.write(text_file(text))
     played = trstest.key_bytes(':e t.txt\\n' + keys + ':q!\\n')
+    if args.host:
+        played = as_typed(played, term)
     if len(played) > KEY_BUF_SIZE and not args.host:
         return work, f'{len(played)} bytes of keys, the test build holds {KEY_BUF_SIZE}'
     with open(os.path.join(work, 'keys.txt'), 'wb') as f:
@@ -101,15 +134,15 @@ def tnylpo(work, *options):
     return r.stdout
 
 
-def run_files(args, suite):
+def run_files(args, suite, term='ansi'):
     name, keys, expected, *text = suite
     start = text[0] if text else edtest.SHORT
     swap = trstest.to_trs if not trstest.looks_ascii(start) else (lambda t: t)
-    work, problem = setup(args, 'cpm-' + name + '-', swap(start), keys)
+    work, problem = setup(args, 'cpm-' + name + '-', swap(start), keys, term)
     if problem:
         return name, False, ['  ' + problem]
     lines = []
-    if tnylpo(work) is None:
+    if tnylpo(work, *(['-t', term] if term != 'ansi' else [])) is None:
         lines.append(f'  tnylpo did not finish in {TIMEOUT} s')
     for fname, want in expected:
         path = os.path.join(work, fname)
@@ -134,7 +167,7 @@ def screen_of(args, name, text, keys, term):
     """the screen after the keys on a terminal, or a problem (a string)"""
     if args.host:
         keys = keys.replace(r'\xff', '')
-    work, problem = setup(args, f'cpms-{name}-{term}-', text, keys)
+    work, problem = setup(args, f'cpms-{name}-{term}-', text, keys, term)
     if problem:
         return problem
     out = tnylpo(work, '-t', term)
@@ -202,6 +235,12 @@ def main():
                   if (not args.names or s[0] in args.names) and s[0] not in args.skip
                   and (args.names or s[0] not in CBM_ONLY)]
         run = run_files
+        if args.host:
+            # (and the escape sequences: HOST_SUITES)
+            hosts = [(n, k, e, t) for n, term, k, e, t in HOST_SUITES if not args.names or n in args.names]
+            terms = {n: term for n, term, *_ in HOST_SUITES}
+            suites = [s for s in suites if s[0] not in terms] + hosts
+            run = lambda a, s: run_files(a, s, terms.get(s[0], 'ansi'))
     else:
         suites = [s for s in edtest.SCREEN_SUITES
                   if (not args.names or s[0] in args.names) and s[0] not in args.skip]

@@ -317,8 +317,8 @@ main {
     }
 
     ; a key, 0 for none: ASCII as the terminal sends it.  DEL (127) and
-    ; backspace (8) delete (DEL), Ctrl-C is RUN/STOP (an Escape).  (the
-    ; arrow keys' escape sequences aren't read yet: hjkl)
+    ; backspace (8) delete (DEL), Ctrl-C is RUN/STOP (an Escape), the arrow
+    ; keys' escape sequences are the arrows (txt.escape_key).
     const uword KEY_BUF_SIZE = 256
     ubyte[if features.KEYFILE KEY_BUF_SIZE else 1] key_buf
     uword key_count
@@ -339,6 +339,8 @@ main {
             return key_buf[key_pos - 1]
         }
         ubyte k = txt.getkey()
+        if k == 27
+            k = txt.escape_key()        ; (the arrow keys)
         when k {
             127, 8 -> return KEY_DEL
             3 -> return KEY_STOP
