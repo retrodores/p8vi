@@ -266,21 +266,17 @@ build/p8vi-trs80m4xtest.cmd: src/p8vi_trs80m4xtest.p8 src/editor.p8 src/buffer.p
 # Linux, Windows), in a terminal.  The CP/M version's screen (src/cpm,
 # src/trs80) with the terminal as its console (src/host).
 #   build/p8vi-host [-t ansi|vt52|adm3a] [-40] [file]
-PCCARGSHOST=-srcdirs src:src/host:src/cpm:src/trs80 -target llvm64
-host: build/p8vi-host
-build/p8vi-host: src/p8vi_host.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/host/*.p8 src/cpm/*.p8 src/trs80/*.p8
-	$(PCC) $(PCCARGSHOST) -o build/p8vi-host $<
-# the wide host version: 32-bit text positions (up to pos.TEXT_MAX, 16 MB).
-# The editor core is compiled from copies with uword made long
-# (tools/encode_copy.py --wide), src/wide/postype.p8 first.  It needs a
-# compiler whose sys.memcopy/memset take a long count on llvm64.
+# 32-bit text positions (up to pos.TEXT_MAX, 16 MB): the editor core is
+# compiled from copies with uword made long (tools/encode_copy.py --wide),
+# src/wide/postype.p8 first.  (it needs a compiler whose sys.memcopy/memset
+# take a long count on llvm64)
 HOSTWIDE=build/hostwide
 WIDEMODS=editor,buffer,gapbuffer,fastmem_platform,charset_platform
-PCCARGSHOSTWIDE=-srcdirs src/wide:$(HOSTWIDE)/src:src/host:src/cpm:$(HOSTWIDE)/trs80 -target llvm64
-host-wide: build/p8vi-hostwide
-build/p8vi-hostwide: src/p8vi_host.p8 src/*.p8 src/wide/*.p8 src/host/*.p8 src/cpm/*.p8 src/trs80/*.p8 tools/encode_copy.py
+PCCARGSHOST=-srcdirs src/wide:$(HOSTWIDE)/src:src/host:src/cpm:$(HOSTWIDE)/trs80 -target llvm64
+host: build/p8vi-host
+build/p8vi-host: src/p8vi_host.p8 src/*.p8 src/wide/*.p8 src/host/*.p8 src/cpm/*.p8 src/trs80/*.p8 tools/encode_copy.py
 	python3 tools/encode_copy.py --wide $(WIDEMODS) $(HOSTWIDE) src src/trs80
-	$(PCC) $(PCCARGSHOSTWIDE) -o build/p8vi-hostwide $(HOSTWIDE)/src/p8vi_host.p8
+	$(PCC) $(PCCARGSHOST) -o build/p8vi-host $(HOSTWIDE)/src/p8vi_host.p8
 # edtest's file and screen suites, with the keys piped in (tests/cpm/cpmtest.py
 # --host)
 test-host:	build/p8vi-host

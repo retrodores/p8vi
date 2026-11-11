@@ -15,6 +15,8 @@ pos {
     const uword NONE = $ffff
     ; the most text a build can hold (the host's text area)
     const uword TEXT_MAX = 65535
+    ; digits in the largest line number (65535)
+    const ubyte DIGITS = 5
     ; a position or count as text
     alias print = txt.print_uw
     alias text = conv.str_uw

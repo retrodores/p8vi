@@ -27,12 +27,11 @@ platform {
     pointer sparetop
 
     ; the text's memory (and the editor's small buffers, off its top: see
-    ; main.take_memory): pos.TEXT_MAX bytes, as the gap buffer's offsets
-    ; are 16 bits (32 in the wide build)
+    ; main.take_memory): pos.TEXT_MAX bytes, 16 MB (the core is the wide
+    ; one: src/wide/postype.p8)
 
     sub init() {
         options()
-        ; (pos.TEXT_MAX: 64 KB, 16 MB in the wide build)
         textstart = memory("text", pos.TEXT_MAX, 0)
         texttop = textstart + pos.TEXT_MAX
         sparestart = texttop

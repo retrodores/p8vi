@@ -13,6 +13,8 @@ pos {
     const long NONE = $7fffffff
     ; the most text a build can hold (the host's text area)
     const long TEXT_MAX = 16 * 1024 * 1024
+    ; digits in the largest line number (16 M one-character lines)
+    const ubyte DIGITS = 8
     ; a position or count as text
     alias print = txt.print_l
     alias text = conv.str_l

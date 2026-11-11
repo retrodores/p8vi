@@ -2202,7 +2202,7 @@ main {
 
     ; (features.NUMBER) the line numbers on or off: the text moves right by
     ; NUMBER_WIDTH columns to make room for them
-    const ubyte NUMBER_WIDTH = 6        ; 5 digits and a space
+    const ubyte NUMBER_WIDTH = pos.DIGITS + 1   ; the digits and a space
     bool show_numbers
     sub number_mode(bool on) {
         if on == show_numbers

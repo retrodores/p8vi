@@ -114,20 +114,20 @@ aren't.
   - new texts still get CR endings, where LF may suit ISO better;
   - PETSCII files show wrong, as there's no `:set ascii` the other way;
   - put it in `release/`.
-- **32-bit text positions** (the host, later the Amiga): `src/postype.p8`
-  holds what depends on the width (`pos.SIZE`, `pos.NONE`, `pos.print`,
-  `pos.text`, `pos.TEXT_MAX`).  `make host-wide` compiles the core from
-  copies with `uword` made `long` (`tools/encode_copy.py --wide`) and
-  `src/wide/postype.p8` first: 16 MB of text.  It waits for a compiler whose
-  `sys.memcopy`/`memset` take a `long` count on llvm32/llvm64 (it fails
-  only on those nine calls now).  A test without it passed every host suite
-  and edited a 344 KB file.  Then:
-  - `make host` becomes the wide build;
-  - `:123` and counts read with `conv.str2uword` stop at 65535 (needs a
-    `pos.parse`);
-  - `:set number`'s 5 digits stop at 99999 lines;
+- **32-bit text positions** (done for the host; later the Amiga):
+  `src/postype.p8` holds what depends on the width (`pos.SIZE`, `pos.NONE`,
+  `pos.DIGITS`, `pos.print`, `pos.text`, `pos.TEXT_MAX`).  `make host`
+  compiles the core from copies with `uword` made `long`
+  (`tools/encode_copy.py --wide`), with `src/wide/postype.p8` first: 16 MB
+  of text.  It needs a compiler whose `sys.memcopy`/`memset` take a `long`
+  count on llvm64.  Tried on a 4.5 MB, 120000-line file (edits on both sides
+  of line 65535, undo, `:set number` past 99999).  Still to do:
+  - `:123` and counts are read with `conv.str2uword`, so they stop at
+    65535 (needs a `pos.parse`);
   - the m68k `memset`/`memsetw` still take a `uword` count, for the Amiga
-    port.
+    port;
+  - the 16-bit core is now tested on the CP/M build in tnylpo only (no
+    16-bit host build).
 - **The start screen** is off on the VIC-20 (its room went to the safe
   save) and on the X16 (`features.SPLASH`).
 - **More text on the VIC-20.**  With RAM in block 5 the text is at
