@@ -20,4 +20,6 @@ pos {
     ; a position or count as text
     alias print = txt.print_uw
     alias text = conv.str_uw
+    ; a number typed (:123, :1,5d), up to 65535
+    alias parse = conv.str2uword
 }

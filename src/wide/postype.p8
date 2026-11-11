@@ -18,4 +18,6 @@ pos {
     ; a position or count as text
     alias print = txt.print_l
     alias text = conv.str_l
+    ; a number typed (:123, :1,5d)
+    alias parse = conv.str2long
 }

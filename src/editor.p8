@@ -1866,7 +1866,7 @@ main {
 
         ; :n goes to line n
         if cmdline[i] >= '0' and cmdline[i] <= '9' {
-            goto_line(max(conv.str2uword(&cmdline + i), 1))
+            goto_line(max(pos.parse(&cmdline + i), 1))
             return
         }
 
@@ -1952,7 +1952,7 @@ main {
         else if c == '$'
             line = buffer.line_number(buffer.length())
         else if c >= '0' and c <= '9' {
-            line = conv.str2uword(&cmdline + cmd_pos)
+            line = pos.parse(&cmdline + cmd_pos)
             cmd_pos += str2uword_digits() - 1
             if line != 0
                 line--

@@ -116,14 +116,13 @@ aren't.
   - put it in `release/`.
 - **32-bit text positions** (done for the host; later the Amiga):
   `src/postype.p8` holds what depends on the width (`pos.SIZE`, `pos.NONE`,
-  `pos.DIGITS`, `pos.print`, `pos.text`, `pos.TEXT_MAX`).  `make host`
+  `pos.DIGITS`, `pos.print`, `pos.text`, `pos.parse`, `pos.TEXT_MAX`).  `make host`
   compiles the core from copies with `uword` made `long`
   (`tools/encode_copy.py --wide`), with `src/wide/postype.p8` first: 16 MB
   of text.  It needs a compiler whose `sys.memcopy`/`memset` take a `long`
   count on llvm64.  Tried on a 4.5 MB, 120000-line file (edits on both sides
-  of line 65535, undo, `:set number` past 99999).  Still to do:
-  - `:123` and counts are read with `conv.str2uword`, so they stop at
-    65535 (needs a `pos.parse`);
+  of line 65535, undo, `:set number` past 99999, `:100000` and
+  `:99998,100002s`).  Still to do:
   - the m68k `memset`/`memsetw` still take a `uword` count, for the Amiga
     port;
   - the 16-bit core is now tested on the CP/M build in tnylpo only (no
