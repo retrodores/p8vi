@@ -342,6 +342,7 @@ main {
         when k {
             127, 8 -> return KEY_DEL
             3 -> return KEY_STOP
+            KEY_CONTROL_L -> txt.repaint()      ; (the editor draws it all again)
         }
         return k
     }

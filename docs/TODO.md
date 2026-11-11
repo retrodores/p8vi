@@ -327,8 +327,10 @@ and editing then go about as with an REU.
   on macOS (arm64), 2026-11-10: edtest's file suites (19) and screen
   suites (18, on the three terminals) pass with the keys piped in (a
   scratch run of tests/cpm/cpmtest.py), and in a pty a lone ESC, Ctrl-C
-  and :wq work.  Open:
-  - Tests in the repo (make test-host).
+  and :wq work.  `make test-host` runs them (cpmtest.py --host: the keys
+  on stdin; the screen compared is the one before :q! clears it).  The
+  runtime's waitkey doesn't flush stdout (bugs/llvm64_waitkey_flush.md):
+  console.wait() does.  Open:
   - The text is the 16-bit editor's: 64 KB at most.
   - The screen is 80 x 24 (or -40); the terminal's own size isn't asked.
   - Arrow keys (ESC [ A ...), as for CP/M.

@@ -277,6 +277,15 @@ txt {
         row = 0
     }
 
+    ; send the whole screen again (Ctrl-L): the terminal is cleared and its
+    ; copy forgotten, so the next flush() sends every row as want has it.
+    ; (the editor's redraw alone only changes want)
+    sub repaint() {
+        term_clear()
+        sys.memset(&shown, SIZE, ' ')
+        sys.memset(&dirty, DEFAULT_HEIGHT, 1)
+    }
+
     ; (the CBM machines' charset switch; nothing to do here)
     sub lowercase() {
     }

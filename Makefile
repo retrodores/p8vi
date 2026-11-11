@@ -257,6 +257,11 @@ PCCARGSHOST=-srcdirs src:src/host:src/cpm:src/trs80 -target llvm64
 host: build/p8vi-host
 build/p8vi-host: src/p8vi_host.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/host/*.p8 src/cpm/*.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSHOST) -o build/p8vi-host $<
+# edtest's file and screen suites, with the keys piped in (tests/cpm/cpmtest.py
+# --host)
+test-host:	build/p8vi-host
+	python3 -B tests/cpm/cpmtest.py --host files
+	python3 -B tests/cpm/cpmtest.py --host screen
 
 # CP/M 2.2 and later on a Z80 (src/cpm, with src/trs80's charset, fastmem
 # and store): a .com for any machine with a terminal (-t ansi, vt52 or
