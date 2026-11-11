@@ -283,9 +283,14 @@ and editing then go about as with an REU.
   `vt52` (tnylpo's full screen), `adm3a`.  Checked in tnylpo (all three
   terminals give the same screen as a Ctrl-L redraw) and on the TRS-80
   Model 4 with Montezuma Micro CP/M 2.2 in trs80gp (`-t adm3a` works;
-  17,202 bytes free with its 64K CP/M; tools/cpm/dmk.py and cpmtools put
-  p8vi.com on the DMK disk, made room by deleting MBASIC.COM and ASM.COM
-  from a copy).  Open:
+  17,202 bytes free with its 64K CP/M; `make emu-trs80m4-cpm` boots a
+  copy of the system disk with a data disk in drive B made by
+  tools/cpm/m4disk.py).  Also tried by hand on the C128's CP/M 3.0 in
+  x128 (2026-11-10): `-t adm3a` works on both screens, 20,914 bytes free,
+  but slow.  Its 40 column screen is a window on an 80 column console
+  (CP/M says 80 columns), so p8vi draws 80 wide there.  Getting files on
+  was the hard part: cpmtools has no C128 formats; a CP/M tool (rdcbm)
+  read p8vi.com off a 1541 .d64.  Not a practical target.  Open:
   - Tests (`make test-cpm`, tests/cpm): edtest's file suites and its
     screen suites on each terminal (against a Ctrl-L redraw) in tnylpo,
     and a smoke test on Montezuma CP/M in trs80gp (m4test.py, only with
@@ -299,7 +304,10 @@ and editing then go about as with an REU.
     screen update is kept.
   - A Montezuma console driver of its own (its codes beyond ADM-3A:
     clear to end of line would save a lot of spaces), and the C128's CP/M
-    (ADM-31 on 80 columns).
+    (ADM-31: clear to end of line).
+  - A screen size option (`-w 40`, `-h 25`), for the C128's 40 column
+    window and terminals that aren't 80 x 24; CP/M 3's SCB has the
+    console's size (BDOS 49), but the C128 says 80 there on 40 columns.
   - The z80-cpm profile doesn't turn on z88dk's heap (the Makefile's link
     options do) and its txt has no getchr and plots 0-based to ANSI (one
     row and column off): worth a note to the compiler side.
