@@ -33,7 +33,7 @@ later.
 | Build | Toplevel file | Target |
 |-------|---------------|--------|
 | `build/p8vi-c64.prg` | `src/p8vi.p8` | C64 |
-| `build/p8vi-c64reu.prg` | `src/p8vi.p8` | C64 with the page store, for text in an REU |
+| `build/p8vi-c64reu.prg` | `src/p8vi_c64reu.p8` | C64 with the page store, for text in an REU |
 | `build/p8vi-c64disk.prg` | `src/p8vi.p8` | An experiment: C64 with the page store, its pages in SEQ files (`p8vi.swp...`) on the drive, for fast devices (IDE64, RAMLink, CMD HD); `src/diskpage` |
 | `build/p8vi-cx16.prg` | `src/p8vi.p8` | Commander X16 |
 | `build/p8vi-cx16iso.prg` | `src/p8vi_cx16iso.p8` | Commander X16 in ISO mode: ASCII/ISO text shown as it is (`{ \| } ~ _`), file names in ISO; built from `%encoding iso` copies of the sources (`tools/encode_copy.py`, `bugs/encoding_option.md`), in progress |

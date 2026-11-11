@@ -72,7 +72,8 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 # p8vi_vic20.p8 the VIC-20's (each can leave out features); all import
 # editor.p8.  The C64 has two builds: p8vi-c64
 # with the gap buffer (the most room for text in main RAM) and p8vi-c64reu
-# with the page store (for text in an REU, docs/XMEM-DESIGN.md)
+# (p8vi_c64reu.p8, p8vi.p8 with fewer features) with the page store (for
+# text in an REU, docs/XMEM-DESIGN.md)
 PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64disk.prg build/p8vi-cx16.prg build/p8vi-cx16iso.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-pet32.prg build/p8vi-plus4.prg build/p8vi-c128.prg build/p8vi-c128x.prg build/p8vi-c128reu.prg build/p8vi-vic20.prg
 # an experiment, not in the release yet: p8vi-c64font (src/p8vi_c64font.p8)
 # is p8vi-c64reu with a font that has the ASCII characters PETSCII lacks.
@@ -94,12 +95,12 @@ build/p8vi-c64.prg: src/p8vi.p8 $(SRCS)
 	$(CP) build/p8vi.asm build/p8vi-c64.asm
 	$(RM) build/p8vi.prg
 
-build/p8vi-c64reu.prg: src/p8vi.p8 $(SRCS)
+build/p8vi-c64reu.prg: src/p8vi_c64reu.p8 $(SRCS)
 	$(PCC) $(PCCARGSC64REU) $<
-	$(CP) build/p8vi.prg $@
-	$(CP) build/p8vi.list build/p8vi-c64reu.list
-	$(CP) build/p8vi.asm build/p8vi-c64reu.asm
-	$(RM) build/p8vi.prg
+	$(CP) build/p8vi_c64reu.prg $@
+	$(CP) build/p8vi_c64reu.list build/p8vi-c64reu.list
+	$(CP) build/p8vi_c64reu.asm build/p8vi-c64reu.asm
+	$(RM) build/p8vi_c64reu.prg
 
 # the C64 disk build: the full editor with the page store, its pages in
 # SEQ files (p8vi.swp...) on the drive (src/diskpage), for IDE64, RAMLink,

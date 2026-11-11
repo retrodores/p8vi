@@ -8,8 +8,8 @@ aren't.
 
 - **Line ranges for more commands:** `:1,10w name`, `:1,5>`.  `:s`, `:d`
   and `:y` have them (`read_range()`; `:d` and `:y` are
-  `features.LINE_CMDS`, about 180 bytes: off on the X16 for room, and they
-  took line numbering's place on `p8vi-c128reu`).
+  `features.LINE_CMDS`, about 180 bytes: off on the X16, p8vi-c128x and
+  p8vi-c64font for room (the last two: their page slots), and they took line numbering's place on `p8vi-c128reu`).
 - **Scrolling the view:** Ctrl-E / Ctrl-Y (scroll one line), and
   `z<Return>` `z.` `z-` (`zt` `zz` `zb` and the first non-blank).  `zt`
   `zz` `zb` (`features.Z_VIEW`, about 145 bytes) are off on the VIC-20,
@@ -20,10 +20,16 @@ aren't.
 - **`:set number`** (`features.NUMBER`, done): about 740–800 bytes, 870 on the
   TRS-80 Model 4 (Prog8's calls and loops; the logic is small).  Off on the
   VIC-20 (and 22 columns), X16 (both builds) and p8vi-mega65dma (no room),
-  and on the PET (it took 800 bytes of its 3.3 KB of text).  It leaves
-  p8vi-c128reu 113 bytes and p8vi-c128x 242; on p8vi-c128reu it is the
-  first thing to switch off when room is needed.  The numbers are 5 digits and
-  a space, so a 40-column screen has 34 for text.  Still to do:
+  and on the PET (it took 800 bytes of its 3.3 KB of text).  Off in the
+  builds whose page slots are in main RAM after the program, found by the
+  v0.4 test run: p8vi-c128x (one slot left: `:e` hung; `:d`/`:y` alone
+  were still too much), p8vi-c64font (its REU slots no longer fit: the
+  pages went to main RAM; also 50 bytes short with only `:d`/`:y`) and p8vi-c64reu (without an REU 1 KB of text
+  was left, "too big, cut"; it has its own src/p8vi_c64reu.p8 for this),
+  as on p8vi-c128reu.  The numbers are 5 digits and a space, so a
+  40-column screen has 34 for text.  Still to do:
+  - with one slot the page store hangs instead of saying so: a check in
+    pagemem.init (or at start) would make the next such case plain;
   - `:set relativenumber`: the same count without adding `cur_line`;
   - a width that grows with the line count, as vi's (4 to start);
   - rewriting `draw_row`'s number and `number_rows` in assembler, to
