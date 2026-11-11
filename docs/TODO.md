@@ -6,8 +6,10 @@ aren't.
 
 ## vi commands
 
-- **Line ranges for more commands:** `:1,5d`, `:.,$y`, `:1,10w name`.
-  `:s` has them (`read_range()`).
+- **Line ranges for more commands:** `:1,10w name`, `:1,5>`.  `:s`, `:d`
+  and `:y` have them (`read_range()`; `:d` and `:y` are
+  `features.LINE_CMDS`, about 180 bytes: off on the X16 for room, and they
+  took line numbering's place on `p8vi-c128reu`).
 - **Scrolling the view:** Ctrl-E / Ctrl-Y (scroll one line), and
   `z<Return>` `z.` `z-` (`zt` `zz` `zb` and the first non-blank).  `zt`
   `zz` `zb` (`features.Z_VIEW`, about 145 bytes) are off on the VIC-20,

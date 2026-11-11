@@ -1829,6 +1829,7 @@ main {
     ;   :e[!] name  edit another file, ! discards changes; :e! reloads
     ;   :r [name]   read a file in below the cursor line
     ;   :n          go to line n
+    ;   :[range]d, :[range]y   delete or yank lines (features.LINE_CMDS)
     ;   :set ascii, petscii, cr, lf, crlf   how the file is written (:set shows it)
     ;
 
@@ -1905,6 +1906,8 @@ main {
             set_cmd(arg)
         else if features.SUBST and is_cmd("s")
             subst_cmd(arg)
+        else if features.SUBST and features.LINE_CMDS and (is_cmd("d") or is_cmd("y"))
+            lines_cmd(cmdword[0])
         else if buffer.PAGED and (is_cmd("rec") or is_cmd("recover"))
             recover_cmd(force)
         else
@@ -1960,6 +1963,24 @@ main {
             return line
         cmd_pos++
         return line
+    }
+
+    ; :[range]d, :[range]y - delete or yank the whole lines of the range
+    ; (the cursor line without one), as dd and yy do.  a range past the last
+    ; line stops there; a backwards one ("5,1") is an error.
+    sub lines_cmd(ubyte op) {
+        uword lines = buffer.line_number(buffer.length())
+        if range_first == buffer.NONE {
+            range_first = cur_line
+            range_last = cur_line
+        }
+        if range_last > lines
+            range_last = lines
+        if range_first > range_last {
+            status("bad range")
+            return
+        }
+        lines_range(op, buffer.line_offset(range_first), buffer.line_offset(range_last))
     }
 
     ; :[range]s/old/new/[g] - replace old with new in the lines of the range
