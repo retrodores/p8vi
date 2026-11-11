@@ -40,9 +40,11 @@ txt {
     ubyte ccol                  ; where flush() leaves the cursor
     ubyte crow
     bool follow = true          ; or where chrout writes next (the : line)
+    ubyte columns = DEFAULT_WIDTH   ; the screen's width (-40: 40); the rows
+                                    ; in want and shown stay DEFAULT_WIDTH
 
     sub width() -> ubyte {
-        return DEFAULT_WIDTH
+        return columns
     }
 
     sub height() -> ubyte {
@@ -173,7 +175,7 @@ txt {
     sub flush_row(ubyte r) {
         uword base = (r as uword) * DEFAULT_WIDTH
         ubyte first = 0
-        ubyte last = DEFAULT_WIDTH - 1
+        ubyte last = columns - 1
         ; (not the bottom right corner: writing there scrolls some terminals)
         if r == DEFAULT_HEIGHT - 1
             last--
@@ -185,7 +187,7 @@ txt {
             last--
         ; the row's text ends before last: clear to the end of the row
         ; instead of writing spaces, if the terminal can
-        ubyte end = DEFAULT_WIDTH - 1
+        ubyte end = columns - 1
         while end > first and want[base + end] == ' '
             end--
         bool clear = false
@@ -204,11 +206,11 @@ txt {
                 poll_key()
         }
         tcol = end + 1
-        if tcol >= DEFAULT_WIDTH
+        if tcol >= columns
             tcol = 255
         if clear {
             void term_clear_eol()
-            for i in end + 1 to DEFAULT_WIDTH - 1
+            for i in end + 1 to columns - 1
                 shown[base + i] = ' '
         }
     }
@@ -226,7 +228,7 @@ txt {
     }
 
     sub put(ubyte c, ubyte r, ubyte char) {
-        if c >= DEFAULT_WIDTH or r >= DEFAULT_HEIGHT
+        if c >= columns or r >= DEFAULT_HEIGHT
             return
         if char < ' ' or char >= $7f
             char = '.'

@@ -305,16 +305,15 @@ and editing then go about as with an REU.
   - A Montezuma console driver of its own (its codes beyond ADM-3A:
     clear to end of line would save a lot of spaces), and the C128's CP/M
     (ADM-31: clear to end of line).
-  - A screen size option (`-w 40`, `-h 25`), for the C128's 40 column
-    window and terminals that aren't 80 x 24; CP/M 3's SCB has the
-    console's size (BDOS 49), but the C128 says 80 there on 40 columns.
-    Maybe `-40`/`-80` for the C128.
-  - The C128's RUN/STOP as Escape (in x128, F9 types the C128's ESC key).
-    Ctrl-C is already Escape (KEY_STOP).  RUN/STOP sends nothing: the
-    BIOS key table (4 codes a key: plain, caps, shift, control; at $1290
-    in bank 0 in the 28 May 87 BIOS, RUN/STOP at $138c) has 00 00 00 f0
-    for it.  CP/M's KEYFIG can give it $1b on the boot disk; p8vi patching
-    the table would depend on the BIOS version.
+  - `-40` draws 40 columns wide (70 bytes; for the C128's 40 column
+    window, which CP/M reports as 80; checked in tnylpo, not yet on the
+    C128).  Other sizes (`-w`, `-h`, or CP/M 3's SCB, BDOS 49) only if a
+    terminal needs them.
+  - The C128's RUN/STOP isn't Escape, and won't be: its ESC key is in a
+    good spot, and Ctrl-C is Escape too (KEY_STOP).  RUN/STOP sends
+    nothing: the BIOS key table (4 codes a key: plain, caps, shift,
+    control; at $1290 in bank 0 in the 28 May 87 BIOS, RUN/STOP at $138c)
+    has 00 00 00 f0 for it.  CP/M's KEYFIG can give it $1b.
   - The z80-cpm profile doesn't turn on z88dk's heap (the Makefile's link
     options do) and its txt has no getchr and plots 0-based to ANSI (one
     row and column off): worth a note to the compiler side.

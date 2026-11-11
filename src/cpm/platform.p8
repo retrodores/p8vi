@@ -104,7 +104,9 @@ platform {
         pointer arg
         while i < sys.argc() {
             arg = sys.argv(i)
-            if arg[0] == '-' and (arg[1] == 'T' or arg[1] == 't') {
+            if arg[0] == '-' and arg[1] == '4' and arg[2] == '0' and arg[3] == 0
+                txt.columns = 40
+            else if arg[0] == '-' and (arg[1] == 'T' or arg[1] == 't') {
                 if arg[2] == 0 {
                     i++
                     if i >= sys.argc()
@@ -121,7 +123,7 @@ platform {
     }
 
     sub usage() {
-        txt.out_str("usage: p8vi [-t ansi|vt52|adm3a]\r\n")
+        txt.out_str("usage: p8vi [-t ansi|vt52|adm3a] [-40]\r\n")
         sys.exit(1)
     }
 
@@ -140,7 +142,7 @@ platform {
     sub put_row(ubyte r, ubyte col, uword text, ubyte n) {
         ubyte c
         ubyte i
-        for i in 0 to COLUMNS - 1 {
+        for i in 0 to txt.columns - 1 {
             c = ' '
             if i >= col and n != 0 {
                 c = @(text)
