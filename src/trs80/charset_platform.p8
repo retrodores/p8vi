@@ -9,7 +9,7 @@ charset {
 
     ; translate count bytes at p in place: CR <-> LF (every mode, as the
     ; ASCII one leaves the letters alone)
-    sub translate(uword p, uword count, ubyte mode) {
+    sub translate(pointer p, uword count, ubyte mode) {
         while count != 0 {
             if @(p) == $0d
                 @(p) = $0a
@@ -22,9 +22,9 @@ charset {
 
     ; remove the LF of each CR LF pair in the count bytes at p.
     ; returns the number of bytes left.
-    sub crlf_to_cr(uword p, uword count) -> uword {
-        uword start = p
-        uword d = p
+    sub crlf_to_cr(pointer p, uword count) -> uword {
+        pointer start = p
+        pointer d = p
         ubyte before = 0
         ubyte c
         while count != 0 {
@@ -37,11 +37,11 @@ charset {
             p++
             count--
         }
-        return d - start
+        return (d - start) as uword
     }
 
     ; (features.ASCII) the text is ASCII
-    sub looks_ascii(uword p, uword count, bool lf) -> bool {
+    sub looks_ascii(pointer p, uword count, bool lf) -> bool {
         return true
     }
 }

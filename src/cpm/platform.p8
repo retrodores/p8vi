@@ -139,7 +139,7 @@ platform {
     ; draw a screen row: n characters of text from column col, control
     ; characters as '.', and spaces before col and after the text (as
     ; src/cbmscreen.p8 does on the CBM machines)
-    sub put_row(ubyte r, ubyte col, uword text, ubyte n) {
+    sub put_row(ubyte r, ubyte col, pointer text, ubyte n) {
         ubyte c
         ubyte i
         for i in 0 to txt.columns - 1 {
@@ -221,6 +221,8 @@ main {
     ; (the TRS-80's name:1; CP/M's drive comes first, B:NAME, as a
     ; features.PREFIX prefix)
     const bool DRIVE_SUFFIX = false
+    ; (features.PREFIX) what ends a drive or path prefix
+    const ubyte PATH_SEP = ':'
     sub opened_drive() -> ubyte {
         return 255
     }

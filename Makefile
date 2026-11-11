@@ -249,6 +249,15 @@ trs80m4x-test: build/p8vi-trs80m4xtest.cmd
 build/p8vi-trs80m4xtest.cmd: src/p8vi_trs80m4xtest.p8 src/editor.p8 src/buffer.p8 src/pagestore.p8 src/trs80m4x/* src/trs80m4/*.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSTRS80M4X) -o build/p8vi-trs80m4xtest $<
 
+# the host version: a program for this machine (llvm64 and clang: macOS,
+# Linux, Windows), in a terminal.  The CP/M version's screen (src/cpm,
+# src/trs80) with the terminal as its console (src/host).
+#   build/p8vi-host [-t ansi|vt52|adm3a] [-40] [file]
+PCCARGSHOST=-srcdirs src:src/host:src/cpm:src/trs80 -target llvm64
+host: build/p8vi-host
+build/p8vi-host: src/p8vi_host.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/host/*.p8 src/cpm/*.p8 src/trs80/*.p8
+	$(PCC) $(PCCARGSHOST) -o build/p8vi-host $<
+
 # CP/M 2.2 and later on a Z80 (src/cpm, with src/trs80's charset, fastmem
 # and store): a .com for any machine with a terminal (-t ansi, vt52 or
 # adm3a).  The z80-cpm profile leaves z88dk's heap off: the link options

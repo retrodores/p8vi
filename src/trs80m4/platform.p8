@@ -208,6 +208,8 @@ main {
     ; a new text's line ending (editor.p8's ENDING_*): CR
     const ubyte NEW_ENDING = 0
     const bool DRIVE_SUFFIX = true
+    ; (features.PREFIX) what ends a drive or path prefix
+    const ubyte PATH_SEP = ':'
     ; the drive the DOS opened the last file on (0-7, 255 if unknown)
     sub opened_drive() -> ubyte {
         return diskio.last_drive()

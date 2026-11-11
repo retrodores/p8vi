@@ -2269,14 +2269,14 @@ main {
             p, room = buffer.read_room(position)
             if buffer.PAGED and cr_last {
                 ; a CR LF pair split between two pieces: drop the LF
-                n = diskio.f_read(p, 1)
+                n = diskio.f_read(p, 1) as uword
                 if n == 1 and @(p) == $0a {
                     n = 0
                     size++
                 }
-                n += diskio.f_read(p + n, room - n)
+                n += diskio.f_read(p + n, room - n) as uword
             } else
-                n = diskio.f_read(p, room)
+                n = diskio.f_read(p, room) as uword
             ; (CP/M) the text ends at the first ^Z: the rest of the file's
             ; last 128-byte record is padding
             if CTRL_Z_EOF {
@@ -2494,10 +2494,11 @@ main {
     ubyte[40] temp_name
 
     ; how much of name is a drive or path prefix: up to and including its
-    ; last ':', 0 for none (rfind gives 255 then)
+    ; last PATH_SEP (':', or the host's '/'), 0 for none (rfind gives 255
+    ; then)
     sub prefix_len(str name) -> ubyte {
         ubyte i
-        i, void = strings.rfind(name, ':')
+        i, void = strings.rfind(name, PATH_SEP)
         return i + 1
     }
 
@@ -2881,7 +2882,7 @@ view {
         ubyte r = main.MIN_ROW + (main.MAX_ROW - main.MIN_ROW + 1 - len(splash_lines)) / 2
         ubyte i
         ubyte c
-        uword line
+        pointer line
         for i in 0 to len(splash_lines) - 1 {
             line = splash_lines[i]
             c = (main.SCREEN_WIDTH - strings.length(line)) / 2

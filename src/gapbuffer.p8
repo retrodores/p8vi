@@ -240,13 +240,13 @@ buffer {
     ubyte recoverable
     uword synced_changes
 
-    sub sync(uword meta) {
+    sub sync(pointer meta) {
     }
 
     sub clean() {
     }
 
-    sub recover(uword meta) -> bool {
+    sub recover(pointer meta) -> bool {
         return false
     }
 

@@ -1,5 +1,6 @@
 %import conv
 %import strings
+%import console_platform
 
 ;
 ; txt for p8vi under CP/M: a screen kept in memory and sent to the
@@ -17,8 +18,8 @@
 ;   VT52   ESC Y row+32 col+32 (tnylpo's full screen console)
 ;   ADM3A  ESC = row+32 col+32, clear screen ^Z, no clear to end of line
 ;          (the Lear Siegler ADM-3A, and many CP/M machines' consoles)
-; The console is written through BDOS function 6 (no ^S/^C checks, no
-; tab expansion).
+; The console is src/cpm/console_platform.p8's (BDOS function 6), or in
+; the host build src/host/console_platform.p8's (the terminal).
 ;
 txt {
     const ubyte DEFAULT_WIDTH = 80
@@ -71,26 +72,8 @@ txt {
         return true
     }
 
-    ; BDOS function 6 (direct console I/O): E is the character, or $FF to
-    ; read a key without waiting (0 when there is none).  IX and IY are
-    ; kept, for the compiled code.
-    ubyte[] bdos6 = [
-        $dd, $e5,           ; push ix
-        $fd, $e5,           ; push iy
-        $0e, $06,           ; ld c,6
-        $1e, $ff,           ; ld e,char (offset 7)
-        $cd, $05, $00,      ; call 5
-        $fd, $e1,           ; pop iy
-        $dd, $e1,           ; pop ix
-        $6f,                ; ld l,a
-        $26, $00,           ; ld h,0
-        $c9                 ; ret
-    ]
-
     sub out(ubyte char) {
-        bdos6[7] = char
-        uword code = &bdos6
-        void call(code)
+        console.out(char)
     }
 
     sub out_str(str s) {
@@ -308,9 +291,7 @@ txt {
     sub poll_key() {
         if (key_tail + 1) & 15 == key_head
             return
-        bdos6[7] = $ff
-        uword code = &bdos6
-        ubyte k = lsb(call(code))
+        ubyte k = console.poll()
         if k != 0 {
             keys[key_tail] = k
             key_tail = (key_tail + 1) & 15
@@ -323,9 +304,7 @@ txt {
         if key_head == key_tail {
             flush()
             if key_head == key_tail
-                poll_key()
-            if key_head == key_tail
-                return 0
+                return console.wait()
         }
         ubyte k = keys[key_head]
         key_head = (key_head + 1) & 15

@@ -317,8 +317,23 @@ and editing then go about as with an REU.
   - The z80-cpm profile doesn't turn on z88dk's heap (the Makefile's link
     options do) and its txt has no getchr and plots 0-based to ANSI (one
     row and column off): worth a note to the compiler side.
-  - llvm32/llvm64 versions for a host terminal, sharing src/cpm/textio.p8's
-    screen (a raw-mode keyboard needed).
+- **Host version** (`build/p8vi-host`, `make host`; llvm64 and clang;
+  src/host with src/cpm's screen and src/trs80's charset).  A program for
+  this machine in a terminal: `p8vi-host [-t ansi|vt52|adm3a] [-40]
+  [file]`.  The terminal is the console (src/host/console_platform.p8:
+  the library's getkey/waitkey syscalls, raw mode from the first key);
+  src/cpm/console_platform.p8 is CP/M's.  New files get LF; the safe
+  save's p8vi.tmp goes in the file's directory (PATH_SEP '/').  Checked
+  on macOS (arm64), 2026-11-10: edtest's file suites (19) and screen
+  suites (18, on the three terminals) pass with the keys piped in (a
+  scratch run of tests/cpm/cpmtest.py), and in a pty a lone ESC, Ctrl-C
+  and :wq work.  Open:
+  - Tests in the repo (make test-host).
+  - The text is the 16-bit editor's: 64 KB at most.
+  - The screen is 80 x 24 (or -40); the terminal's own size isn't asked.
+  - Arrow keys (ESC [ A ...), as for CP/M.
+  - llvm32 (wasm with WASI: no raw keyboard there), Linux and Windows
+    builds not tried.
 - **Color Computer 2 and 3** (not started; llvm16 `mc6809-coco`).  Both are
   blocked by the 6809's code size today.  The same program's code is 4.5
   times the Z80's at -O2, mostly from inlining, so p8vi would be over

@@ -1106,7 +1106,7 @@ buffer {
     ; write the text's header (and first its pages, if they are copies),
     ; with META_SIZE bytes of the editor's at meta, unless nothing changed
     ; since the last time.  afterwards the text can be recovered as it is.
-    sub sync(uword meta) {
+    sub sync(pointer meta) {
         ubyte i
         if changes == synced_changes
             return
@@ -1152,7 +1152,7 @@ buffer {
     ; replace the text with the newest one waiting, and its META_SIZE bytes
     ; of the editor's data to meta.  the cursor is where it was; the text
     ; counts as changed.  returns false if no text waits.
-    sub recover(uword meta) -> bool {
+    sub recover(pointer meta) -> bool {
         ubyte h = NO_SLOT
         ubyte np
         ubyte i

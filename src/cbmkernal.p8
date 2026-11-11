@@ -24,6 +24,8 @@ main {
     ; a new text's line ending (editor.p8's ENDING_*): CR
     const ubyte NEW_ENDING = 0
     const bool DRIVE_SUFFIX = false
+    ; (features.PREFIX) what ends a drive or path prefix
+    const ubyte PATH_SEP = ':'
     sub opened_drive() -> ubyte {
         return 255
     }
