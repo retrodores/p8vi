@@ -20,12 +20,13 @@
 ; log_change() below for every change.
 
 %import strings
+%import postype
 
 buffer {
 %option merge
 
     ; returned by searches and line routines when there is no result
-    const uword NONE = $ffff
+    const uword NONE = pos.NONE
     ; marks are positions that move along with inserts and deletes.  the
     ; program says how many it uses (main.BUFFER_MARKS): each one costs time
     ; on every insert and delete
@@ -175,8 +176,8 @@ buffer {
     ; one editor command (e.g. a whole insert session).  undo() reverts it,
     ; and undo() again re-does it.  loaded() and clear() empty the log.
     ;
-    ; each log record is: count (2 bytes), count data bytes, position
-    ; (2 bytes), count (2 bytes) and the kind: 'i' inserted, 'd' deleted,
+    ; each log record is: count (pos.SIZE bytes, 2 here), count data
+    ; bytes, position and count (pos.SIZE bytes each) and the kind: 'i' inserted, 'd' deleted,
     ; 's' set (the data is the byte it replaced).  the count at both ends
     ; lets the log be walked in both directions.  each store keeps the log
     ; its own way (log_change(), undo()).

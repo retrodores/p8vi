@@ -278,6 +278,12 @@ buffer {
     ; the undo log (see buffer.p8), in main RAM at undo_buf
     ;
 
+    ; a record's bytes besides its data, and from its end back to its
+    ; count and its position (each pos.SIZE bytes; the kind is last)
+    const ubyte REC_EXTRA = 3 * pos.SIZE + 1
+    const ubyte REC_COUNT = pos.SIZE + 1
+    const ubyte REC_POS = 2 * pos.SIZE + 1
+
     private sub log_change(ubyte kind, uword position, pointer data, uword count) {
         uword start
         uword last_pos
@@ -293,12 +299,12 @@ buffer {
         if undo_lost
             return
         if undo_len != 0 and undo_buf[undo_len - 1] == 'i' {
-            last_count = peekw(undo_buf + undo_len - 3)
-            last_pos = peekw(undo_buf + undo_len - 5)
-            start = undo_len - 7 - last_count
+            last_count = peekw(undo_buf + undo_len - REC_COUNT)
+            last_pos = peekw(undo_buf + undo_len - REC_POS)
+            start = undo_len - REC_EXTRA - last_count
             ; typing on after the last insert: make that insert longer
             if kind == 'i' and position == last_pos + last_count and undo_len + count <= undo_size {
-                sys.memcopy(data, undo_buf + undo_len - 5, count)
+                sys.memcopy(data, undo_buf + undo_len - REC_POS, count)
                 put_record(start, last_count + count, last_pos, 'i')
                 return
             }
@@ -311,11 +317,11 @@ buffer {
                 return
             }
         }
-        if count > undo_size - undo_len or undo_size - undo_len - count < 7 {
+        if count > undo_size - undo_len or undo_size - undo_len - count < REC_EXTRA {
             undo_lost = true
             return
         }
-        sys.memcopy(data, undo_buf + undo_len + 2, count)
+        sys.memcopy(data, undo_buf + undo_len + pos.SIZE, count)
         put_record(undo_len, count, position, kind)
     }
 
@@ -325,11 +331,11 @@ buffer {
     private sub put_record(uword start, uword count, uword position, ubyte kind) {
         pointer p = undo_buf + start
         pokew(p, count)
-        p += count + 2
+        p += count + pos.SIZE
         pokew(p, position)
-        pokew(p + 2, count)
-        p[4] = kind
-        undo_len = start + count + 7
+        pokew(p + pos.SIZE, count)
+        p[2 * pos.SIZE] = kind
+        undo_len = start + count + REC_EXTRA
     }
 
     ; revert the logged change (or re-do it, if it was just undone).
@@ -347,20 +353,20 @@ buffer {
             at = 0
             while at < undo_len {
                 count = peekw(undo_buf + at)
-                position = peekw(undo_buf + at + count + 2)
-                undo_record(at + count + 7, count, position)
+                position = peekw(undo_buf + at + count + pos.SIZE)
+                undo_record(at + count + REC_EXTRA, count, position)
                 lowest = min(lowest, position)
-                at += count + 7
+                at += count + REC_EXTRA
             }
         } else {
             ; undo: the last record first
             at = undo_len
             while at != 0 {
-                count = peekw(undo_buf + at - 3)
-                position = peekw(undo_buf + at - 5)
+                count = peekw(undo_buf + at - REC_COUNT)
+                position = peekw(undo_buf + at - REC_POS)
                 undo_record(at, count, position)
                 lowest = min(lowest, position)
-                at -= count + 7
+                at -= count + REC_EXTRA
             }
         }
         undo_off = false
@@ -372,7 +378,7 @@ buffer {
     ; apply the opposite of the record ending at end, and turn the record
     ; into that opposite so the next undo() reverses it again
     private sub undo_record(uword end, uword count, uword position) {
-        pointer data = undo_buf + end - 5 - count
+        pointer data = undo_buf + end - REC_POS - count
         ubyte old
         when undo_buf[end - 1] {
             'i' -> {

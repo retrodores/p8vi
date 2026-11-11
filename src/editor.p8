@@ -1711,16 +1711,16 @@ main {
         txt.plot(0, STATUS_LINE)
         used = view.print_max(name, message_width() - 7)
         txt.spc()
-        txt.print_uw(count)
+        pos.print(count)
         status_pad(used + 1 + num_digits(count))
     }
 
     sub show_info() {
         uword lines = buffer.line_number(buffer.length()) + 1
         txt.plot(0, STATUS_LINE)
-        txt.print_uw(lines)
+        pos.print(lines)
         txt.print("L ")
-        txt.print_uw(buffer.free())
+        pos.print(buffer.free())
         txt.chrout('F')
         status_pad(num_digits(lines) + 2 + num_digits(buffer.free()) + 1)
     }
@@ -1738,9 +1738,9 @@ main {
     sub status_position() {
         ubyte used
         txt.plot(message_width(), STATUS_LINE)
-        txt.print_uw(cur_line + 1)
+        pos.print(cur_line + 1)
         txt.chrout(',')
-        txt.print_uw(column() + 1)
+        pos.print(column() + 1)
         used = message_width() + num_digits(cur_line + 1) + 1 + num_digits(column() + 1)
         while used < SCREEN_WIDTH - 1 {
             txt.spc()
@@ -3034,7 +3034,7 @@ view {
             ; of a wrapped line
             sys.memset(&linebuf, main.NUMBER_WIDTH, ' ')
             if line_start(r) {
-                pointer digits = conv.str_uw(row_num[r] + 1)
+                pointer digits = pos.text(row_num[r] + 1)
                 void strings.copy(digits, &linebuf + main.NUMBER_WIDTH - 1 - strings.length(digits))
                 linebuf[main.NUMBER_WIDTH - 1] = ' '
             }
