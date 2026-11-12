@@ -71,7 +71,8 @@ def jobs():
         'trs80': [PY + ['tests/trs80/trstest.py', '--work', '{work}', 'delete-put']],
         'trs80m4': [PY + ['tests/trs80/trstest.py', '--model', '4', '--work', '{work}', 'delete-put']],
         'trs80m4x': [PY + ['tests/trs80/trstest.py', '--model', '4x', '--work', '{work}', 'pages']],
-        'amiga': [PY + ['tests/amiga/amigatest.py', '--work', '{work}', 'delete-put', 'undo', 'zview']],
+        'amiga': [PY + ['tests/amiga/amigatest.py', '--work', '{work}', 'files', 'delete-put', 'undo', 'zview'],
+                  PY + ['tests/amiga/amigatest.py', '--work', '{work}', 'screen', 'long-page', 'scroll-mixed']],
     }
 
 

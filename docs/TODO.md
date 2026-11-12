@@ -479,9 +479,17 @@ and editing then go about as with an REU.
   the old layout, and kept its text).  make test-amiga --resize (1.3):
   Copperline drags the size gadget (--mouse-to-after takes the 716 x 540
   screenshot's coordinates), then L x :w shows the rows p8vi uses.
-  Next: the screen suites (Copperline doesn't give the host the screen:
-  the serial port, or its control server's memory reads); try a real
-  A500.
+  Screen suites (done, 2026-11-11): the test build's output goes to a
+  file (the CLI's redirection, p8vi.com >out.log: Copperline's
+  --run-args go through the CLI, and the file is on the host), keys
+  still from the window; tests/cpm/termplay.py plays it back as on CP/M
+  (amigatest.py screen, number: 18 and 22 pass; with scroll_rows broken
+  the scroll suites fail).  With the output a file the console doesn't
+  ask the window's size (80 x 24) or for resize reports.  This checks
+  what p8vi sends, not how console.device draws it: for that, native
+  screenshots read as text (Topaz 8 is a fixed 8 x 8 font on an 8 pixel
+  grid: cells matched exactly against its glyphs), not done.
+  Next: try a real A500.
 - **Color Computer 2 and 3** (not started; llvm16 `mc6809-coco`).  Both are
   blocked by the 6809's code size today.  The same program's code is 4.5
   times the Z80's at -O2, mostly from inlining, so p8vi would be over

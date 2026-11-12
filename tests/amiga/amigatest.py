@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """p8vi's file tests on an Amiga 500 in Copperline (the amiga500 build).
 
-    amigatest.py [--prg build/p8vi-amigatest] [--rom ROM] [-j N] [name...]
+    amigatest.py [--prg build/p8vi-amigatest] [--rom ROM] [-j N] [files|screen|number] [name...]
     amigatest.py --resize            (Kickstart 1.3 only)
 
 The suites are tests/vice/edtest.py's file suites, as tests/cpm/cpmtest.py
@@ -12,8 +12,15 @@ the expected ones.  Copperline runs it (--run, its directory is the
 Amiga's current one) as an A500 with the ROM given, Kickstart 1.3 by
 default if it's in ~/Documents/FS-UAE/Kickstarts, else Copperline's own
 AROS; --exit-on-return ends the run when p8vi does (--run warps the boot;
-p8vi runs at an A500's speed).  The screen suites need the screen's output, which Copperline
-doesn't give the host: not here.
+p8vi runs at an A500's speed).
+
+screen, number: edtest's screen suites (and cpmtest.py's :set number
+ones) as cpmtest.py runs them: p8vi's output goes to a file (p8vi.com
+>out.log, the CLI's redirection: the keys still come from the window),
+tests/cpm/termplay.py plays it back on an 80 x 24 screen, and the screen
+after the keys must be the one after a full redraw (Ctrl-L) too.  ANSI
+only (the Amiga's console).  This checks what p8vi sends, not how
+console.device draws it.
 
 The suites left out are CBM_ONLY's (PETSCII files, CBM DOS commands and
 drive prefixes, the C64's graphics keys).
@@ -46,9 +53,10 @@ KEY_BUF_SIZE = 1024
 
 
 def copperline(work, *options):
-    """run p8vi in work; its output (none: Copperline keeps the screen), or
+    """run p8vi in work; its output (to out.log: the CLI's redirection), or
     None if it didn't end"""
-    cmd = ['copperline', '--model', 'A500', '--run', 'p8vi.com', '--exit-on-return']
+    cmd = ['copperline', '--model', 'A500', '--run', 'p8vi.com', '--run-args', '>out.log',
+           '--exit-on-return']
     if ARGS.rom:
         cmd.append(ARGS.rom)
     try:
@@ -56,7 +64,11 @@ def copperline(work, *options):
                        stderr=subprocess.DEVNULL, timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
         return None
-    return b''
+    path = os.path.join(work, 'out.log')
+    if not os.path.exists(path):
+        return None
+    with open(path, 'rb') as f:
+        return f.read()
 
 
 ARGS = None
@@ -99,6 +111,7 @@ def run_resize(args, case):
 def main():
     global ARGS
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
+    ap.add_argument('kind', nargs='?', default='files', choices=['files', 'screen', 'number'])
     ap.add_argument('names', nargs='*', help='only run these suites')
     ap.add_argument('--prg', default='build/p8vi-amigatest')
     ap.add_argument('--rom', default=KICKSTART if os.path.exists(KICKSTART) else None,
@@ -129,6 +142,21 @@ def main():
                     print(line)
                 failed += not ok
         print(f'amiga resize: {len(RESIZE_CASES) - failed} of {len(RESIZE_CASES)} passed')
+        sys.exit(1 if failed else 0)
+    if args.kind != 'files':
+        # (the Amiga's console is ANSI only)
+        cpmtest.TERMS = ['ansi']
+        pool_suites = cpmtest.edtest.SCREEN_SUITES + (cpmtest.NUMBER_SUITES if args.kind == 'number' else [])
+        suites = [s for s in pool_suites if (not args.names or s[0] in args.names) and s[0] not in args.skip]
+        run = cpmtest.run_screen if args.kind == 'screen' else cpmtest.run_number
+        failed = 0
+        with ThreadPoolExecutor(max_workers=args.j) as pool:
+            for name, ok, lines in pool.map(lambda s: run(args, s), suites):
+                print(f'{name}: {"ok" if ok else "FAIL"}', flush=True)
+                for line in lines:
+                    print(line)
+                failed += not ok
+        print(f'amiga {args.kind}: {len(suites) - failed} of {len(suites)} passed')
         sys.exit(1 if failed else 0)
     suites = [s for s in cpmtest.edtest.FILE_SUITES
               if (not args.names or s[0] in args.names) and s[0] not in args.skip

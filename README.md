@@ -184,7 +184,7 @@ The useful `make` targets are:
 | `make test-trs80`, `test-trs80m4`, `test-trs80m4x` | The file suites on a TRS-80 in trs80gp (`tests/trs80/trstest.py`), and recovery (`tests/trs80/rectest.py`) on the Model 4 with 128 KB |
 | `make test-cpm` | The file, screen, `:set number` and line range suites in tnylpo on its three terminals (`tests/cpm/cpmtest.py`), and on a TRS-80 Model 4's Montezuma CP/M in trs80gp (`tests/cpm/m4test.py`) |
 | `make test-host` | The same suites for the host version with the keys piped in, a 4.5 MB file, and the window resized in a pty (`cpmtest.py --host`) |
-| `make test-amiga` | `tests/vice/edtest.py`'s file suites on an A500 in Copperline, Kickstart 1.3 or AROS (`tests/amiga/amigatest.py`, ~15 s), and with 1.3 the window resized while p8vi runs |
+| `make test-amiga` | `tests/vice/edtest.py`'s file and screen suites and the `:set number` ones on an A500 in Copperline, Kickstart 1.3 or AROS (`tests/amiga/amigatest.py`: the screen from p8vi's output redirected to a file, `p8vi >out.log`; ~1 min), and with 1.3 the window resized while p8vi runs |
 | `make emu-amiga` | Run the Amiga version in Copperline with `sample.txt` |
 | `make test-mega65-keymap` | Measure which MEGA65 keys give which PETSCII codes (the harness's key table) |
 | `make size` | Memory map and room left below memtop for each build (`tools/listsize.py`) |

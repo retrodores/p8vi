@@ -21,6 +21,10 @@
 ; console does), and the window's size is asked again (size()).  Other
 ; sequences are passed on as they came, a byte at a time.
 ;
+; With the output redirected to a file (p8vi >log: the screen tests,
+; tests/amiga/amigatest.py), the keys still come from the window, but the
+; window isn't asked its size (80 x 24) nor for resize reports.
+;
 console {
     ; the largest screen txt keeps (its buffers' size): a window up to
     ; this is used, a bigger one shows this much
@@ -32,6 +36,7 @@ console {
 
     pointer in_fh           ; Input(), Output(): the window
     pointer out_fh
+    bool out_window         ; Output() is the window (not redirected to a file: p8vi >log, the tests)
     ubyte[1] in_byte        ; (static: dos.Read gets its address)
     ubyte[200] out_buf
     ubyte out_len
@@ -55,11 +60,14 @@ console {
             return false
         if not screen_mode(true)
             return false
-        ; (the window's resizes reported: raw events of class 12)
-        out($9b)
-        out('1')
-        out('2')
-        out('{')
+        out_window = dos.IsInteractive(out_fh) != 0
+        if out_window {
+            ; (the window's resizes reported: raw events of class 12)
+            out($9b)
+            out('1')
+            out('2')
+            out('{')
+        }
         return true
     }
 
@@ -68,11 +76,13 @@ console {
     ; cursor at the top left for the CLI's prompt) is written at once:
     ; nothing writes the buffer once the program ends
     sub stop() {
-        ; (no more resize reports, in the CLI either)
-        out($9b)
-        out('1')
-        out('2')
-        out('}')
+        if out_window {
+            ; (no more resize reports, in the CLI either)
+            out($9b)
+            out('1')
+            out('2')
+            out('}')
+        }
         flush()
         void screen_mode(false)
         stopped = true
@@ -169,6 +179,9 @@ console {
     ; and after a resize report (keys typed in between would be taken for
     ; the answer).
     sub size() -> uword {
+        ; (output to a file: no window to ask)
+        if not out_window
+            return 0
         out($9b)
         out('0')
         out(' ')
