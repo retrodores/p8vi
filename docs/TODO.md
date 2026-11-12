@@ -415,6 +415,31 @@ and editing then go about as with an REU.
     cpmtest.py --host's ansi-keys and vt52-keys suites.
   - llvm32 (wasm with WASI: no raw keyboard there) and Linux builds not
     tried; Windows builds (the user, 2026-11-11).
+- **Amiga** (amiga500 target, Kickstart 1.3 and later; started
+  2026-11-11).  The plan: the console is an ANSI terminal like the host's
+  and CP/M's (src/cpm/textio.p8), with the wide core (32-bit positions).
+  p8vi's own modules first (src/amiga: console, diskio), in the style of
+  the library's for the other targets, dropped when the compiler has
+  them.  Step 1 done: tests/amiga/keyecho.p8 (make emu-amiga-keyecho) on
+  an A500 in Copperline, Kickstart 1.3 and AROS:
+  - raw mode on 1.3: the ACTION_SCREEN_MODE packet (Arg1 DOSTRUE, 0 back
+    to cooked) to the console handler (the Input() FileHandle's Type),
+    replied to the process's pr_MsgPort (dos.SetMode and DoPkt are 2.0);
+    keys with dos.WaitForChar (microseconds) and dos.Read;
+  - the keys: arrows CSI A B C D (up down right left), Help CSI ? ~, F1
+    CSI 0 ~, Esc 1B, Del 7F, Backspace 08, Ctrl-C 03 (a key in raw mode).
+    CSI is the 8-bit $9B: txt.escape_key must take it as ESC [;
+  - the window's size: CSI 0 SPACE q answers CSI 1 ; 1 ; rows ; cols
+    SPACE r ($9B too): 20 x 61 on 1.3's first CLI window, 29 x 77 on
+    AROS;
+  - txt.print_ub and the like need 2.0 (VPrintf, an alert on 1.3); conv
+    (exec.RawDoFmt) works;
+  - Copperline automates it: --run PROG, --type-after, --press-after
+    (raw key codes: $4C up, $5F Help ...), --screenshot-after,
+    --exit-on-return; a JSON-RPC control server (--control).
+  Next: src/amiga's console (raw mode, keys, out) and diskio (dos.Open
+  ...), the text from exec.AllocMem, `sys.arguments` for the file name,
+  paths with ':' for the safe save; the m68k memset count (above).
 - **Color Computer 2 and 3** (not started; llvm16 `mc6809-coco`).  Both are
   blocked by the 6809's code size today.  The same program's code is 4.5
   times the Z80's at -O2, mostly from inlining, so p8vi would be over

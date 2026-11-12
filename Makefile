@@ -347,6 +347,13 @@ emu-cpm:	build/p8vi-cpm.com
 	$(CP) samples/sampsmall.txt $(CPMDIR)/sampsmal.txt
 	$(CP) build/p8vi-cpm.com $(CPMDIR)/p8vi.com
 	cd $(CPMDIR) && tnylpo -s -w p8vi -t vt52
+# the Amiga port, step 1: the console's keys in raw mode (tests/amiga/
+# keyecho.p8) on an A500 in Copperline, with Kickstart 1.3 if it's there
+# (else Copperline's AROS)
+AMIGA_ROM ?= $(wildcard $(HOME)/Documents/FS-UAE/Kickstarts/amiga-os-130.rom)
+emu-amiga-keyecho:	build
+	$(PCC) -target amiga500 -out build tests/amiga/keyecho.p8
+	copperline --model A500 --run build/keyecho $(AMIGA_ROM)
 # the TRS-80 Model 4 with Montezuma Micro CP/M 2.2 in trs80gp: drive A a
 # copy of the system disk (CPM_DISK), drive B a new data disk with p8vi.com
 # and samples (tools/cpm/m4disk.py; made again each time, so edits there
