@@ -19,8 +19,9 @@
 ;
 ;   p8vi [-s COLSxROWS] [file]
 ;
-; The screen is the window's size when p8vi starts (the console's window
-; status request), up to 160 x 80; -s gives a size instead.  The text
+; The screen is the window's size (the console's window status request),
+; up to 160 x 80, and follows it when the window is resized (the console
+; reports it: raw events); -s gives a size instead.  The text
 ; gets the largest free block of memory, less 32 KB for AmigaDOS.
 ;
 platform {
@@ -88,10 +89,10 @@ platform {
     }
 
     bool fixed_size     ; -s: the size is the one given, not the window's
-    bool resized        ; (the window's size isn't followed yet: never set)
+    bool resized        ; the window was resized (switch_wanted)
 
-    ; the window's size, when it isn't given: asked once, at the start
-    ; (console.size: 80 x 24 if the console doesn't say)
+    ; the window's size, when it isn't given: at the start, and when the
+    ; console reports a resize (console.size: 80 x 24 if it doesn't say)
     sub follow_size() {
         if fixed_size
             return
@@ -240,15 +241,20 @@ platform {
         txt.dirty[dest] = true
     }
 
-    ; (a new window size: not followed yet)
-    const bool SWITCH = false
+    ; a new window size (the console's resize report: see main.get_key):
+    ; the editor lays out the screen again (main.switch_screen, as the
+    ; C128's 40/80 key), and all of it is sent again
+    const bool SWITCH = true
     sub switch_wanted() -> bool {
         return resized
     }
     sub switch_screen() {
         follow_size()
         set_screen()
-        txt.repaint()
+        ; (cleared, not only sent again: the editor draws the text rows,
+        ; and only parts of the status row, which could be a text row
+        ; of the old layout)
+        txt.cls()
         resized = false
     }
 

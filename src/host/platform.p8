@@ -199,7 +199,10 @@ platform {
     sub switch_screen() {
         follow_size()
         set_screen()
-        txt.repaint()
+        ; (cleared, not only sent again: the editor draws the text rows,
+        ; and only parts of the status row, which could be a text row
+        ; of the old layout)
+        txt.cls()
         resized = false
     }
 

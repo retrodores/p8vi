@@ -369,9 +369,11 @@ build/p8vi-amigatest: src/p8vi_amigatest.p8 src/*.p8 src/wide/*.p8 src/amiga/*.p
 	$(CP) build/p8vi_amigatest $@
 	$(RM) build/p8vi_amigatest
 # edtest's file suites on an A500 in Copperline (tests/amiga/amigatest.py:
-# Kickstart 1.3 if it's there, else AROS; about 15 s)
+# Kickstart 1.3 if it's there, else AROS; about 15 s), and with 1.3 the
+# window resized while p8vi runs (the mouse drags its size gadget)
 test-amiga:	build/p8vi-amigatest
 	$(PYTHON) -B $(AMIGATEST)
+	$(if $(AMIGA_ROM),$(PYTHON) -B $(AMIGATEST) --resize)
 
 # p8vi on an A500 in Copperline (Kickstart 1.3 if it's there, else AROS),
 # with the samples in its directory

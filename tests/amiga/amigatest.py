@@ -2,6 +2,7 @@
 """p8vi's file tests on an Amiga 500 in Copperline (the amiga500 build).
 
     amigatest.py [--prg build/p8vi-amigatest] [--rom ROM] [-j N] [name...]
+    amigatest.py --resize            (Kickstart 1.3 only)
 
 The suites are tests/vice/edtest.py's file suites, as tests/cpm/cpmtest.py
 runs them on CP/M: for each one a directory with t.txt and keys.txt (the
@@ -16,6 +17,13 @@ doesn't give the host: not here.
 
 The suites left out are CBM_ONLY's (PETSCII files, CBM DOS commands and
 drive prefixes, the C64's graphics keys).
+
+--resize: the window resized while p8vi runs (Kickstart 1.3's first CLI
+window, 20 rows): Copperline drags its size gadget with the mouse, then
+types L (the screen's last text line), x and :w.  Without the drag line
+19 loses its first character; after it (14 rows) line 13 does, which
+p8vi only knows from the console's resize report.  The drag's places are
+the 1.3 window's, so not on AROS.
 """
 
 import argparse
@@ -23,6 +31,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 
 sys.dont_write_bytecode = True
@@ -52,6 +61,40 @@ def copperline(work, *options):
 
 ARGS = None
 
+# --resize: the text (one row per line), and the cases: name, Copperline's
+# mouse script (none: no drag), the line L goes to
+RESIZE_TEXT = b''.join(b'line %02d text\n' % i for i in range(1, 41))
+DRAG = ['--mouse-to-after', '10', '690', '404', '--click-after', '16', 'left', '3000',
+        '--mouse-to-after', '16.3', '520', '300']
+RESIZE_CASES = [('no-resize', [], 19), ('resize', DRAG, 13)]
+
+
+def run_resize(args, case):
+    name, drag, line = case
+    work = tempfile.mkdtemp(prefix='amiga-' + name + '-', dir=args.work)
+    shutil.copyfile(args.prg, os.path.join(work, 'p8vi.com'))
+    with open(os.path.join(work, 't.txt'), 'wb') as f:
+        f.write(RESIZE_TEXT)
+    with open(os.path.join(work, 'keys.txt'), 'wb') as f:
+        f.write(b':e t.txt\r')
+    cmd = (['copperline', '--model', 'A500', '--run', 'p8vi.com', '--exit-on-return'] + drag +
+           ['--type-after', '21', 'Lx:w r1\n:q!\n', args.rom])
+    try:
+        subprocess.run(cmd, cwd=work, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL, timeout=TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return name, False, [f'  did not finish in {TIMEOUT} s (files in {work})']
+    lines = RESIZE_TEXT.split(b'\n')
+    lines[line - 1] = lines[line - 1][1:]
+    want = b'\n'.join(lines)
+    path = os.path.join(work, 'r1')
+    got = open(path, 'rb').read() if os.path.exists(path) else None
+    if got != want:
+        return name, False, [f'  r1: line {line} should have lost its first character',
+                             f'    got  {got!r}', f'  (files in {work})']
+    shutil.rmtree(work)
+    return name, True, []
+
 
 def main():
     global ARGS
@@ -63,6 +106,7 @@ def main():
     ap.add_argument('--work', default='build')
     ap.add_argument('-j', type=int, default=4)
     ap.add_argument('--skip', action='append', default=[], metavar='SUITE')
+    ap.add_argument('--resize', action='store_true', help='the window resized while p8vi runs (Kickstart 1.3)')
     args = ap.parse_args()
     if not shutil.which('copperline'):
         sys.exit('copperline not found in PATH')
@@ -74,6 +118,18 @@ def main():
     cpmtest.ARGS = args
     cpmtest.KEY_BUF_SIZE = KEY_BUF_SIZE
     cpmtest.tnylpo = copperline
+    if args.resize:
+        if not args.rom or '130' not in args.rom:
+            sys.exit('--resize needs Kickstart 1.3 (--rom)')
+        failed = 0
+        with ThreadPoolExecutor(max_workers=args.j) as pool:
+            for name, ok, lines in pool.map(lambda c: run_resize(args, c), RESIZE_CASES):
+                print(f'{name}: {"ok" if ok else "FAIL"}', flush=True)
+                for line in lines:
+                    print(line)
+                failed += not ok
+        print(f'amiga resize: {len(RESIZE_CASES) - failed} of {len(RESIZE_CASES)} passed')
+        sys.exit(1 if failed else 0)
     suites = [s for s in cpmtest.edtest.FILE_SUITES
               if (not args.names or s[0] in args.names) and s[0] not in args.skip
               and (args.names or s[0] not in cpmtest.CBM_ONLY)]

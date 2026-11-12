@@ -14,6 +14,13 @@
 ; per character would be slow).  The cursor and function keys come as
 ; CSI ($9B) sequences: platform.get_key has txt.escape_key read them.
 ;
+; The window's resizes: start() asks the console for raw events of class 12
+; (CSI 12 {), so a resize puts CSI 12 ; ... | in with the keys (once, when
+; the drag ends; Kickstart 1.3 too).  Reading a CSI sequence whole, the
+; console takes that report out: resized, and no key (0, as the host's
+; console does), and the window's size is asked again (size()).  Other
+; sequences are passed on as they came, a byte at a time.
+;
 console {
     ; the largest screen txt keeps (its buffers' size): a window up to
     ; this is used, a bigger one shows this much
@@ -30,10 +37,15 @@ console {
     ubyte out_len
     bool stopped            ; after stop(): output is written as it comes
 
-    ; (platform) the window size followed: not yet, so 0 (console.wait
-    ; doesn't look); resized is never set
-    uword watched
+    ; a resize report came: wait() or poll() returned 0 for it (platform)
     bool resized
+    ; a CSI sequence read whole that wasn't a report: its bytes, given out
+    ; one by one before anything new is read.  (a resize report is about
+    ; 30 bytes, with its time stamp; a longer sequence is read to its end
+    ; and dropped)
+    ubyte[48] seq
+    ubyte seq_len
+    ubyte seq_pos
 
     ; the window in raw mode; false if p8vi isn't in a console window
     sub start() -> bool {
@@ -41,7 +53,14 @@ console {
         out_fh = dos.Output()
         if in_fh == 0 or out_fh == 0 or dos.IsInteractive(in_fh) == 0
             return false
-        return screen_mode(true)
+        if not screen_mode(true)
+            return false
+        ; (the window's resizes reported: raw events of class 12)
+        out($9b)
+        out('1')
+        out('2')
+        out('{')
+        return true
     }
 
     ; what's left written, and the window in its normal mode again.  What
@@ -49,6 +68,11 @@ console {
     ; cursor at the top left for the CLI's prompt) is written at once:
     ; nothing writes the buffer once the program ends
     sub stop() {
+        ; (no more resize reports, in the CLI either)
+        out($9b)
+        out('1')
+        out('2')
+        out('}')
         flush()
         void screen_mode(false)
         stopped = true
@@ -68,30 +92,82 @@ console {
         }
     }
 
-    ; a key typed, 0 for none
+    ; a key typed, 0 for none (or a resize report: resized)
     sub poll() -> ubyte {
-        if dos.WaitForChar(in_fh, 0) == 0
+        if seq_pos == seq_len and dos.WaitForChar(in_fh, 0) == 0
             return 0
-        return read_byte()
+        return next_key()
     }
 
     ; a key, waiting for it (the output written first); 0 if the input
-    ; ended
+    ; ended, or for a resize report (resized)
     sub wait() -> ubyte {
         flush()
-        return read_byte()
+        ubyte k
+        repeat {
+            k = next_key()
+            ; (0 for a sequence dropped: wait on)
+            if k != 0 or resized or ended
+                return k
+        }
     }
 
-    sub read_byte() -> ubyte {
-        if dos.Read(in_fh, &in_byte, 1) != 1
+    ; the next key: the rest of a sequence read before, or one read now.
+    ; A CSI is read with the rest of its sequence (it comes all at once):
+    ; a resize report is taken out, anything else is given out byte by byte
+    sub next_key() -> ubyte {
+        if seq_pos != seq_len {
+            seq_pos++
+            return seq[seq_pos - 1]
+        }
+        ubyte k = read_byte()
+        if k != $9b
+            return k
+        ; the sequence: parameters and intermediate bytes up to the final one
+        seq[0] = k
+        seq_len = 1
+        repeat {
+            if dos.WaitForChar(in_fh, 50000) == 0
+                break
+            k = read_byte()
+            if seq_len < len(seq) {
+                seq[seq_len] = k
+                seq_len++
+            }
+            if k >= $40
+                break
+        }
+        if seq_len == len(seq) and seq[len(seq) - 1] != k {
+            ; (too long: dropped, as txt.escape_key drops what it doesn't know)
+            seq_len = 0
+            seq_pos = 0
             return 0
+        }
+        ; CSI 12 ; ... | : the window was resized
+        if seq_len > 4 and seq[1] == '1' and seq[2] == '2' and seq[3] == ';' and k == '|' {
+            seq_len = 0
+            seq_pos = 0
+            resized = true
+            return 0
+        }
+        seq_pos = 1
+        return seq[0]
+    }
+
+    bool ended              ; the input ended (or failed)
+    sub read_byte() -> ubyte {
+        if dos.Read(in_fh, &in_byte, 1) != 1 {
+            ended = true
+            return 0
+        }
         return in_byte[0]
     }
 
     ; the window's size: columns (lsb) and rows (msb), 0 if it doesn't
     ; say.  The window status request, CSI 0 SPACE q, is answered with
-    ; CSI 1 ; 1 ; rows ; cols SPACE r (as keys; raw mode).  Only at the
-    ; start: keys typed before the answer would be taken for it.
+    ; CSI 1 ; 1 ; rows ; cols SPACE r (as keys; raw mode): at the start,
+    ; and after a resize report (keys typed in between would be taken for
+    ; the answer).
     sub size() -> uword {
         out($9b)
         out('0')

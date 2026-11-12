@@ -2,7 +2,10 @@
 ; Each key shows the bytes the console sends for it, in hex, and the
 ; ASCII ones as characters; s sends the window status request (CSI 0 SPACE
 ; q), whose answer shows the same way; q quits, with the console back in
-; its normal (cooked) mode.
+; its normal (cooked) mode.  Window resizes are reported as they happen:
+; CSI 12 { asks the console for raw events of class 12 (a window resized),
+; which come in with the keys as CSI 12 ; ... | (CSI 12 } before quitting
+; stops them).
 ;
 ; Kickstart 1.3 and later: raw mode is the ACTION_SCREEN_MODE packet sent
 ; to the console's handler (dos.SetMode is Kickstart 2.0), keys are
@@ -31,6 +34,7 @@ main {
             return
         }
         txt.print("keys show their bytes in hex; s: the window's size; q: quit\n")
+        txt.print("\x9b12{")       ; (the window's resizes reported)
         ubyte n
         ubyte i
         repeat {
@@ -63,6 +67,7 @@ main {
             if n == 1 and got[0] == 's'
                 txt.print("\x9b0 q")
         }
+        txt.print("\x9b12}")       ; (no more resize reports)
         void screen_mode(con, false)
         txt.print("keyecho: cooked mode again\n")
     }

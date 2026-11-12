@@ -464,9 +464,21 @@ and editing then go about as with an REU.
     save's p8vi.tmp.
   - The text: the largest free block (exec.AvailMem MEMF_LARGEST) less
     32 KB, freed at the end.  The file name and -s from sys.arguments.
-  Next: following the window's size (raw events, CSI 12 {, for resizes);
-  the screen suites (Copperline doesn't give the host the screen: the
-  serial port, or its control server's memory reads); try a real A500.
+  Window resizes (done, 2026-11-11): console.start() sends CSI 12 { (raw
+  events of class 12), and the console puts CSI 12;0;0;qualifiers;x;y;
+  seconds;micros | in with the keys once a resize ends (Kickstart 1.3
+  too; tests/amiga/keyecho.p8 shows it).  The console reads a CSI
+  sequence whole (up to 48 bytes: the report is about 30), takes a report
+  out (console.resized, no key: the host's path, platform.SWITCH) and
+  passes others on byte by byte; then CSI 0 SPACE q gives the new size.
+  No polling: the report wakes the Read.  CSI 12 } at the end.  A resize
+  clears txt (txt.cls, on the host too: the status row was a text row of
+  the old layout, and kept its text).  make test-amiga --resize (1.3):
+  Copperline drags the size gadget (--mouse-to-after takes the 716 x 540
+  screenshot's coordinates), then L x :w shows the rows p8vi uses.
+  Next: the screen suites (Copperline doesn't give the host the screen:
+  the serial port, or its control server's memory reads); try a real
+  A500.
 - **Color Computer 2 and 3** (not started; llvm16 `mc6809-coco`).  Both are
   blocked by the 6809's code size today.  The same program's code is 4.5
   times the Z80's at -O2, mostly from inlining, so p8vi would be over
