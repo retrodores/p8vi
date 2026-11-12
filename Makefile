@@ -388,13 +388,25 @@ test-amiga:	build/p8vi-amigatest
 # with the samples in its directory.  build/amiga also has p8vi's icon and
 # a project icon for sample.txt (its default tool p8vi), to copy to an
 # Amiga disk and try from Workbench
-emu-amiga:	build/p8vi-amiga build/p8vi-amiga.info
+emu-amiga:	amiga-dir
+	cd build/amiga && copperline --model A500 --run p8vi --run-args sample.txt $(AMIGA_ROM)
+amiga-dir:	build/p8vi-amiga build/p8vi-amiga.info
 	$(MD) build/amiga
 	$(CP) build/p8vi-amiga build/amiga/p8vi
 	$(CP) build/p8vi-amiga.info build/amiga/p8vi.info
 	$(CP) samples/*.txt build/amiga
 	$(PYTHON) $(MKICON) project build/amiga/sample.txt.info p8vi
-	cd build/amiga && copperline --model A500 --run p8vi --run-args sample.txt $(AMIGA_ROM)
+
+# Workbench 1.3 in Copperline: an A500 (1 MB) booting AMIGA_WB_HDF on
+# Copperline's own hard disk controller (copperhf: the A500 has no IDE),
+# with build/amiga as the volume p8vi: (a host directory, live: the files
+# p8vi writes land there).  Open the p8vi disk, then double-click p8vi or
+# sample.txt.  The configuration is written to build/amiga-wb.toml
+AMIGA_WB_HDF ?= $(HOME)/Documents/FS-UAE/Hard Drives/workbench-135.hdf
+AMIGA_WB_ROM ?= $(HOME)/Documents/FS-UAE/Kickstarts/amiga-os-130.rom
+emu-amiga-wb:	amiga-dir
+	$(PYTHON) -c "import sys; open('build/amiga-wb.toml', 'w').write('rom = \"%s\"\n\n[memory]\nchip = \"512K\"\nslow = \"512K\"\n\n[copperhf]\nunit0 = \"%s\"\n\n[[filesys]]\npath = \"%s\"\nvolume = \"p8vi\"\n' % tuple(a.replace('\\\\', '/') for a in sys.argv[1:]))" "$(AMIGA_WB_ROM)" "$(AMIGA_WB_HDF)" "$(abspath build/amiga)"
+	copperline --config build/amiga-wb.toml --model A500
 
 # the Amiga port, step 1: the console's keys in raw mode (tests/amiga/
 # keyecho.p8) on an A500 in Copperline, with Kickstart 1.3 if it's there

@@ -186,6 +186,7 @@ The useful `make` targets are:
 | `make test-host` | The same suites for the host version with the keys piped in, a 4.5 MB file, and the window resized in a pty (`cpmtest.py --host`) |
 | `make test-amiga` | `tests/vice/edtest.py`'s file and screen suites and the `:set number` ones on an A500 in Copperline, Kickstart 1.3 or AROS (`tests/amiga/amigatest.py`: the screen from p8vi's output redirected to a file, `p8vi >out.log`; ~1 min), and with 1.3 the window resized while p8vi runs |
 | `make emu-amiga` | Run the Amiga version in Copperline with `sample.txt` |
+| `make emu-amiga-wb` | Workbench 1.3 in Copperline (`AMIGA_WB_HDF`, by default FS-UAE's `workbench-135.hdf`) with `build/amiga` as the volume `p8vi:`: p8vi, its icon and a project icon for `sample.txt` |
 | `make test-mega65-keymap` | Measure which MEGA65 keys give which PETSCII codes (the harness's key table) |
 | `make size` | Memory map and room left below memtop for each build (`tools/listsize.py`) |
 | `make disk` | `build/testgap.d81`: a 1581 disk with the C64 and VIC-20 programs, `oscii.fnt` and the sample files, for `make emu-c64`, `emu-c64reu`, `emu-c64font` and `emu-vic20` (drive 8 is a 1581) |

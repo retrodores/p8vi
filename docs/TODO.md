@@ -504,10 +504,13 @@ and editing then go about as with an REU.
   emu-amiga puts p8vi.info and sample.txt.info (a project, its default
   tool p8vi) in build/amiga.  Read back with icon.library on AROS (type,
   stack, image, default tool); 1.3's icon.library is on the Workbench
-  disk (LIBS:), not in Copperline's --run boot.  Still to do: try them
-  from Workbench 1.3 and 2.0+ (double-click p8vi, double-click
-  sample.txt, shift-click a file with p8vi; where Workbench looks for a
-  default tool without a path).
+  disk (LIBS:), not in Copperline's --run boot.
+  On Workbench 1.3 (make emu-amiga-wb: workbench-135.hdf on copperhf,
+  build/amiga as the volume p8vi:, 2026-11-12): the icons show; double-
+  clicking p8vi opens its window with the start screen; double-clicking
+  sample.txt opens it in p8vi (1.3 finds the default tool p8vi, given
+  without a path, in the project's drawer).  The user tried it too.
+  Still to do: a shift-clicked file with p8vi; Workbench 2.0+.
   Next: try a real A500.
 - **Color Computer 2 and 3** (not started; llvm16 `mc6809-coco`).  Both are
   blocked by the 6809's code size today.  The same program's code is 4.5
