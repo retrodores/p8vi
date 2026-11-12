@@ -419,7 +419,7 @@ and editing then go about as with an REU.
   - llvm32 (wasm with WASI: no raw keyboard there) and Linux builds not
     tried; Windows builds (the user, 2026-11-11).
 - **Amiga** (amiga500 target, Kickstart 1.3 and later; started
-  2026-11-11).  The plan: the console is an ANSI terminal like the host's
+  2026-11-11; in `release/` since v0.5, p8vi-amiga and its icon).  The plan: the console is an ANSI terminal like the host's
   and CP/M's (src/cpm/textio.p8), with the wide core (32-bit positions).
   p8vi's own modules first (src/amiga: console, diskio), in the style of
   the library's for the other targets, dropped when the compiler has
@@ -510,7 +510,9 @@ and editing then go about as with an REU.
   clicking p8vi opens its window with the start screen; double-clicking
   sample.txt opens it in p8vi (1.3 finds the default tool p8vi, given
   without a path, in the project's drawer).  The user tried it too.
-  Still to do: a shift-clicked file with p8vi; Workbench 2.0+.
+  A file selected, then p8vi double-clicked with Shift held, opens that
+  file (other.txt, whose own default tool was ed).  Still to do:
+  Workbench 2.0+.
   Next: try a real A500.
 - **Color Computer 2 and 3** (not started; llvm16 `mc6809-coco`).  Both are
   blocked by the 6809's code size today.  The same program's code is 4.5

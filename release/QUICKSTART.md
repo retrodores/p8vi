@@ -2,7 +2,7 @@
 
 p8vi is a vi for 8-bit computers: the Commodore C64, VIC-20, PET, Plus/4
 and C128, the Commander X16, the MEGA65, the TRS-80 Model III and 4, and
-CP/M machines.  If you
+CP/M machines; and for the Amiga.  If you
 know vi or vim you know most of it already; this guide shows what is there
 and which keys to press on a Commodore (or TRS-80) keyboard.  `docs/KEYS.md` lists every vi command with
 whether it is done.
@@ -47,9 +47,10 @@ whether it is done.
 | `p8vi-trs80m4.cmd` | TRS-80 Model 4 (64 KB, in its own mode, 80 columns) with TRSDOS 6 or LS-DOS 6.3 | about 15 KB |
 | `p8vi-trs80m4x.cmd` | TRS-80 Model 4 with 128 KB | up to about 60 KB (in the second 64 KB) |
 | `p8vi-cpm.com` | CP/M 2.2 or later on a Z80, with a terminal (ANSI, VT52 or ADM-3A) | the TPA's room after the program (about 20 KB on the C128's CP/M 3) |
+| `p8vi-amiga` (and its icon, `p8vi-amiga.info`) | Amiga with Kickstart 1.3 or later (a 68000 is enough), in a Shell window or from Workbench | the largest free block of memory, less 32 KB: hundreds of KB, more than 64 KB too |
 
-The MEGA65, PET, Plus/4, C128, TRS-80, X16 ISO and CP/M versions and
-`p8vi-c64disk` are new and still being worked on.
+The MEGA65, PET, Plus/4, C128, TRS-80, X16 ISO, CP/M and Amiga versions
+and `p8vi-c64disk` are new and still being worked on.
 
 Load and run it like any program, for example on a C64:
 
@@ -72,6 +73,16 @@ On CP/M, copy `p8vi-cpm.com` as `P8VI.COM` and give the terminal:
 `p8vi -t adm3a` (the TRS-80 Model 4's Montezuma CP/M and many CP/M
 machines), `p8vi -t vt52`, or `p8vi` alone for ANSI (VT100 and later).
 `-40` is for a 40-column screen, such as the C128's 40-column one.
+
+On the Amiga, copy `p8vi-amiga` and `p8vi-amiga.info` to a disk (rename
+both, to `p8vi` and `p8vi.info`, if you like).  From a Shell or CLI,
+`p8vi-amiga name` edits in that window; from Workbench, double-clicking
+its icon opens a window of its own.  A text file's icon whose default
+tool is p8vi (Workbench's Info) opens that file in p8vi, and so does
+clicking any file's icon and then double-clicking p8vi's with `Shift`
+held.  The screen is the window's size, and follows it
+when you resize the window; `-s 80x24` gives a size instead.  New files
+get LF line endings, as AmigaOS's.
 
 Then `:e name` opens a file (a name that isn't on the disk starts a new,
 empty file), and `:q` quits.  `Ctrl-G` shows how many lines there are and
@@ -140,6 +151,12 @@ drive 1 (and `p8vi.tmp` goes there too).  Without one the DOS finds the
 file on any drive, and `:e` adds the drive it was on to the name
 (`t.txt:1`), so `:w` saves it there again.  A new file without a drive
 number goes on the first drive the DOS can write to.
+
+**The Amiga's** keyboard has every key vi needs: `Esc`, `Ctrl`, and
+`Del` and `Backspace` both delete.  The cursor keys move in every mode,
+and `Shift` + `↑` and `Shift` + `↓` page up and down (`Ctrl-B`,
+`Ctrl-F`); `Help` and the function keys do nothing.  `Ctrl-C` is `Esc`
+too.
 
 **The TRS-80 Model 4** has a `CTRL` key, so `Ctrl-F` is `CTRL` + `F`.
 `Esc` is `Shift` + `↑` or `BREAK`, and `←` is Backspace as on the Model
@@ -475,6 +492,11 @@ petscii` (its files are ASCII).  The Model 4 version has marks and `zt`
 version leaves out, and the start screen, marks, `zt` `zz` `zb` and
 scrolling one row at a time (the screen is drawn again instead): its
 program has to leave room below $f400 for its page slots.
+
+The CP/M and Amiga versions leave out the disk commands (`:@`, `:@$`,
+`:r $`), recovery, and `:set ascii` and `:set petscii` (their files are
+ASCII; ISO-8859-1 on the Amiga, whose accented letters show as `.` for
+now).  They have everything else.
 
 <div style="page-break-before: always"></div>
 

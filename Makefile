@@ -438,7 +438,7 @@ clean:
 # run first; run make test-c64, test-c64reu and test-c64-screen too before
 # a release that matters.  (the TRS-80 builds need llvm-z80 and z88dk, see
 # trs80 above)
-release:	$(PROGS) font build/p8vi-trs80.cmd build/p8vi-trs80m4.cmd build/p8vi-trs80m4x.cmd build/p8vi-cpm.com test audit size
+release:	$(PROGS) font build/p8vi-trs80.cmd build/p8vi-trs80m4.cmd build/p8vi-trs80m4x.cmd build/p8vi-cpm.com build/p8vi-amiga build/p8vi-amiga.info test audit size
 	$(MD) release
 	$(CP) build/p8vi-c64.prg release
 	$(CP) build/p8vi-c64font.prg release
@@ -459,6 +459,8 @@ release:	$(PROGS) font build/p8vi-trs80.cmd build/p8vi-trs80m4.cmd build/p8vi-tr
 	$(CP) build/p8vi-trs80m4.cmd release
 	$(CP) build/p8vi-trs80m4x.cmd release
 	$(CP) build/p8vi-cpm.com release
+	$(CP) build/p8vi-amiga release
+	$(CP) build/p8vi-amiga.info release
 	$(CP) docs/QUICKSTART.md release
 
 disk:	build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64font.prg build/oscii.fnt build/p8vi-vic20.prg
