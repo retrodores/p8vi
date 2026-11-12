@@ -498,8 +498,16 @@ and editing then go about as with an REU.
   in its drawer (CurrentDir, put back at the end); with none, p8vi's own
   drawer.  Tested from the CLI with <NIL: (amigatest.py --own-window:
   files in its own window, in make test-amiga); not from Workbench yet.
-  Still to do: an icon (p8vi.info, a tool icon; a project icon's default
-  tool), tried from Workbench 1.3 and 2.0+.
+  Icons (tools/mkicon.py, in the classic 1.3 format every Workbench
+  reads): make amiga makes build/p8vi-amiga.info (a tool icon: a small
+  terminal with an orange "vi", 40 x 20, 2 bitplanes, 8 KB stack); make
+  emu-amiga puts p8vi.info and sample.txt.info (a project, its default
+  tool p8vi) in build/amiga.  Read back with icon.library on AROS (type,
+  stack, image, default tool); 1.3's icon.library is on the Workbench
+  disk (LIBS:), not in Copperline's --run boot.  Still to do: try them
+  from Workbench 1.3 and 2.0+ (double-click p8vi, double-click
+  sample.txt, shift-click a file with p8vi; where Workbench looks for a
+  default tool without a path).
   Next: try a real A500.
 - **Color Computer 2 and 3** (not started; llvm16 `mc6809-coco`).  Both are
   blocked by the 6809's code size today.  The same program's code is 4.5

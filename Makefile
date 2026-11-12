@@ -39,6 +39,7 @@ ASMAUDIT = tools/asmaudit.py
 MKFONT = tools/mkfont.py
 M4DISK = tools/cpm/m4disk.py
 ENCODE_COPY = tools/encode_copy.py
+MKICON = tools/mkicon.py
 FILEOP = tools/fileop.py
 
 # disk image settings: a 1581 disk (800 KB) for the programs and the
@@ -355,7 +356,10 @@ emu-cpm:	build/p8vi-cpm.com
 AMIGAWIDE=build/amigawide
 AMIGAWIDE_DIRS=src src/trs80
 PCCARGSAMIGA=-srcdirs "src/wide$(PS)$(AMIGAWIDE)/src$(PS)src/amiga$(PS)src/cpm$(PS)$(AMIGAWIDE)/trs80" -target amiga500 -out build
-amiga: build/p8vi-amiga
+amiga: build/p8vi-amiga build/p8vi-amiga.info
+# its Workbench icon (a tool icon: tools/mkicon.py; named as the program)
+build/p8vi-amiga.info: $(MKICON)
+	$(PYTHON) $(MKICON) tool $@
 build/p8vi-amiga: src/p8vi_amiga.p8 src/*.p8 src/wide/*.p8 src/amiga/*.p8 src/cpm/*.p8 src/trs80/*.p8 $(ENCODE_COPY)
 	$(PYTHON) $(ENCODE_COPY) --wide $(WIDEMODS) --bytewise $(AMIGAWIDE) $(AMIGAWIDE_DIRS)
 	$(PCC) $(PCCARGSAMIGA) $(AMIGAWIDE)/src/p8vi_amiga.p8
@@ -381,11 +385,15 @@ test-amiga:	build/p8vi-amigatest
 	$(if $(AMIGA_ROM),$(PYTHON) -B $(AMIGATEST) --resize)
 
 # p8vi on an A500 in Copperline (Kickstart 1.3 if it's there, else AROS),
-# with the samples in its directory
-emu-amiga:	build/p8vi-amiga
+# with the samples in its directory.  build/amiga also has p8vi's icon and
+# a project icon for sample.txt (its default tool p8vi), to copy to an
+# Amiga disk and try from Workbench
+emu-amiga:	build/p8vi-amiga build/p8vi-amiga.info
 	$(MD) build/amiga
 	$(CP) build/p8vi-amiga build/amiga/p8vi
+	$(CP) build/p8vi-amiga.info build/amiga/p8vi.info
 	$(CP) samples/*.txt build/amiga
+	$(PYTHON) $(MKICON) project build/amiga/sample.txt.info p8vi
 	cd build/amiga && copperline --model A500 --run p8vi --run-args sample.txt $(AMIGA_ROM)
 
 # the Amiga port, step 1: the console's keys in raw mode (tests/amiga/
