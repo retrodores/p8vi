@@ -3,19 +3,42 @@
 #
 
 # Cross-platform commands
+# (PS: the separator of prog8c's -srcdirs list, ; on Windows; the Python
+# command: python on Windows, python3 elsewhere, make PYTHON=py for the
+# Windows launcher.  Windows' copy, del and mkdir take the / in a path for
+# an option, so there tools/fileop.py does their work)
 ifeq ($(OS),Windows_NT)
-    CLEAN = del /Q build\*
-    CP = copy
-    RM = del /Q
-    MD = mkdir
-    SEP = \\
+    CP = $(PYTHON) $(FILEOP) cp
+    RM = $(PYTHON) $(FILEOP) rm
+    MD = $(PYTHON) $(FILEOP) mkdir
+    PS = ;
+    PYTHON ?= python
 else
-    CLEAN = rm -f build/*
     CP = cp -p
     RM = rm -fr
     MD = mkdir -p
-    SEP = /
+    PS = :
+    PYTHON ?= python3
 endif
+
+# the Python scripts the recipes run: their paths are here, not in the
+# commands (forward slashes: Python takes them on Windows too)
+EDTEST = tests/vice/edtest.py
+RECTEST = tests/vice/rectest.py
+CPMTEST = tests/cpm/cpmtest.py
+M4TEST = tests/cpm/m4test.py
+M65TEST = tests/mega65/edtest.py
+M65KEYMAP = tests/mega65/keymap.py
+TRSTEST = tests/trs80/trstest.py
+TRSRECTEST = tests/trs80/rectest.py
+REUTEST = tests/reu/reutest.py
+QUICKTEST = tests/quick.py
+LISTSIZE = tools/listsize.py
+ASMAUDIT = tools/asmaudit.py
+MKFONT = tools/mkfont.py
+M4DISK = tools/cpm/m4disk.py
+ENCODE_COPY = tools/encode_copy.py
+FILEOP = tools/fileop.py
 
 # disk image settings: a 1581 disk (800 KB) for the programs and the
 # sample files, read with a 1581 drive on the C64 and the VIC-20.
@@ -39,34 +62,35 @@ EMU_REU=-reu -reusize $(EMU_REUSIZE)
 EMU=$(EMU_CMD) $(EMU_BASE) $(EMU_KERNAL) $(EMU_DISK) $(EMU_DOS) $(EMU_REU)
 
 PCC=prog8c-llvm
-PCCARGSC64=-srcdirs src:src/c64 -asmlist -target c64 -out build
+PCCARGSC64=-srcdirs "src$(PS)src/c64" -asmlist -target c64 -out build
 # the C64 REU build: src/c64reu (its store_platform) comes before src/c64
-PCCARGSC64REU=-srcdirs src:src/c64reu:src/c64 -asmlist -target c64 -out build
+PCCARGSC64REU=-srcdirs "src$(PS)src/c64reu$(PS)src/c64" -asmlist -target c64 -out build
 # the C64 disk build: the page store with its pages in SEQ files on the disk
-PCCARGSC64DISK=-srcdirs src:src/diskpage:src/c64 -asmlist -target c64 -out build
+PCCARGSC64DISK=-srcdirs "src$(PS)src/diskpage$(PS)src/c64" -asmlist -target c64 -out build
 # the C64 font build: the REU build with its own font (src/c64/font.p8)
 PCCARGSC64FONT=$(PCCARGSC64REU)
-PCCARGSCX16=-srcdirs src:src/cx16 -asmlist -target cx16 -out build
+PCCARGSCX16=-srcdirs "src$(PS)src/cx16" -asmlist -target cx16 -out build
 # the X16's ISO mode build: every module of the program compiled with
 # %encoding iso, from copies tools/encode_copy.py makes in build/cx16iso
 # (the library keeps PETSCII; bugs/encoding_option.md)
 CX16ISO=build/cx16iso
-PCCARGSCX16ISO=-srcdirs $(CX16ISO)/src:$(CX16ISO)/cx16 -asmlist -target cx16 -out build
-PCCARGSM65=-srcdirs src:src/mega65 -asmlist -target config/mega65.properties -out build
+CX16ISO_DIRS=src src/cx16
+PCCARGSCX16ISO=-srcdirs "$(CX16ISO)/src$(PS)$(CX16ISO)/cx16" -asmlist -target cx16 -out build
+PCCARGSM65=-srcdirs "src$(PS)src/mega65" -asmlist -target config/mega65.properties -out build
 # the MEGA65 page store build: text in chip RAM banks 4 and 5 through DMA
-PCCARGSM65DMA=-srcdirs src:src/mega65dma:src/mega65 -asmlist -target config/mega65.properties -out build
-PCCARGSPLUS4=-srcdirs src:src/plus4 -asmlist -target config/plus4.properties -out build
+PCCARGSM65DMA=-srcdirs "src$(PS)src/mega65dma$(PS)src/mega65" -asmlist -target config/mega65.properties -out build
+PCCARGSPLUS4=-srcdirs "src$(PS)src/plus4" -asmlist -target config/plus4.properties -out build
 # the C128 in its own mode, on the VIC-II or the VDC (src/c128/textio.p8)
-PCCARGSC128=-srcdirs src:src/c128 -asmlist -target c128 -out build
+PCCARGSC128=-srcdirs "src$(PS)src/c128" -asmlist -target c128 -out build
 # the C128 bank 1 build: src/c128bank1 (the page store, its pages in RAM
 # bank 1) before src/c128
-PCCARGSC128X=-srcdirs src:src/c128bank1:src/c128font:src/c128 -asmlist -target c128 -out build
+PCCARGSC128X=-srcdirs "src$(PS)src/c128bank1$(PS)src/c128font$(PS)src/c128" -asmlist -target c128 -out build
 # the C128 REU build: src/c128reu (the page store in an REU, or bank 1),
 # then src/c128, and src/c64 for its reu.p8
-PCCARGSC128REU=-srcdirs src:src/c128reu:src/c128:src/c64 -asmlist -target c128 -out build
-PCCARGSPET32=-srcdirs src:src/pet32 -asmlist -target pet32 -out build
-PCCARGSVIC20=-srcdirs src:src/vic20 -asmlist -target config/vic20plus24.properties -out build
-PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
+PCCARGSC128REU=-srcdirs "src$(PS)src/c128reu$(PS)src/c128$(PS)src/c64" -asmlist -target c128 -out build
+PCCARGSPET32=-srcdirs "src$(PS)src/pet32" -asmlist -target pet32 -out build
+PCCARGSVIC20=-srcdirs "src$(PS)src/vic20" -asmlist -target config/vic20plus24.properties -out build
+PCCARGSVM=-srcdirs "src$(PS)src/virtual" -target virtual -out build
 
 # p8vi.p8 is the full editor (c64), p8vi_cx16.p8 the X16's and
 # p8vi_vic20.p8 the VIC-20's (each can leave out features); all import
@@ -121,8 +145,8 @@ build/p8vi-c64font.prg: src/p8vi_c64font.p8 $(SRCS) src/c64/font.p8 font
 
 font:	build/oscii.fnt
 
-build/oscii.fnt: $(FONTSRC) tools/mkfont.py
-	python3 tools/mkfont.py $(FONTSRC) $@
+build/oscii.fnt: $(FONTSRC) $(MKFONT)
+	$(PYTHON) $(MKFONT) $(FONTSRC) $@
 
 build/p8vi-cx16.prg: src/p8vi_cx16.p8 $(SRCS)
 	$(PCC) $(PCCARGSCX16) $<
@@ -131,8 +155,8 @@ build/p8vi-cx16.prg: src/p8vi_cx16.p8 $(SRCS)
 	$(CP) build/p8vi_cx16.asm build/p8vi-cx16.asm
 	$(RM) build/p8vi_cx16.prg
 
-build/p8vi-cx16iso.prg: src/p8vi_cx16iso.p8 $(SRCS) tools/encode_copy.py
-	python3 tools/encode_copy.py --encoding iso $(CX16ISO) src src/cx16
+build/p8vi-cx16iso.prg: src/p8vi_cx16iso.p8 $(SRCS) $(ENCODE_COPY)
+	$(PYTHON) $(ENCODE_COPY) --encoding iso $(CX16ISO) $(CX16ISO_DIRS)
 	$(PCC) $(PCCARGSCX16ISO) $(CX16ISO)/src/p8vi_cx16iso.p8
 	$(CP) build/p8vi_cx16iso.prg $@
 	$(CP) build/p8vi_cx16iso.list build/p8vi-cx16iso.list
@@ -222,7 +246,7 @@ build/p8vi-vic20.prg: src/p8vi_vic20.p8 $(SRCS)
 LLVM_Z80 ?= $(HOME)/.local/llvm-z80
 Z88DK ?= $(HOME)/.local/z88dk
 export LLVM_Z80 Z88DK
-PCCARGSTRS80=-srcdirs src:src/trs80 -target llvm16 -triple z80-trs80-cmd
+PCCARGSTRS80=-srcdirs "src$(PS)src/trs80" -target llvm16 -triple z80-trs80-cmd
 trs80: build/p8vi-trs80.cmd
 build/p8vi-trs80.cmd: src/p8vi_trs80.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSTRS80) -o build/p8vi-trs80 $<
@@ -230,7 +254,7 @@ build/p8vi-trs80.cmd: src/p8vi_trs80.p8 src/editor.p8 src/buffer.p8 src/gapbuffe
 # the file tests on the TRS-80 (trs80gp, a window per suite; see
 # tests/trs80/trstest.py): the suites for CBM things are left out
 test-trs80:	build/p8vi-trs80test.cmd
-	python3 -B tests/trs80/trstest.py -j 3
+	$(PYTHON) -B $(TRSTEST) -j 3
 trs80-test: build/p8vi-trs80test.cmd
 build/p8vi-trs80test.cmd: src/p8vi_trs80test.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSTRS80) -o build/p8vi-trs80test $<
@@ -238,13 +262,13 @@ build/p8vi-trs80test.cmd: src/p8vi_trs80test.p8 src/editor.p8 src/buffer.p8 src/
 # the TRS-80 Model 4 in its own mode (TRSDOS 6, LS-DOS 6.3; 80 x 24): the
 # z80-trs80-m4 profile.  The source is src/p8vi_trs80m4.p8 with
 # src/trs80m4, and src/trs80 for the files the two share.
-PCCARGSTRS80M4=-srcdirs src:src/trs80m4:src/trs80 -target llvm16 -triple z80-trs80-m4
+PCCARGSTRS80M4=-srcdirs "src$(PS)src/trs80m4$(PS)src/trs80" -target llvm16 -triple z80-trs80-m4
 trs80m4: build/p8vi-trs80m4.cmd
 build/p8vi-trs80m4.cmd: src/p8vi_trs80m4.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/trs80m4/*.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSTRS80M4) -o build/p8vi-trs80m4 $<
 # the file tests, as test-trs80 (LS-DOS 6.3 here), marks and zview too
 test-trs80m4:	build/p8vi-trs80m4test.cmd
-	python3 -B tests/trs80/trstest.py --model 4 -j 3
+	$(PYTHON) -B $(TRSTEST) --model 4 -j 3
 # the test build: it plays the keys in KEYS/TXT first (features.KEYFILE)
 trs80m4-test: build/p8vi-trs80m4test.cmd
 build/p8vi-trs80m4test.cmd: src/p8vi_trs80m4test.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/trs80m4/*.p8 src/trs80/*.p8
@@ -252,13 +276,13 @@ build/p8vi-trs80m4test.cmd: src/p8vi_trs80m4test.p8 src/editor.p8 src/buffer.p8 
 
 # the Model 4 with 128 KB: the text in the second 64 KB (src/trs80m4x, the
 # page store), up to about 62 KB
-PCCARGSTRS80M4X=-srcdirs src:src/trs80m4x:src/trs80m4:src/trs80 -target llvm16 -triple z80-trs80-m4
+PCCARGSTRS80M4X=-srcdirs "src$(PS)src/trs80m4x$(PS)src/trs80m4$(PS)src/trs80" -target llvm16 -triple z80-trs80-m4
 trs80m4x: build/p8vi-trs80m4x.cmd
 build/p8vi-trs80m4x.cmd: src/p8vi_trs80m4x.p8 src/editor.p8 src/buffer.p8 src/pagestore.p8 src/trs80m4x/* src/trs80m4/*.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSTRS80M4X) -o build/p8vi-trs80m4x $<
 test-trs80m4x:	build/p8vi-trs80m4xtest.cmd
-	python3 -B tests/trs80/trstest.py --model 4x -j 3
-	python3 -B tests/trs80/rectest.py
+	$(PYTHON) -B $(TRSTEST) --model 4x -j 3
+	$(PYTHON) -B $(TRSRECTEST)
 trs80m4x-test: build/p8vi-trs80m4xtest.cmd
 build/p8vi-trs80m4xtest.cmd: src/p8vi_trs80m4xtest.p8 src/editor.p8 src/buffer.p8 src/pagestore.p8 src/trs80m4x/* src/trs80m4/*.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSTRS80M4X) -o build/p8vi-trs80m4xtest $<
@@ -273,26 +297,27 @@ build/p8vi-trs80m4xtest.cmd: src/p8vi_trs80m4xtest.p8 src/editor.p8 src/buffer.p
 # take a long count on llvm64)
 HOSTWIDE=build/hostwide
 WIDEMODS=editor,buffer,gapbuffer,fastmem_platform,charset_platform
-PCCARGSHOST=-srcdirs src/wide:$(HOSTWIDE)/src:src/host:src/cpm:$(HOSTWIDE)/trs80 -target llvm64
+HOSTWIDE_DIRS=src src/trs80
+PCCARGSHOST=-srcdirs "src/wide$(PS)$(HOSTWIDE)/src$(PS)src/host$(PS)src/cpm$(PS)$(HOSTWIDE)/trs80" -target llvm64
 host: build/p8vi-host
-build/p8vi-host: src/p8vi_host.p8 src/*.p8 src/wide/*.p8 src/host/*.p8 src/cpm/*.p8 src/trs80/*.p8 tools/encode_copy.py
-	python3 tools/encode_copy.py --wide $(WIDEMODS) $(HOSTWIDE) src src/trs80
+build/p8vi-host: src/p8vi_host.p8 src/*.p8 src/wide/*.p8 src/host/*.p8 src/cpm/*.p8 src/trs80/*.p8 $(ENCODE_COPY)
+	$(PYTHON) $(ENCODE_COPY) --wide $(WIDEMODS) $(HOSTWIDE) $(HOSTWIDE_DIRS)
 	$(PCC) $(PCCARGSHOST) -o build/p8vi-host $(HOSTWIDE)/src/p8vi_host.p8
 # edtest's file and screen suites, with the keys piped in (tests/cpm/cpmtest.py
 # --host); :set number, :d and :y with ranges, and a 4.5 MB file
 test-host:	build/p8vi-host
-	python3 -B tests/cpm/cpmtest.py --host files
-	python3 -B tests/cpm/cpmtest.py --host screen
-	python3 -B tests/cpm/cpmtest.py --host number
-	python3 -B tests/cpm/cpmtest.py --host lines
-	python3 -B tests/cpm/cpmtest.py --host big
+	$(PYTHON) -B $(CPMTEST) --host files
+	$(PYTHON) -B $(CPMTEST) --host screen
+	$(PYTHON) -B $(CPMTEST) --host number
+	$(PYTHON) -B $(CPMTEST) --host lines
+	$(PYTHON) -B $(CPMTEST) --host big
 
 # CP/M 2.2 and later on a Z80 (src/cpm, with src/trs80's charset, fastmem
 # and store): a .com for any machine with a terminal (-t ansi, vt52 or
 # adm3a).  The z80-cpm profile leaves z88dk's heap off: the link options
 # turn it on (AMALLOC: from the program's end up toward the stack).
 # tnylpo runs it on the host: copy it as p8vi.com, then tnylpo -s p8vi -t vt52
-PCCARGSCPM=-srcdirs src:src/cpm:src/trs80 -target llvm16 -triple z80-cpm \
+PCCARGSCPM=-srcdirs "src$(PS)src/cpm$(PS)src/trs80" -target llvm16 -triple z80-cpm \
 	-Xlink -pragma-define:CRT_HEAP_AMALLOC=1 -Xlink -pragma-define:CRT_HEAP_ENABLE=1
 cpm: build/p8vi-cpm.com
 build/p8vi-cpm.com: src/p8vi_cpm.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/cpm/*.p8 src/trs80/*.p8
@@ -302,11 +327,11 @@ build/p8vi-cpm.com: src/p8vi_cpm.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8
 # with Montezuma Micro CP/M in trs80gp, if its disk image is there
 # (tests/cpm/m4test.py: CPM_DISK, or build/cpm222_work.dsk)
 test-cpm:	build/p8vi-cpmtest.com build/p8vi-cpm.com
-	python3 -B tests/cpm/cpmtest.py files
-	python3 -B tests/cpm/cpmtest.py screen
-	python3 -B tests/cpm/cpmtest.py number
-	python3 -B tests/cpm/cpmtest.py lines
-	python3 -B tests/cpm/m4test.py
+	$(PYTHON) -B $(CPMTEST) files
+	$(PYTHON) -B $(CPMTEST) screen
+	$(PYTHON) -B $(CPMTEST) number
+	$(PYTHON) -B $(CPMTEST) lines
+	$(PYTHON) -B $(M4TEST)
 cpm-test: build/p8vi-cpmtest.com
 build/p8vi-cpmtest.com: src/p8vi_cpmtest.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/cpm/*.p8 src/trs80/*.p8
 	$(PCC) $(PCCARGSCPM) -o build/p8vi-cpmtest $<
@@ -316,9 +341,9 @@ build/p8vi-cpmtest.com: src/p8vi_cpmtest.p8 src/editor.p8 src/buffer.p8 src/gapb
 CPMDIR=build/cpm
 emu-cpm:	build/p8vi-cpm.com
 	$(MD) $(CPMDIR)
-	$(CP) samples$(SEP)*.txt $(CPMDIR)
-	$(CP) samples$(SEP)sampsmall.txt $(CPMDIR)$(SEP)sampsmal.txt
-	$(CP) build$(SEP)p8vi-cpm.com $(CPMDIR)$(SEP)p8vi.com
+	$(CP) samples/*.txt $(CPMDIR)
+	$(CP) samples/sampsmall.txt $(CPMDIR)/sampsmal.txt
+	$(CP) build/p8vi-cpm.com $(CPMDIR)/p8vi.com
 	cd $(CPMDIR) && tnylpo -s -w p8vi -t vt52
 # the TRS-80 Model 4 with Montezuma Micro CP/M 2.2 in trs80gp: drive A a
 # copy of the system disk (CPM_DISK), drive B a new data disk with p8vi.com
@@ -327,13 +352,13 @@ emu-cpm:	build/p8vi-cpm.com
 # capitals until CAPS is pressed, and BREAK is Escape.
 CPM_DISK ?= build/cpm222_work.dsk
 emu-trs80m4-cpm:	build/p8vi-cpm.com
-	$(CP) $(CPM_DISK) build$(SEP)cpm-m4-a.dsk
-	python3 -B tools/cpm/m4disk.py $(CPM_DISK) build/cpm-m4-b.dsk build/p8vi-cpm.com:p8vi.com \
+	$(CP) $(CPM_DISK) build/cpm-m4-a.dsk
+	$(PYTHON) -B $(M4DISK) $(CPM_DISK) build/cpm-m4-b.dsk build/p8vi-cpm.com:p8vi.com \
 		samples/sample.txt samples/sampsmall.txt samples/sample6.txt samples/sampmax.txt
 	$(TRS80GP) -m4 -mem 64 -d0 build/cpm-m4-a.dsk -d1 build/cpm-m4-b.dsk
 
 clean:
-	$(RM) build$(SEP)*
+	$(RM) build/*
 
 # the programs and the quick start guide, copied to release/ (kept in git:
 # the last known good version, whatever build/ holds).  the quick checks
@@ -342,26 +367,26 @@ clean:
 # trs80 above)
 release:	$(PROGS) font build/p8vi-trs80.cmd build/p8vi-trs80m4.cmd build/p8vi-trs80m4x.cmd build/p8vi-cpm.com test audit size
 	$(MD) release
-	$(CP) build$(SEP)p8vi-c64.prg release
-	$(CP) build$(SEP)p8vi-c64font.prg release
-	$(CP) build$(SEP)oscii.fnt release
-	$(CP) build$(SEP)p8vi-c64reu.prg release
-	$(CP) build$(SEP)p8vi-c64disk.prg release
-	$(CP) build$(SEP)p8vi-c128.prg release
-	$(CP) build$(SEP)p8vi-c128x.prg release
-	$(CP) build$(SEP)p8vi-c128reu.prg release
-	$(CP) build$(SEP)p8vi-cx16.prg release
-	$(CP) build$(SEP)p8vi-cx16iso.prg release
-	$(CP) build$(SEP)p8vi-mega65.prg release
-	$(CP) build$(SEP)p8vi-mega65dma.prg release
-	$(CP) build$(SEP)p8vi-pet32.prg release
-	$(CP) build$(SEP)p8vi-plus4.prg release
-	$(CP) build$(SEP)p8vi-vic20.prg release
-	$(CP) build$(SEP)p8vi-trs80.cmd release
-	$(CP) build$(SEP)p8vi-trs80m4.cmd release
-	$(CP) build$(SEP)p8vi-trs80m4x.cmd release
-	$(CP) build$(SEP)p8vi-cpm.com release
-	$(CP) docs$(SEP)QUICKSTART.md release
+	$(CP) build/p8vi-c64.prg release
+	$(CP) build/p8vi-c64font.prg release
+	$(CP) build/oscii.fnt release
+	$(CP) build/p8vi-c64reu.prg release
+	$(CP) build/p8vi-c64disk.prg release
+	$(CP) build/p8vi-c128.prg release
+	$(CP) build/p8vi-c128x.prg release
+	$(CP) build/p8vi-c128reu.prg release
+	$(CP) build/p8vi-cx16.prg release
+	$(CP) build/p8vi-cx16iso.prg release
+	$(CP) build/p8vi-mega65.prg release
+	$(CP) build/p8vi-mega65dma.prg release
+	$(CP) build/p8vi-pet32.prg release
+	$(CP) build/p8vi-plus4.prg release
+	$(CP) build/p8vi-vic20.prg release
+	$(CP) build/p8vi-trs80.cmd release
+	$(CP) build/p8vi-trs80m4.cmd release
+	$(CP) build/p8vi-trs80m4x.cmd release
+	$(CP) build/p8vi-cpm.com release
+	$(CP) docs/QUICKSTART.md release
 
 disk:	build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-c64font.prg build/oscii.fnt build/p8vi-vic20.prg
 	c1541 -format $(DISKNAME),52 $(DISKTYPE) $(DISK)
@@ -403,7 +428,7 @@ emu-mega65dma:	build/p8vi-mega65dma.prg
 # program is also on the disk as zpload, for its LOAD test.
 ZPDISK=build/zpwatch.d81
 test-mega65-zp:	build
-	$(PCC) -target config/mega65.properties -srcdirs tests/mega65 -out build tests/mega65/zpwatch.p8
+	$(PCC) -target config/mega65.properties -srcdirs "tests/mega65" -out build tests/mega65/zpwatch.p8
 	c1541 -format zpwatch,01 d81 $(ZPDISK)
 	c1541 -attach $(ZPDISK) -write build/zpwatch.prg zpload,p
 	xmega65 -headless -sleepless -besure -prg build/zpwatch.prg -prgexit \
@@ -417,8 +442,8 @@ test-mega65-zp:	build
 # to the ASCII characters)
 FONT_SKIP_M65 = --skip g-cmds --skip ascii
 test-mega65:	build/p8vi-mega65.prg
-	python3 -B tests/mega65/edtest.py --font $(FONT_SKIP_M65) files
-	python3 -B tests/mega65/edtest.py screen
+	$(PYTHON) -B $(M65TEST) --font $(FONT_SKIP_M65) files
+	$(PYTHON) -B $(M65TEST) screen
 
 # the same on the MEGA65 page store build, with the suites for more text
 # than main RAM holds (--paged) and the font suite: the pages in attic RAM
@@ -428,16 +453,16 @@ test-mega65:	build/p8vi-mega65.prg
 # 5 (not bigundo: 30 KB of text, undo and yank need more than their 126
 # pages; it fails the same way on a C64 with a 128 KB REU)
 test-mega65dma:	build/p8vi-mega65dma.prg
-	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg --paged --font \
+	$(PYTHON) -B $(M65TEST) --prg build/p8vi-mega65dma.prg --paged --font \
 		--skip subst --skip subst-again --skip read-dir --skip prefix --skip marks --skip zview $(FONT_SKIP_M65) files
-	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg --paged --model 64 \
+	$(PYTHON) -B $(M65TEST) --prg build/p8vi-mega65dma.prg --paged --model 64 \
 		files delete-put undo pages huge
-	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg screen
+	$(PYTHON) -B $(M65TEST) --prg build/p8vi-mega65dma.prg screen
 
 # which keys give which PETSCII codes (the table in tools/m65harness.py)
 test-mega65-keymap:	build
-	$(PCC) -target config/mega65.properties -srcdirs tests/mega65 -out build tests/mega65/keyecho.p8
-	python3 -B tests/mega65/keymap.py --prg build/keyecho.prg
+	$(PCC) -target config/mega65.properties -srcdirs "tests/mega65" -out build tests/mega65/keyecho.p8
+	$(PYTHON) -B $(M65KEYMAP) --prg build/keyecho.prg
 
 # the PET: a 4032 with an IEEE-488 2031 drive (it takes .d64 images); its
 # own disk, with files small enough for its 3.3 KB of text
@@ -495,18 +520,18 @@ FREHD=build/frehd
 TRS80RUN=-frehd -frehd_dir $(FREHD)
 emu-trs80:	build/p8vi-trs80.cmd
 	$(MD) $(FREHD)
-	$(CP) samples$(SEP)*.txt $(FREHD)
-	$(CP) build$(SEP)p8vi-trs80.cmd $(FREHD)$(SEP)p8vi.cmd
+	$(CP) samples/*.txt $(FREHD)
+	$(CP) build/p8vi-trs80.cmd $(FREHD)/p8vi.cmd
 	$(TRS80GP) -m3 -ld -d1 :lu3 $(TRS80RUN) build/p8vi-trs80.cmd
 emu-trs80m4:	build/p8vi-trs80m4.cmd
 	$(MD) $(FREHD)
-	$(CP) samples$(SEP)*.txt $(FREHD)
-	$(CP) build$(SEP)p8vi-trs80m4.cmd $(FREHD)$(SEP)p8vi.cmd
+	$(CP) samples/*.txt $(FREHD)
+	$(CP) build/p8vi-trs80m4.cmd $(FREHD)/p8vi.cmd
 	$(TRS80GP) -m4 -d1 :lu4 $(TRS80RUN) build/p8vi-trs80m4.cmd
 emu-trs80m4x:	build/p8vi-trs80m4x.cmd
 	$(MD) $(FREHD)
-	$(CP) samples$(SEP)*.txt $(FREHD)
-	$(CP) build$(SEP)p8vi-trs80m4x.cmd $(FREHD)$(SEP)p8vi.cmd
+	$(CP) samples/*.txt $(FREHD)
+	$(CP) build/p8vi-trs80m4x.cmd $(FREHD)/p8vi.cmd
 	$(TRS80GP) -m4 -mem 128 -d1 :lu4 $(TRS80RUN) build/p8vi-trs80m4x.cmd
 
 # self checking text store tests (gap buffer and page store) on the
@@ -519,44 +544,44 @@ test-gap:	build
 # (tools/listsize.py LIST for where the bytes go, A.list B.list to compare)
 VIC20_MIN_FREE=64
 size:	$(PROGS) $(FONTPROG)
-	python3 tools/listsize.py build/p8vi-c64.list --map
-	python3 tools/listsize.py build/p8vi-c64reu.list --map
-	python3 tools/listsize.py build/p8vi-c64disk.list --map
-	python3 tools/listsize.py build/p8vi-c64font.list --map --memtop 0xc800
-	python3 tools/listsize.py build/p8vi-cx16.list --map
-	python3 tools/listsize.py build/p8vi-cx16iso.list --map
-	python3 tools/listsize.py build/p8vi-mega65.list --map --memtop 0xc000
-	python3 tools/listsize.py build/p8vi-mega65dma.list --map --memtop 0xc000
-	python3 tools/listsize.py build/p8vi-pet32.list --map --memtop 0x8000
-	python3 tools/listsize.py build/p8vi-c128.list --map --memtop 0xc000
-	python3 tools/listsize.py build/p8vi-c128x.list --map --memtop 0xc000
-	python3 tools/listsize.py build/p8vi-c128reu.list --map --memtop 0xc000
-	python3 tools/listsize.py build/p8vi-plus4.list --map --memtop 0xfc00
-	python3 tools/listsize.py build/p8vi-vic20.list --map --min-free $(VIC20_MIN_FREE)
+	$(PYTHON) $(LISTSIZE) build/p8vi-c64.list --map
+	$(PYTHON) $(LISTSIZE) build/p8vi-c64reu.list --map
+	$(PYTHON) $(LISTSIZE) build/p8vi-c64disk.list --map
+	$(PYTHON) $(LISTSIZE) build/p8vi-c64font.list --map --memtop 0xc800
+	$(PYTHON) $(LISTSIZE) build/p8vi-cx16.list --map
+	$(PYTHON) $(LISTSIZE) build/p8vi-cx16iso.list --map
+	$(PYTHON) $(LISTSIZE) build/p8vi-mega65.list --map --memtop 0xc000
+	$(PYTHON) $(LISTSIZE) build/p8vi-mega65dma.list --map --memtop 0xc000
+	$(PYTHON) $(LISTSIZE) build/p8vi-pet32.list --map --memtop 0x8000
+	$(PYTHON) $(LISTSIZE) build/p8vi-c128.list --map --memtop 0xc000
+	$(PYTHON) $(LISTSIZE) build/p8vi-c128x.list --map --memtop 0xc000
+	$(PYTHON) $(LISTSIZE) build/p8vi-c128reu.list --map --memtop 0xc000
+	$(PYTHON) $(LISTSIZE) build/p8vi-plus4.list --map --memtop 0xfc00
+	$(PYTHON) $(LISTSIZE) build/p8vi-vic20.list --map --min-free $(VIC20_MIN_FREE)
 
 # the quick tier, for iterating: the virtual tests, the size checks, then one
 # or two suites per build side by side (tests/quick.py, a few minutes).  the
 # full suites (test-c64 ... test-trs80m4x) before a release.  only some
 # builds: make quick QUICK="c64 c128x" (tests/quick.py --list shows them)
 quick:	$(PROGS) $(FONTPROG) build/oscii.fnt build/p8vi-host build/p8vi-cpmtest.com build/p8vi-trs80test.cmd build/p8vi-trs80m4test.cmd build/p8vi-trs80m4xtest.cmd test size
-	python3 -B tests/quick.py $(QUICK)
+	$(PYTHON) -B $(QUICKTEST) $(QUICK)
 
 # editor tests on a C64 in VICE (x64sc and c1541 in the PATH)
 test-c64:	build/p8vi-c64.prg
-	python3 tests/vice/edtest.py files --prg build/p8vi-c64.prg
+	$(PYTHON) $(EDTEST) files --prg build/p8vi-c64.prg
 
 # the same tests on the Plus/4 (VICE's xplus4 with a 1541)
 test-plus4:	build/p8vi-plus4.prg
-	python3 -B tests/vice/edtest.py files --machine plus4 -j 4 --prg build/p8vi-plus4.prg
-	python3 -B tests/vice/edtest.py screen --machine plus4 -j 4 --prg build/p8vi-plus4.prg
+	$(PYTHON) -B $(EDTEST) files --machine plus4 -j 4 --prg build/p8vi-plus4.prg
+	$(PYTHON) -B $(EDTEST) screen --machine plus4 -j 4 --prg build/p8vi-plus4.prg
 
 # the same tests on the C128 (VICE's x128, a 1541), on the 40 column and
 # the 80 column (VDC) screen
 test-c128:	build/p8vi-c128.prg
-	python3 -B tests/vice/edtest.py files --machine c128 -j 4 --prg build/p8vi-c128.prg
-	python3 -B tests/vice/edtest.py screen --machine c128 -j 4 --prg build/p8vi-c128.prg
-	python3 -B tests/vice/edtest.py files --machine c128-80 -j 4 --prg build/p8vi-c128.prg
-	python3 -B tests/vice/edtest.py screen --machine c128-80 -j 4 --prg build/p8vi-c128.prg
+	$(PYTHON) -B $(EDTEST) files --machine c128 -j 4 --prg build/p8vi-c128.prg
+	$(PYTHON) -B $(EDTEST) screen --machine c128 -j 4 --prg build/p8vi-c128.prg
+	$(PYTHON) -B $(EDTEST) files --machine c128-80 -j 4 --prg build/p8vi-c128.prg
+	$(PYTHON) -B $(EDTEST) screen --machine c128-80 -j 4 --prg build/p8vi-c128.prg
 
 # the C128 bank 1 build: also the page store's suites (--paged), except
 # read-dir (no :@$ in this build) and the two that need more than bank 1
@@ -567,23 +592,23 @@ C128X_SKIP = --skip read-dir --skip huge --skip bigundo --skip marks --skip zvie
 # suite): it leaves out g-cmds and ascii as the C64 font build does
 C128X_FONT = --font build/oscii.fnt --skip g-cmds --skip ascii
 test-c128x:	build/p8vi-c128x.prg build/oscii.fnt
-	python3 -B tests/vice/edtest.py files --machine c128 --paged --limit 3000000000 -j 4 $(C128X_SKIP) $(C128X_FONT) --prg build/p8vi-c128x.prg
-	python3 -B tests/vice/edtest.py screen --machine c128 -j 4 --font build/oscii.fnt --prg build/p8vi-c128x.prg
-	python3 -B tests/vice/edtest.py files --machine c128-80 --paged --limit 3000000000 -j 4 $(C128X_SKIP) $(C128X_FONT) --prg build/p8vi-c128x.prg
-	python3 -B tests/vice/edtest.py screen --machine c128-80 -j 4 --font build/oscii.fnt --prg build/p8vi-c128x.prg
-	python3 -B tests/vice/rectest.py --machine c128 --no-reu --font build/oscii.fnt --prg build/p8vi-c128x.prg
+	$(PYTHON) -B $(EDTEST) files --machine c128 --paged --limit 3000000000 -j 4 $(C128X_SKIP) $(C128X_FONT) --prg build/p8vi-c128x.prg
+	$(PYTHON) -B $(EDTEST) screen --machine c128 -j 4 --font build/oscii.fnt --prg build/p8vi-c128x.prg
+	$(PYTHON) -B $(EDTEST) files --machine c128-80 --paged --limit 3000000000 -j 4 $(C128X_SKIP) $(C128X_FONT) --prg build/p8vi-c128x.prg
+	$(PYTHON) -B $(EDTEST) screen --machine c128-80 -j 4 --font build/oscii.fnt --prg build/p8vi-c128x.prg
+	$(PYTHON) -B $(RECTEST) --machine c128 --no-reu --font build/oscii.fnt --prg build/p8vi-c128x.prg
 
 # the C128 REU build: with a 512 KB REU (all the page store's suites), and
 # without one (bank 1, as test-c128x); read-dir: no :@$ in this build,
 # no marks or & either
 test-c128reu:	build/p8vi-c128reu.prg
-	python3 -B tests/vice/edtest.py files --machine c128 --reu 512 --limit 3000000000 -j 4 --skip read-dir --skip prefix --skip marks --skip subst-again --prg build/p8vi-c128reu.prg
-	python3 -B tests/vice/edtest.py screen --machine c128 --reu 512 -j 4 --prg build/p8vi-c128reu.prg
-	python3 -B tests/vice/edtest.py files --machine c128-80 --reu 512 --limit 3000000000 -j 4 --skip read-dir --skip prefix --skip marks --skip subst-again --prg build/p8vi-c128reu.prg
-	python3 -B tests/vice/edtest.py screen --machine c128-80 --reu 512 -j 4 --prg build/p8vi-c128reu.prg
-	python3 -B tests/vice/edtest.py files --machine c128 --paged --limit 3000000000 -j 4 $(C128X_SKIP) --skip prefix --skip subst-again --prg build/p8vi-c128reu.prg
-	python3 -B tests/vice/rectest.py --machine c128 --prg build/p8vi-c128reu.prg
-	python3 -B tests/vice/rectest.py --machine c128-80 --no-reu --prg build/p8vi-c128reu.prg
+	$(PYTHON) -B $(EDTEST) files --machine c128 --reu 512 --limit 3000000000 -j 4 --skip read-dir --skip prefix --skip marks --skip subst-again --prg build/p8vi-c128reu.prg
+	$(PYTHON) -B $(EDTEST) screen --machine c128 --reu 512 -j 4 --prg build/p8vi-c128reu.prg
+	$(PYTHON) -B $(EDTEST) files --machine c128-80 --reu 512 --limit 3000000000 -j 4 --skip read-dir --skip prefix --skip marks --skip subst-again --prg build/p8vi-c128reu.prg
+	$(PYTHON) -B $(EDTEST) screen --machine c128-80 --reu 512 -j 4 --prg build/p8vi-c128reu.prg
+	$(PYTHON) -B $(EDTEST) files --machine c128 --paged --limit 3000000000 -j 4 $(C128X_SKIP) --skip prefix --skip subst-again --prg build/p8vi-c128reu.prg
+	$(PYTHON) -B $(RECTEST) --machine c128 --prg build/p8vi-c128reu.prg
+	$(PYTHON) -B $(RECTEST) --machine c128-80 --no-reu --prg build/p8vi-c128reu.prg
 
 # the same tests on the PET (VICE's xpet, a 4032 with a 2031 drive).  left
 # out, for the features it doesn't have: ascii, crlf, big, final-eol,
@@ -591,25 +616,25 @@ test-c128reu:	build/p8vi-c128reu.prg
 PET_SKIP = --skip ascii --skip crlf --skip big --skip final-eol --skip read-format --skip find \
 	--skip subst --skip subst-again --skip dos --skip read-dir
 test-pet32:	build/p8vi-pet32.prg
-	python3 -B tests/vice/edtest.py files --machine pet -j 4 --prg build/p8vi-pet32.prg $(PET_SKIP)
-	python3 -B tests/vice/edtest.py screen --machine pet -j 4 --prg build/p8vi-pet32.prg
+	$(PYTHON) -B $(EDTEST) files --machine pet -j 4 --prg build/p8vi-pet32.prg $(PET_SKIP)
+	$(PYTHON) -B $(EDTEST) screen --machine pet -j 4 --prg build/p8vi-pet32.prg
 
 # the same tests on the C64 disk build (pages in SEQ files on the 1541),
 # with the REU suites' 6 KB text (--paged).  huge and bigundo are left
 # out: their 30-64 KB of text and its pages don't fit on a 1541 disk
 # beside the program
 test-c64disk:	build/p8vi-c64disk.prg
-	python3 -B tests/vice/edtest.py files --prg build/p8vi-c64disk.prg --paged --limit 3000000000 \
+	$(PYTHON) -B $(EDTEST) files --prg build/p8vi-c64disk.prg --paged --limit 3000000000 \
 		--skip huge --skip bigundo
-	python3 -B tests/vice/edtest.py screen --prg build/p8vi-c64disk.prg
+	$(PYTHON) -B $(EDTEST) screen --prg build/p8vi-c64disk.prg
 
 # the same tests on the C64 REU build (the page store), with an REU and
 # without one (then it has 4 KB of text: not the big file suite)
 test-c64reu:	build/p8vi-c64reu.prg
-	python3 tests/vice/edtest.py files --prg build/p8vi-c64reu.prg --reu 512 --limit 3000000000
-	python3 tests/vice/edtest.py files --prg build/p8vi-c64reu.prg --skip big
-	python3 tests/vice/rectest.py --prg build/p8vi-c64reu.prg
-	python3 tests/vice/edtest.py screen --prg build/p8vi-c64reu.prg --reu 512
+	$(PYTHON) $(EDTEST) files --prg build/p8vi-c64reu.prg --reu 512 --limit 3000000000
+	$(PYTHON) $(EDTEST) files --prg build/p8vi-c64reu.prg --skip big
+	$(PYTHON) $(RECTEST) --prg build/p8vi-c64reu.prg
+	$(PYTHON) $(EDTEST) screen --prg build/p8vi-c64reu.prg --reu 512
 
 # the font build: the REU build's tests, and its own (the font suite).
 # it has its own keys for | (and } is shift + minus), its own PETSCII for
@@ -617,41 +642,41 @@ test-c64reu:	build/p8vi-c64reu.prg
 # don't apply, and marks and zview: it has neither (features.MARKS, Z_VIEW)
 FONT_SKIP = --skip g-cmds --skip ascii --skip read-dir --skip marks --skip zview
 test-c64font:	build/p8vi-c64font.prg build/oscii.fnt
-	python3 tests/vice/edtest.py files --prg build/p8vi-c64font.prg --font build/oscii.fnt --reu 512 --limit 3000000000 $(FONT_SKIP)
-	python3 tests/vice/edtest.py files --prg build/p8vi-c64font.prg --font build/oscii.fnt --skip big $(FONT_SKIP)
-	python3 tests/vice/rectest.py --prg build/p8vi-c64font.prg --font build/oscii.fnt
-	python3 tests/vice/edtest.py screen --prg build/p8vi-c64font.prg --font build/oscii.fnt --reu 512
+	$(PYTHON) $(EDTEST) files --prg build/p8vi-c64font.prg --font build/oscii.fnt --reu 512 --limit 3000000000 $(FONT_SKIP)
+	$(PYTHON) $(EDTEST) files --prg build/p8vi-c64font.prg --font build/oscii.fnt --skip big $(FONT_SKIP)
+	$(PYTHON) $(RECTEST) --prg build/p8vi-c64font.prg --font build/oscii.fnt
+	$(PYTHON) $(EDTEST) screen --prg build/p8vi-c64font.prg --font build/oscii.fnt --reu 512
 
 # partial redraws must leave the same screen as a full redraw
 test-c64-screen:	build/p8vi-c64.prg
-	python3 tests/vice/edtest.py screen --prg build/p8vi-c64.prg
+	$(PYTHON) $(EDTEST) screen --prg build/p8vi-c64.prg
 
 # the same C64 tests with JiffyDOS (VICE's jiffykernal and jiffy1541II
 # ROMs, in its ROM directories, as EMU_KERNAL and EMU_DOS above), to
 # compare with the ones above
 JIFFY = --jiffydos
 test-c64-jiffydos:	build/p8vi-c64.prg
-	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64.prg
+	$(PYTHON) -B $(EDTEST) files $(JIFFY) --prg build/p8vi-c64.prg
 
 test-c64-screen-jiffydos:	build/p8vi-c64.prg
-	python3 -B tests/vice/edtest.py screen $(JIFFY) --prg build/p8vi-c64.prg
+	$(PYTHON) -B $(EDTEST) screen $(JIFFY) --prg build/p8vi-c64.prg
 
 test-c64reu-jiffydos:	build/p8vi-c64reu.prg
-	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64reu.prg --reu 512 --limit 3000000000
-	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64reu.prg --skip big
-	python3 -B tests/vice/rectest.py $(JIFFY) --prg build/p8vi-c64reu.prg
-	python3 -B tests/vice/edtest.py screen $(JIFFY) --prg build/p8vi-c64reu.prg --reu 512
+	$(PYTHON) -B $(EDTEST) files $(JIFFY) --prg build/p8vi-c64reu.prg --reu 512 --limit 3000000000
+	$(PYTHON) -B $(EDTEST) files $(JIFFY) --prg build/p8vi-c64reu.prg --skip big
+	$(PYTHON) -B $(RECTEST) $(JIFFY) --prg build/p8vi-c64reu.prg
+	$(PYTHON) -B $(EDTEST) screen $(JIFFY) --prg build/p8vi-c64reu.prg --reu 512
 
 test-c64font-jiffydos:	build/p8vi-c64font.prg build/oscii.fnt
-	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64font.prg --font build/oscii.fnt --reu 512 --limit 3000000000 $(FONT_SKIP)
-	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64font.prg --font build/oscii.fnt --skip big $(FONT_SKIP)
-	python3 -B tests/vice/rectest.py $(JIFFY) --prg build/p8vi-c64font.prg --font build/oscii.fnt
-	python3 -B tests/vice/edtest.py screen $(JIFFY) --prg build/p8vi-c64font.prg --font build/oscii.fnt --reu 512
+	$(PYTHON) -B $(EDTEST) files $(JIFFY) --prg build/p8vi-c64font.prg --font build/oscii.fnt --reu 512 --limit 3000000000 $(FONT_SKIP)
+	$(PYTHON) -B $(EDTEST) files $(JIFFY) --prg build/p8vi-c64font.prg --font build/oscii.fnt --skip big $(FONT_SKIP)
+	$(PYTHON) -B $(RECTEST) $(JIFFY) --prg build/p8vi-c64font.prg --font build/oscii.fnt
+	$(PYTHON) -B $(EDTEST) screen $(JIFFY) --prg build/p8vi-c64font.prg --font build/oscii.fnt --reu 512
 
 test-c64disk-jiffydos:	build/p8vi-c64disk.prg
-	python3 -B tests/vice/edtest.py files $(JIFFY) --prg build/p8vi-c64disk.prg --paged --limit 3000000000 \
+	$(PYTHON) -B $(EDTEST) files $(JIFFY) --prg build/p8vi-c64disk.prg --paged --limit 3000000000 \
 		--skip huge --skip bigundo
-	python3 -B tests/vice/edtest.py screen $(JIFFY) --prg build/p8vi-c64disk.prg
+	$(PYTHON) -B $(EDTEST) screen $(JIFFY) --prg build/p8vi-c64disk.prg
 
 # all the C64 tests with JiffyDOS
 test-jiffydos:	test-c64-jiffydos test-c64-screen-jiffydos test-c64reu-jiffydos test-c64font-jiffydos test-c64disk-jiffydos
@@ -661,24 +686,24 @@ test-jiffydos:	test-c64-jiffydos test-c64-screen-jiffydos test-c64reu-jiffydos t
 test-reu:	build
 	$(PCC) -quiet $(PCCARGSC64) tests/reu/reudetect.p8
 	$(PCC) -quiet $(PCCARGSC64) tests/reu/reureset.p8
-	python3 tests/reu/reutest.py --build build
+	$(PYTHON) $(REUTEST) --build build
 
 # look in the generated assembler for the silent miscompiles found so far
 # (bugs/uword_array_eq_ubyte.p8, bugs/min_ubyte_expressions.p8)
 audit:	$(PROGS) $(FONTPROG)
-	python3 tools/asmaudit.py build/p8vi-c64.asm build/p8vi-c64reu.asm build/p8vi-c64font.asm build/p8vi-cx16.asm build/p8vi-vic20.asm
+	$(PYTHON) $(ASMAUDIT) build/p8vi-c64.asm build/p8vi-c64reu.asm build/p8vi-c64font.asm build/p8vi-cx16.asm build/p8vi-vic20.asm
 
 # the 6502 fastmem routines against plain Prog8, on a C64 in VICE
 test-fastmem:	build
-	$(PCC) -quiet -srcdirs src:src/c64 -target c64 -out build tests/fastmem/fastmemtest.p8
+	$(PCC) -quiet -srcdirs "src$(PS)src/c64" -target c64 -out build tests/fastmem/fastmemtest.p8
 	cd build && x64sc -default -minimized -sounddev dummy -warp -debugcart -autostartprgmode 1 -autostart fastmemtest.prg -limitcycles 900000000 -exitscreenshot fastmemtest.png > fastmemtest.log 2>&1; grep -q 'DBGCART: exit(0)' fastmemtest.log && echo "fastmem: ok" || (echo "fastmem: FAIL, see build/fastmemtest.png"; false)
 
 # timings of the text store routines on a C64 in VICE (page store and gap
 # buffer), screenshots in build/bench-page.png and build/bench-gap.png
 bench:	build
-	$(PCC) -quiet -srcdirs src:src/c64reu:src/c64 -target c64 -out build tests/bench/storebench.p8
+	$(PCC) -quiet -srcdirs "src$(PS)src/c64reu$(PS)src/c64" -target c64 -out build tests/bench/storebench.p8
 	cd build && x64sc -default -minimized -sounddev dummy -warp -debugcart -autostartprgmode 1 -autostart storebench.prg -limitcycles 900000000 -exitscreenshot bench-page.png >/dev/null 2>&1
-	$(PCC) -quiet -srcdirs src:src/c64 -target c64 -out build tests/bench/storebench.p8
+	$(PCC) -quiet -srcdirs "src$(PS)src/c64" -target c64 -out build tests/bench/storebench.p8
 	cd build && x64sc -default -minimized -sounddev dummy -warp -debugcart -autostartprgmode 1 -autostart storebench.prg -limitcycles 900000000 -exitscreenshot bench-gap.png >/dev/null 2>&1
 
 # the text store tests on the virtual target (output compared with
