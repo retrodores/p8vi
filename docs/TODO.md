@@ -382,7 +382,7 @@ and editing then go about as with an REU.
 - **Host version** (`build/p8vi-host`, `make host`; llvm64 and clang;
   src/host with src/cpm's screen and src/trs80's charset).  A program for
   this machine in a terminal: `p8vi-host [-t ansi|vt52|adm3a] [-40]
-  [file]`.  The terminal is the console (src/host/console_platform.p8:
+  [-s COLSxROWS] [file]`.  The terminal is the console (src/host/console_platform.p8:
   the library's getkey/waitkey syscalls, raw mode from the first key);
   src/cpm/console_platform.p8 is CP/M's.  New files get LF; the safe
   save's p8vi.tmp goes in the file's directory (PATH_SEP '/').  Checked
@@ -394,14 +394,27 @@ and editing then go about as with an REU.
   runtime's waitkey flushes stdout before it waits since the compiler of
   2026-11-11 (bugs/llvm64_waitkey_flush.md): an older one shows no
   screen.  Open:
-  - The text is the 16-bit editor's: 64 KB at most.
-  - The screen is 80 x 24 (or -40); the terminal's own size isn't asked.
+  - The screen is the terminal window's size, up to 250 x 200
+    (console.MAX_WIDTH/MAX_HEIGHT; the editor's rows and columns are
+    ubytes).  ANSI: platform.init asks it (the cursor to ESC [ 999 ; 999
+    H, then ESC [ 6 n; the answer ESC [ rows ; cols R comes in as keys),
+    and Ctrl-L asks again: a new size lays the screen out again
+    (platform.SWITCH, as the C128's 40/80 key).  A terminal that doesn't
+    answer in half a second is 80 x 24 and isn't asked again; VT52 and
+    ADM-3A are 80 x 24.  `-s COLSxROWS` gives the size (needed when stdin
+    isn't the terminal: the answer is read from it; the tests use -s
+    80x24).  Tested: cpmtest.py --host size (the answers in the piped
+    keys, against -s runs of the same size), and in a pty, 2026-11-11.
+    Still to do: following the window without Ctrl-L needs the runtime
+    to report SIGWINCH (a flag or a key) or the size (TIOCGWINSZ,
+    GetConsoleScreenBufferInfo); on Windows the answer comes only if the
+    console passes it as input (not tried yet).
   - Arrow keys: the runtime's getkey gives the arrows' codes itself
     (ESC [ A, ESC [ 1;2A, ESC O A: the same as the editor's); Home, Page
     Up/Down, unknown sequences and VT52 are txt.escape_key's.  Tested by
     cpmtest.py --host's ansi-keys and vt52-keys suites.
-  - llvm32 (wasm with WASI: no raw keyboard there), Linux and Windows
-    builds not tried.
+  - llvm32 (wasm with WASI: no raw keyboard there) and Linux builds not
+    tried; Windows builds (the user, 2026-11-11).
 - **Color Computer 2 and 3** (not started; llvm16 `mc6809-coco`).  Both are
   blocked by the 6809's code size today.  The same program's code is 4.5
   times the Z80's at -O2, mostly from inlining, so p8vi would be over

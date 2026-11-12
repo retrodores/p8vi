@@ -22,8 +22,11 @@
 ; the host build src/host/console_platform.p8's (the terminal).
 ;
 txt {
-    const ubyte DEFAULT_WIDTH = 80
-    const ubyte DEFAULT_HEIGHT = 24
+    ; the largest screen (console.MAX_WIDTH x MAX_HEIGHT): the rows of want
+    ; and shown are DEFAULT_WIDTH apart.  The screen used is columns x rows
+    ; (80 x 24 to start; resize())
+    const ubyte DEFAULT_WIDTH = console.MAX_WIDTH
+    const ubyte DEFAULT_HEIGHT = console.MAX_HEIGHT
     const uword SIZE = (DEFAULT_WIDTH as uword) * DEFAULT_HEIGHT
 
     const ubyte ANSI = 0
@@ -41,15 +44,24 @@ txt {
     ubyte ccol                  ; where flush() leaves the cursor
     ubyte crow
     bool follow = true          ; or where chrout writes next (the : line)
-    ubyte columns = DEFAULT_WIDTH   ; the screen's width (-40: 40); the rows
-                                    ; in want and shown stay DEFAULT_WIDTH
+    ubyte columns = 80          ; the screen's width (-40: 40)
+    ubyte rows = 24             ; and height
 
     sub width() -> ubyte {
         return columns
     }
 
     sub height() -> ubyte {
-        return DEFAULT_HEIGHT
+        return rows
+    }
+
+    ; a new screen size, kept within MIN_ and DEFAULT_WIDTH x HEIGHT; the
+    ; caller draws it all again
+    const ubyte MIN_WIDTH = 20
+    const ubyte MIN_HEIGHT = 4
+    sub resize(ubyte c, ubyte r) {
+        columns = clamp(c, MIN_WIDTH, DEFAULT_WIDTH)
+        rows = clamp(r, MIN_HEIGHT, DEFAULT_HEIGHT)
     }
 
     ; the terminal by name ("ANSI", "VT52", "ADM3A", any case); false if
@@ -143,7 +155,7 @@ txt {
     ; send what changed, then the cursor to where show_cursor() put it
     sub flush() {
         ubyte r
-        for r in 0 to DEFAULT_HEIGHT - 1 {
+        for r in 0 to rows - 1 {
             if dirty[r] {
                 dirty[r] = false
                 flush_row(r)
@@ -160,7 +172,7 @@ txt {
         ubyte first = 0
         ubyte last = columns - 1
         ; (not the bottom right corner: writing there scrolls some terminals)
-        if r == DEFAULT_HEIGHT - 1
+        if r == rows - 1
             last--
         while first <= last and want[base + first] == shown[base + first]
             first++
@@ -211,7 +223,7 @@ txt {
     }
 
     sub put(ubyte c, ubyte r, ubyte char) {
-        if c >= columns or r >= DEFAULT_HEIGHT
+        if c >= columns or r >= rows
             return
         if char < ' ' or char >= $7f
             char = '.'
@@ -393,6 +405,19 @@ txt {
                 return k
         }
         return 0
+    }
+
+    ; a key typed ahead (the queue's first), or the console's if it has one;
+    ; 0 for none (the host's size question: its answer may be queued
+    ; already)
+    sub poll_once() -> ubyte {
+        ubyte k
+        if key_head != key_tail {
+            k = keys[key_head]
+            key_head = (key_head + 1) & 15
+            return k
+        }
+        return console.poll()
     }
 
     ; a key back in front of the queue

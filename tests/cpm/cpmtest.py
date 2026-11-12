@@ -68,6 +68,9 @@ KEY_BUF_SIZE = 256
 # C64's graphics keys, CBM DOS commands and drive prefixes, a full disk
 CBM_ONLY = trstest.CBM_ONLY
 ARGS = None     # the command line (main)
+# (--host) the screen's size, given: the host version asks the terminal
+# otherwise, and would read the answer from the keys on its stdin
+HOST_SIZE = ['-s', '80x24']
 
 
 def text_file(text):
@@ -161,7 +164,7 @@ def tnylpo(work, *options):
             keys = f.read()
         os.remove(path)
         try:
-            r = subprocess.run([ARGS.prg] + list(options), cwd=work, input=keys, stdout=subprocess.PIPE,
+            r = subprocess.run([ARGS.prg] + HOST_SIZE + list(options), cwd=work, input=keys, stdout=subprocess.PIPE,
                                stderr=subprocess.DEVNULL, timeout=TIMEOUT)
         except subprocess.TimeoutExpired:
             return None
@@ -279,6 +282,68 @@ def run_lines(args, pair):
     return a, ok, lines
 
 
+# (size, --host) the screen the terminal's size: name, the input with the
+# terminal's answers to p8vi's size question (ESC [ rows ; cols R, at the
+# start and after a Ctrl-L), and what it must show the same as: the
+# reference's options and input (-s gives the size, nothing is asked), and
+# the screen's size.
+SIZE_TEXT = b'\n'.join(b'line %02d ' % i + b'abcdefghij' * (i % 15) for i in range(1, 61)) + b'\n'
+SIZE_CASES = [
+    # the answer at the start: 100 x 30
+    ('start', b'\x1b[30;100R:e t.txt\r10Gx', ['-s', '100x30'], b':e t.txt\r10Gx', (100, 30)),
+    # a bigger window: Ctrl-L asks again, the screen is laid out again
+    ('grow', b'\x1b[24;80R:e t.txt\r10G\x0c\x1b[40;120Rx', ['-s', '120x40'], b':e t.txt\r10Gx', (120, 40)),
+    # the same size: Ctrl-L only draws it all again
+    ('same', b'\x1b[24;80R:e t.txt\r5G\x0c\x1b[24;80Rx', ['-s', '80x24'], b':e t.txt\r5Gx', (80, 24)),
+    # smaller, with the cursor far down: the view scrolls to it
+    ('shrink', b'\x1b[24;80R:e t.txt\r20G\x0c\x1b[12;50Rx', ['-s', '50x12'], b':e t.txt\r20Gx', (50, 12)),
+    # in :set number, then wider
+    ('number', b'\x1b[24;80R:e t.txt\r:set nu\r3G\x0c\x1b[30;132Rx', ['-s', '132x30'],
+     b':e t.txt\r:set nu\r3Gx', (132, 30)),
+    # no answer (a key first): 80 x 24, and the key isn't lost
+    ('no-answer', b':e t.txt\r10Gx', ['-s', '80x24'], b':e t.txt\r10Gx', (80, 24)),
+    # -s is kept within 20 x 4 and the screen's 250 x 200
+    ('clamp', b':e t.txt\rx', ['-s', '1x1'], None, (20, 4)),
+]
+
+
+def size_screen(args, name, options, keys, size):
+    """the screen p8vi shows before it quits, or a problem (a string)"""
+    work = tempfile.mkdtemp(prefix=f'cpmz-{name}-', dir=args.work)
+    with open(os.path.join(work, 't.txt'), 'wb') as f:
+        f.write(SIZE_TEXT)
+    try:
+        r = subprocess.run([args.prg] + options, cwd=work, input=keys + b':q!\r', stdout=subprocess.PIPE,
+                           stderr=subprocess.DEVNULL, timeout=TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return f'did not finish in {TIMEOUT} s (files in {work})'
+    try:
+        scr, _ = termplay.play(termplay.before_quit(r.stdout, 'ansi'), 'ansi', *size)
+    except termplay.BadCode as e:
+        return f'{e} (files in {work})'
+    shutil.rmtree(work)
+    return scr
+
+
+def run_size(args, case):
+    name, keys, ref_options, ref_keys, (w, h) = case
+    if name == 'clamp':
+        # (played on 80 x 24: nothing past 20 columns and 4 rows)
+        got = size_screen(args, name, ref_options, keys, (80, 24))
+        ok = isinstance(got, list) and got[0] and all(len(r) <= w for r in got) and not any(got[h:])
+        return name, ok, [] if ok else [f'  {got!r}']
+    got = size_screen(args, name, [], keys, (w, h))
+    want = size_screen(args, name + '-ref', ref_options, ref_keys, (w, h))
+    for scr in (got, want):
+        if isinstance(scr, str):
+            return name, False, ['  ' + scr]
+    diff = [r for r in range(h) if got[r] != want[r]]
+    lines = [f'  differs in rows {diff[:8]}'] if diff else []
+    for r in diff[:3]:
+        lines += [f'    {r:2} want {want[r]!r}', f'    {r:2} got  {got[r]!r}']
+    return name, not lines, lines
+
+
 def run_big(args, _):
     """(--host) the 32-bit positions on a big file"""
     import random
@@ -290,7 +355,7 @@ def run_big(args, _):
     keys = (':e big.txt\r' 'G:w g1\r' '/line 100000\rdd:w g2\r' 'ggx:w g3\r' '5Gyy' 'Gp:w g4\r' 'u:w g5\r'
             ':100002\rdd:w g6\r' 'u:99998,100001s/line/LINE/\r:w g7\r' 'u:set number\r:99999\r' ':q!\r')
     try:
-        r = subprocess.run([args.prg], cwd=work, input=keys.encode(), stdout=subprocess.PIPE,
+        r = subprocess.run([args.prg] + HOST_SIZE, cwd=work, input=keys.encode(), stdout=subprocess.PIPE,
                            stderr=subprocess.DEVNULL, timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
         return 'big', False, [f'  did not finish in {TIMEOUT} s (files in {work})']
@@ -318,7 +383,7 @@ def run_big(args, _):
 
 def main():
     ap = argparse.ArgumentParser(description='p8vi-cpm tests in tnylpo, or the host version\'s')
-    ap.add_argument('kind', nargs='?', default='files', choices=['files', 'screen', 'number', 'lines', 'big'])
+    ap.add_argument('kind', nargs='?', default='files', choices=['files', 'screen', 'number', 'lines', 'big', 'size'])
     ap.add_argument('names', nargs='*', help='only run these suites')
     ap.add_argument('--prg', help='the program (build/p8vi-cpmtest.com, with --host build/p8vi-host)')
     ap.add_argument('--host', action='store_true', help='the host version, the keys on its stdin')
@@ -357,6 +422,11 @@ def main():
     elif args.kind == 'lines':
         suites = LINES_PAIRS
         run = run_lines
+    elif args.kind == 'size':
+        if not args.host:
+            sys.exit('size is for the host version (--host)')
+        suites = [c for c in SIZE_CASES if not args.names or c[0] in args.names]
+        run = run_size
     else:
         if not args.host:
             sys.exit('big is for the host version (--host)')

@@ -46,7 +46,8 @@ def jobs():
     return {
         'host': [PY + ['tests/cpm/cpmtest.py', '--host', '--work', '{work}', 'files', 'delete-put', 'marks'],
                  PY + ['tests/cpm/cpmtest.py', '--host', '--work', '{work}', 'number'],
-                 PY + ['tests/cpm/cpmtest.py', '--host', '--work', '{work}', 'lines']],
+                 PY + ['tests/cpm/cpmtest.py', '--host', '--work', '{work}', 'lines'],
+                 PY + ['tests/cpm/cpmtest.py', '--host', '--work', '{work}', 'size']],
         'cpm': [PY + ['tests/cpm/cpmtest.py', '--work', '{work}', 'files', 'delete-put']],
         'c64': [vice('files', '--prg', 'build/p8vi-c64.prg', 'delete-put', 'marks'),
                 vice('screen', '--prg', 'build/p8vi-c64.prg', 'long-dd-mid', 'scroll-mixed')],

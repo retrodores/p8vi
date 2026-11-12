@@ -304,13 +304,15 @@ build/p8vi-host: src/p8vi_host.p8 src/*.p8 src/wide/*.p8 src/host/*.p8 src/cpm/*
 	$(PYTHON) $(ENCODE_COPY) --wide $(WIDEMODS) $(HOSTWIDE) $(HOSTWIDE_DIRS)
 	$(PCC) $(PCCARGSHOST) -o build/p8vi-host $(HOSTWIDE)/src/p8vi_host.p8
 # edtest's file and screen suites, with the keys piped in (tests/cpm/cpmtest.py
-# --host); :set number, :d and :y with ranges, and a 4.5 MB file
+# --host); :set number, :d and :y with ranges, a 4.5 MB file, and the
+# screen the terminal's size
 test-host:	build/p8vi-host
 	$(PYTHON) -B $(CPMTEST) --host files
 	$(PYTHON) -B $(CPMTEST) --host screen
 	$(PYTHON) -B $(CPMTEST) --host number
 	$(PYTHON) -B $(CPMTEST) --host lines
 	$(PYTHON) -B $(CPMTEST) --host big
+	$(PYTHON) -B $(CPMTEST) --host size
 
 # CP/M 2.2 and later on a Z80 (src/cpm, with src/trs80's charset, fastmem
 # and store): a .com for any machine with a terminal (-t ansi, vt52 or

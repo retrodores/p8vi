@@ -13,7 +13,12 @@
 ; The other platform files are the CP/M version's and the TRS-80's
 ; (-srcdirs src:src/host:src/cpm:src/trs80).
 ;
-;   p8vi [-t ansi|vt52|adm3a] [-40] [file]
+;   p8vi [-t ansi|vt52|adm3a] [-40] [-s COLSxROWS] [file]
+;
+; The screen is the terminal window's size (ANSI: init asks it, and Ctrl-L
+; asks again, for a window made bigger or smaller), up to 250 x 200; -s
+; gives a size (and nothing is asked: needed when stdin isn't the
+; terminal), VT52 and ADM3A are 80 x 24.
 ;
 platform {
     const ubyte COLUMNS = txt.DEFAULT_WIDTH
@@ -36,6 +41,15 @@ platform {
         texttop = textstart + pos.TEXT_MAX
         sparestart = texttop
         sparetop = texttop
+        if txt.term != txt.ANSI
+            fixed_size = true
+        if not fixed_size
+            void query_size()
+        set_screen()
+    }
+
+    ; the editor's screen size from txt's
+    sub set_screen() {
         main.SCREEN_WIDTH    = txt.width()
         main.SCREEN_HEIGHT   = txt.height()
         main.STATUS_HEIGHT   = 1
@@ -46,6 +60,63 @@ platform {
         main.STATUS_LINE     = main.SCREEN_HEIGHT - 1
     }
 
+    bool fixed_size     ; -s, -40, a terminal that isn't ANSI or didn't answer: the size isn't asked
+    bool resized        ; Ctrl-L found a new size (switch_wanted)
+
+    ; ask the terminal its size (ANSI): the cursor to the bottom right
+    ; corner (the terminal stops it there), then where it is, ESC [ 6 n.
+    ; The answer, ESC [ rows ; cols R, comes in as keys.  true if it gave a
+    ; size other than the one used now; a terminal that doesn't answer in
+    ; half a second isn't asked again.  (the first key read puts the
+    ; terminal in raw mode, so the answer isn't echoed: read before asking.
+    ; keys typed ahead are in txt's queue: the answer may be there too)
+    sub query_size() -> bool {
+        ubyte k = txt.poll_once()
+        txt.out_str("\x1b[999;999H\x1b[6n")
+        txt.tcol = 255
+        txt.trow = 255
+        uword start = sys.ticks()
+        while k == 0 {
+            if sys.ticks() - start > sys.TICKS_PER_SECOND / 2 {
+                fixed_size = true
+                return false
+            }
+            sys.wait(1)
+            k = txt.poll_once()
+        }
+        if k != 27 {
+            ; a key typed before the answer: kept (the answer, coming
+            ; after it, is an escape sequence escape_key drops)
+            txt.unget(k)
+            return false
+        }
+        if txt.next_key() != '['
+            return false
+        uword r = reply_number(';')
+        uword c = reply_number('R')
+        if r == 0 or c == 0
+            return false
+        ubyte old_c = txt.columns
+        ubyte old_r = txt.rows
+        txt.resize(min(c, 255) as ubyte, min(r, 255) as ubyte)
+        return txt.columns != old_c or txt.rows != old_r
+    }
+
+    ; (query_size) the digits of the answer up to the end byte; 0 if
+    ; something else came
+    sub reply_number(ubyte end) -> uword {
+        uword n = 0
+        ubyte k
+        repeat {
+            k = txt.next_key()
+            if k == end
+                return n
+            if k < '0' or k > '9' or n > 999
+                return 0
+            n = n * 10 + k - '0'
+        }
+    }
+
     ; the command line: -T and the terminal's name (or -TNAME), -40, and a
     ; file to edit.  An unknown option or terminal ends the program with a
     ; usage line, before anything is drawn.
@@ -54,9 +125,19 @@ platform {
         pointer arg
         while i < sys.argc() {
             arg = sys.argv(i)
-            if arg[0] == '-' and arg[1] == '4' and arg[2] == '0' and arg[3] == 0
+            if arg[0] == '-' and arg[1] == '4' and arg[2] == '0' and arg[3] == 0 {
                 txt.columns = 40
-            else if arg[0] == '-' and (arg[1] == 'T' or arg[1] == 't') {
+                fixed_size = true
+            } else if arg[0] == '-' and (arg[1] == 'S' or arg[1] == 's') {
+                if arg[2] == 0 {
+                    i++
+                    if i >= sys.argc()
+                        usage()
+                    arg = sys.argv(i)
+                } else
+                    arg += 2
+                size_option(arg)
+            } else if arg[0] == '-' and (arg[1] == 'T' or arg[1] == 't') {
                 if arg[2] == 0 {
                     i++
                     if i >= sys.argc()
@@ -82,8 +163,29 @@ platform {
     ubyte start_pos
 
     sub usage() {
-        txt.out_str("usage: p8vi [-t ansi|vt52|adm3a] [-40] [file]\n")
+        txt.out_str("usage: p8vi [-t ansi|vt52|adm3a] [-40] [-s COLSxROWS] [file]\n")
         sys.exit(1)
+    }
+
+    ; -s COLSxROWS: the screen's size (kept within 20 x 4 and 250 x 200)
+    sub size_option(pointer arg) {
+        uword c = 0
+        uword r = 0
+        while @(arg) >= '0' and @(arg) <= '9' and c < 1000 {
+            c = c * 10 + @(arg) - '0'
+            arg++
+        }
+        if @(arg) != 'x' and @(arg) != 'X'
+            usage()
+        arg++
+        while @(arg) >= '0' and @(arg) <= '9' and r < 1000 {
+            r = r * 10 + @(arg) - '0'
+            arg++
+        }
+        if @(arg) != 0 or c == 0 or r == 0
+            usage()
+        txt.resize(min(c, 255) as ubyte, min(r, 255) as ubyte)
+        fixed_size = true
     }
 
     ; before the program ends: what is left to send
@@ -133,12 +235,15 @@ platform {
         txt.dirty[dest] = true
     }
 
-    ; (the C128: the 40/80 DISPLAY key switches the screen; not here)
-    const bool SWITCH = false
+    ; a new terminal size (Ctrl-L, see main.get_key): the editor lays out
+    ; the screen again (main.switch_screen, as the C128's 40/80 key)
+    const bool SWITCH = true
     sub switch_wanted() -> bool {
-        return false
+        return resized
     }
     sub switch_screen() {
+        set_screen()
+        resized = false
     }
 
     ; (font builds only; there is none here)
@@ -297,7 +402,16 @@ main {
         when k {
             127, 8 -> return KEY_DEL
             3 -> return KEY_STOP
-            KEY_CONTROL_L -> txt.repaint()      ; (the editor draws it all again)
+            KEY_CONTROL_L -> {
+                ; the window's size again: when it changed, no key, and the
+                ; editor lays the screen out again (platform.switch_wanted)
+                if not platform.fixed_size and platform.query_size() {
+                    txt.repaint()
+                    platform.resized = true
+                    return 0
+                }
+                txt.repaint()       ; (the editor draws it all again)
+            }
         }
         return k
     }

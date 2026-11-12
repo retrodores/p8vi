@@ -19,8 +19,12 @@ class BadCode(Exception):
     pass
 
 
-def play(data, term):
-    """the screen's rows (trailing spaces off) and the cursor (row, col)"""
+def play(data, term, w=W, h=H):
+    """the screen's rows (trailing spaces off) and the cursor (row, col), on
+    a w x h screen.  (the host version's size question, ESC [ 6 n, is
+    passed over; a cursor address past the screen stops at its edge, as on
+    a terminal: the question's ESC [ 999 ; 999 H)"""
+    W, H = w, h
     scr = [[' '] * W for _ in range(H)]
     r = c = 0
     i = 0
@@ -35,11 +39,13 @@ def play(data, term):
                 i += m.end()
                 if cmd == 'H':
                     p = [int(x) for x in args.split(';')] if args else [1, 1]
-                    r, c = p[0] - 1, p[1] - 1
+                    r, c = min(p[0], H) - 1, min(p[1], W) - 1
                 elif cmd == 'J':
                     scr = [[' '] * W for _ in range(H)]
                 elif cmd == 'K':
                     scr[r][c:] = [' '] * (W - c)
+                elif cmd == 'n' and args == '6':
+                    pass
                 else:
                     raise BadCode(f'ESC [ {args} {cmd} at {i}')
                 continue

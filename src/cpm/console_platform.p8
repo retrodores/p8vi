@@ -4,6 +4,11 @@
 ; build's is src/host/console_platform.p8.
 ;
 console {
+    ; the largest screen txt keeps (its buffers' size): CP/M's terminals
+    ; are 80 x 24
+    const ubyte MAX_WIDTH = 80
+    const ubyte MAX_HEIGHT = 24
+
     ; BDOS function 6: E is the character, or $FF to read a key without
     ; waiting (0 when there is none).  IX and IY are kept, for the
     ; compiled code.

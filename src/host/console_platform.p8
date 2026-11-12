@@ -6,6 +6,12 @@
 ; terminal, a key is the next byte of stdin, and 0 at its end.
 ;
 console {
+    ; the largest screen txt keeps (its buffers' size, 50 KB): a terminal
+    ; window's size up to this is used (platform.init asks it); a bigger
+    ; one shows this much.  (the editor's rows and columns are ubytes)
+    const ubyte MAX_WIDTH = 250
+    const ubyte MAX_HEIGHT = 200
+
     sub out(ubyte char) {
         %ir {{
             loadm.b r99100.b,[console.out.char]
