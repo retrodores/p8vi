@@ -402,6 +402,35 @@ def run_size(args, case):
     return name, not lines, lines
 
 
+# (endings) a new text's line endings, as written: the platform's own
+# (NEW_ENDING), LF on the host and the Amiga, CR LF on CP/M.  The other
+# suites compare files with their line endings made LF, so they can't tell.
+# name, the keys (the start with no file: no :e t.txt first), the file
+ENDING_CASES = [
+    ('new-file', b':e new.txt\riab\rcd\x1b:w\r:q!\r', 'new.txt'),
+    ('no-file', b'iab\rcd\x1b:w n2.txt\r:q!\r', 'n2.txt'),
+]
+NEW_EOL = None      # the line ending expected (main: by the build; amigatest.py: LF)
+
+
+def run_ending(args, case):
+    name, keys, fname = case
+    work = tempfile.mkdtemp(prefix='cpme-' + name + '-', dir=args.work)
+    if not args.host:
+        shutil.copyfile(args.prg, os.path.join(work, 'p8vi.com'))
+    with open(os.path.join(work, 'keys.txt'), 'wb') as f:
+        f.write(keys)
+    if tnylpo(work) is None:
+        return name, False, [f'  did not finish in {TIMEOUT} s (files in {work})']
+    path = os.path.join(work, fname)
+    got = open(path, 'rb').read().split(b'\x1a')[0] if os.path.exists(path) else None
+    want = b'ab' + NEW_EOL + b'cd' + NEW_EOL
+    if got != want:
+        return name, False, [f'  {fname}: want {want!r}', f'  {fname}: got  {got!r}', f'  (files in {work})']
+    shutil.rmtree(work)
+    return name, True, []
+
+
 def run_big(args, _):
     """(--host) the 32-bit positions on a big file"""
     import random
@@ -441,7 +470,7 @@ def run_big(args, _):
 
 def main():
     ap = argparse.ArgumentParser(description='p8vi-cpm tests in tnylpo, or the host version\'s')
-    ap.add_argument('kind', nargs='?', default='files', choices=['files', 'screen', 'number', 'lines', 'big', 'size'])
+    ap.add_argument('kind', nargs='?', default='files', choices=['files', 'screen', 'number', 'lines', 'big', 'size', 'endings'])
     ap.add_argument('names', nargs='*', help='only run these suites')
     ap.add_argument('--prg', help='the program (build/p8vi-cpmtest.com, with --host build/p8vi-host)')
     ap.add_argument('--host', action='store_true', help='the host version, the keys on its stdin')
@@ -480,6 +509,11 @@ def main():
     elif args.kind == 'lines':
         suites = LINES_PAIRS
         run = run_lines
+    elif args.kind == 'endings':
+        global NEW_EOL
+        NEW_EOL = b'\n' if args.host else b'\r\n'
+        suites = [c for c in ENDING_CASES if not args.names or c[0] in args.names]
+        run = run_ending
     elif args.kind == 'size':
         if not args.host:
             sys.exit('size is for the host version (--host)')

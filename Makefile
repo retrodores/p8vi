@@ -315,6 +315,7 @@ test-host:	build/p8vi-host
 	$(PYTHON) -B $(CPMTEST) --host lines
 	$(PYTHON) -B $(CPMTEST) --host big
 	$(PYTHON) -B $(CPMTEST) --host size
+	$(PYTHON) -B $(CPMTEST) --host endings
 
 # CP/M 2.2 and later on a Z80 (src/cpm, with src/trs80's charset, fastmem
 # and store): a .com for any machine with a terminal (-t ansi, vt52 or
@@ -335,6 +336,7 @@ test-cpm:	build/p8vi-cpmtest.com build/p8vi-cpm.com
 	$(PYTHON) -B $(CPMTEST) screen
 	$(PYTHON) -B $(CPMTEST) number
 	$(PYTHON) -B $(CPMTEST) lines
+	$(PYTHON) -B $(CPMTEST) endings
 	$(PYTHON) -B $(M4TEST)
 cpm-test: build/p8vi-cpmtest.com
 build/p8vi-cpmtest.com: src/p8vi_cpmtest.p8 src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/cpm/*.p8 src/trs80/*.p8
@@ -381,6 +383,7 @@ test-amiga:	build/p8vi-amigatest
 	$(PYTHON) -B $(AMIGATEST)
 	$(PYTHON) -B $(AMIGATEST) screen
 	$(PYTHON) -B $(AMIGATEST) number
+	$(PYTHON) -B $(AMIGATEST) endings
 	$(PYTHON) -B $(AMIGATEST) --own-window files delete-put undo marks
 	$(if $(AMIGA_ROM),$(PYTHON) -B $(AMIGATEST) --resize)
 

@@ -14,6 +14,9 @@ default if it's in ~/Documents/FS-UAE/Kickstarts, else Copperline's own
 AROS; --exit-on-return ends the run when p8vi does (--run warps the boot;
 p8vi runs at an A500's speed).
 
+endings: a new text's line endings as written (LF), which the other
+suites can't see (cpmtest.py's ENDING_CASES).
+
 screen, number: edtest's screen suites (and cpmtest.py's :set number
 ones) as cpmtest.py runs them: p8vi's output goes to a file (p8vi.com
 >out.log, the CLI's redirection: the keys still come from the window),
@@ -119,7 +122,7 @@ def run_resize(args, case):
 def main():
     global ARGS
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    ap.add_argument('kind', nargs='?', default='files', choices=['files', 'screen', 'number'])
+    ap.add_argument('kind', nargs='?', default='files', choices=['files', 'screen', 'number', 'endings'])
     ap.add_argument('names', nargs='*', help='only run these suites')
     ap.add_argument('--prg', default='build/p8vi-amigatest')
     ap.add_argument('--rom', default=KICKSTART if os.path.exists(KICKSTART) else None,
@@ -152,6 +155,18 @@ def main():
                     print(line)
                 failed += not ok
         print(f'amiga resize: {len(RESIZE_CASES) - failed} of {len(RESIZE_CASES)} passed')
+        sys.exit(1 if failed else 0)
+    if args.kind == 'endings':
+        # (a new text's line endings as written: LF on the Amiga)
+        cpmtest.NEW_EOL = b'\n'
+        cases = [c for c in cpmtest.ENDING_CASES if not args.names or c[0] in args.names]
+        failed = 0
+        for name, ok, lines in map(lambda c: cpmtest.run_ending(args, c), cases):
+            print(f'{name}: {"ok" if ok else "FAIL"}', flush=True)
+            for line in lines:
+                print(line)
+            failed += not ok
+        print(f'amiga endings: {len(cases) - failed} of {len(cases)} passed')
         sys.exit(1 if failed else 0)
     if args.kind != 'files':
         # (the Amiga's console is ANSI only)

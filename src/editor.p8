@@ -2474,7 +2474,11 @@ main {
             for cx16.r0L in 0 to len(mark_set) - 1
                 mark_set[cx16.r0L] = false
         }
+        ; (a new text's line end: LF where new files get LF, the host's and
+        ; the Amiga's; else CR, CP/M's CR LF too, CR in memory)
         buffer.eol = $0d
+        if NEW_ENDING == ENDING_LF
+            buffer.eol = $0a
         final_eol = features.FINAL_EOL
         cur_line = 0
         goal_col = 0
