@@ -136,7 +136,7 @@ build/p8vi-c64disk.prg: src/p8vi.p8 $(SRCS) src/diskpage/*.p8
 	$(CP) build/p8vi.asm build/p8vi-c64disk.asm
 	$(RM) build/p8vi.prg
 
-build/p8vi-c64font.prg: src/p8vi_c64font.p8 $(SRCS) src/c64/font.p8 font
+build/p8vi-c64font.prg: src/p8vi_c64font.p8 $(SRCS) src/c64/font.p8 build/oscii.fnt
 	$(PCC) $(PCCARGSC64FONT) $<
 	$(CP) build/p8vi_c64font.prg $@
 	$(CP) build/p8vi_c64font.list build/p8vi-c64font.list
