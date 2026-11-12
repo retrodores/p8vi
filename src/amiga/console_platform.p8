@@ -28,6 +28,7 @@ console {
     ubyte[1] in_byte        ; (static: dos.Read gets its address)
     ubyte[200] out_buf
     ubyte out_len
+    bool stopped            ; after stop(): output is written as it comes
 
     ; (platform) the window size followed: not yet, so 0 (console.wait
     ; doesn't look); resized is never set
@@ -43,16 +44,20 @@ console {
         return screen_mode(true)
     }
 
-    ; what's left written, and the window in its normal mode again
+    ; what's left written, and the window in its normal mode again.  What
+    ; comes after (the editor clears the screen as it quits, leaving the
+    ; cursor at the top left for the CLI's prompt) is written at once:
+    ; nothing writes the buffer once the program ends
     sub stop() {
         flush()
         void screen_mode(false)
+        stopped = true
     }
 
     sub out(ubyte char) {
         out_buf[out_len] = char
         out_len++
-        if out_len == len(out_buf)
+        if out_len == len(out_buf) or stopped
             flush()
     }
 
