@@ -93,6 +93,44 @@ while it waits for a key).  p8vi could use either: today it has a hook
 for "the screen changed size, lay it out again" (the C128's 40/80 key
 uses it).
 
+## Other hosts: AmigaOS (llvm32, m68k)
+
+A CLI or Shell window there is a console.device window the user resizes
+with the mouse, so the same two questions come up.  Prior art is vim's
+Amiga port (os_amiga.c), which does both:
+
+- **The size:** send the `ACTION_DISK_INFO` packet to the console handler
+  (the `Output()` file's `fh_Type` port), whose `id_InUse` is the
+  console's `IOStdReq`; its `io_Unit` is the `struct ConUnit`, and
+  `cu_XMax + 1`, `cu_YMax + 1` are the columns and rows (in characters,
+  for the window's font).  No escape sequences and no waiting.  The
+  console has to be a real CON:/RAW: window (not a pipe, a file or AUX:):
+  otherwise the fallback, as on the other hosts.
+- **The size by asking:** console.device also answers the Window Status
+  Request, `CSI 0 SPACE q`, with `CSI 1 ; 1 ; rows ; cols SPACE r`, read
+  from the console like keys (the same idea as p8vi's `ESC [ 6 n`).
+- **Resizes:** `CSI 12 {` switches on raw input events of class 12
+  (`IECLASS_SIZEWINDOW`); then each resize puts a report, `CSI 12 ; ... |`,
+  into the console's input, which the runtime would read with the keys
+  (and for (b) set the flag, for (c) return the key).  vim uses this to
+  redraw while it waits for a key, as it does on SIGWINCH elsewhere.
+
+Things to know for the runtime there:
+
+- the console sends CSI as the single byte `$9B` (8-bit), as well as or
+  instead of `ESC [`, in answers and for the cursor keys (`$9B A` is up):
+  the runtime's escape decoding would take both;
+- raw mode is `SetMode(Input(), 1)` (dos.library: the RAW: behaviour, no
+  line editing or echo), back with `SetMode(Input(), 0)` at exit;
+- these details are from the AmigaOS console.device and DOS
+  documentation and vim's port; they're not checked on an Amiga here
+  yet (the ROM Kernel Manual's console.device chapter has the escape
+  sequences and the raw event classes).
+
+For p8vi's planned Amiga port, the escape-sequence fallback it has now
+would need `$9B` as well as `ESC [` in the answer, and part 1 with the
+ConUnit route would make that unnecessary.
+
 ## What p8vi would change
 
 With part 1, src/host/platform.p8 drops its question and answer (about
