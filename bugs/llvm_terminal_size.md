@@ -1,9 +1,13 @@
 # llvm32/llvm64: the terminal's size, and when it changes
 
-**Status:** feature request (2026-11-11).  p8vi works around it: see
-"What p8vi does now".  Nothing in the language changes: this is the
-llvm targets' runtime and library (textio), so it could go upstream as
-it is or not at all.
+**Status:** being done in the compiler (2026-11-11): option 2 (b),
+`txt.size_changed()`, the quick one.  The reserved key code (c) and the
+rest wait for the Amiga port, whose textio is limited and has a TODO for
+this: no solving now what upstream might do differently.  Until a
+compiler with it is out, p8vi keeps its own question (see "What p8vi
+does now").  Nothing in the language changes: this is the llvm targets'
+runtime and library (textio), so it could go upstream as it is or not
+at all.
 
 ## What's missing
 
@@ -146,3 +150,18 @@ Ctrl-L.
 - part 2: the same pty resized while the program waits
   (`TIOCSWINSZ` on the master sends `SIGWINCH`), the program printing
   the new size when told.
+
+## Resolution
+
+The compiler side chose `txt.size_changed() -> bool` (option 2 (b)) for
+now.  p8vi's side, once that compiler is out:
+
+- in the main loop's idle path (`platform.switch_wanted()`, which runs
+  when no key is waiting) the host returns `txt.size_changed()`, and
+  `platform.switch_screen()` takes the new size; the editor already lays
+  the screen out again from there (the C128's 40/80 key path);
+- the size itself: `txt.width()`/`txt.height()` if they give the window's
+  size (part 1), else p8vi asks the terminal as it does now;
+- the host waits in `txt.waitkey()`, so a resize is seen at the next key
+  unless the wait wakes up for it (that is what (c) would add): to check
+  when it's in.
