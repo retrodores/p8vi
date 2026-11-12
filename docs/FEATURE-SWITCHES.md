@@ -1,9 +1,10 @@
 # Feature switches in Prog8
 
-p8vi is one editor built in two versions: a full one for the C64 and the
-Commander X16, and a smaller one for the VIC-20, which has to fit below
-`$8000`.  Optional features can be switched off for a build, and a feature
-that is off costs nothing: its code is not in the program at all.
+p8vi is one editor built in many versions: for the C64, the VIC-20 (which
+has to fit below `$8000`), the X16, the C128, the MEGA65, the TRS-80, CP/M,
+the Amiga and others.  Optional features can be switched off for a build,
+and a feature that is off costs nothing: its code is not in the program
+at all.
 
 Prog8 has no `#ifdef`, but it gets the same effect from two things it
 already does:
@@ -24,7 +25,7 @@ The switches live in a small block in the toplevel file, and each version
 of the program has its own toplevel file that imports the shared code:
 
 ```prog8
-; src/p8vi.p8: the full editor, for the C64 and the Commander X16
+; src/p8vi.p8: the full editor, for the C64
 %import editor
 %zeropage basicsafe
 

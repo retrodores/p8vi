@@ -35,7 +35,7 @@ later.
 | `build/p8vi-c64.prg` | `src/p8vi.p8` | C64 |
 | `build/p8vi-c64reu.prg` | `src/p8vi_c64reu.p8` | C64 with the page store, for text in an REU |
 | `build/p8vi-c64disk.prg` | `src/p8vi.p8` | An experiment: C64 with the page store, its pages in SEQ files (`p8vi.swp...`) on the drive, for fast devices (IDE64, RAMLink, CMD HD); `src/diskpage` |
-| `build/p8vi-cx16.prg` | `src/p8vi.p8` | Commander X16 |
+| `build/p8vi-cx16.prg` | `src/p8vi_cx16.p8` | Commander X16, text in banked RAM (the page store) |
 | `build/p8vi-cx16iso.prg` | `src/p8vi_cx16iso.p8` | Commander X16 in ISO mode: ASCII/ISO text shown as it is (`{ \| } ~ _`), file names in ISO; built from `%encoding iso` copies of the sources (`tools/encode_copy.py`, `bugs/encoding_option.md`), in progress |
 | `build/p8vi-mega65.prg` | `src/p8vi_mega65.p8` | MEGA65 (MEGA65 mode), with the ASCII characters for ASCII files, in progress |
 | `build/p8vi-mega65dma.prg` | `src/p8vi_mega65dma.p8` | The same with the page store: text in attic RAM (or chip RAM banks 4 and 5) through DMA, in progress |
@@ -43,6 +43,14 @@ later.
 | `build/p8vi-pet32.prg` | `src/p8vi_pet32.p8` | PET 4032 (32 KB, BASIC 4), with the VIC-20's features and no ASCII or CR LF files: 3.3 KB of text, in progress |
 | `build/p8vi-vic20.prg` | `src/p8vi_vic20.p8` | VIC-20 with 24K or more |
 | `build/p8vi-c64font.prg` | `src/p8vi_c64font.p8` | An experiment: the C64 REU build with a font for ASCII text |
+| `build/p8vi-c128.prg` | `src/p8vi_c128.p8` | C128 in its own mode, on the 40 or 80 column screen (the 40/80 key switches), in progress |
+| `build/p8vi-c128x.prg` | `src/p8vi_c128x.p8` | C128 with the text in RAM bank 1 (the page store), up to about 60 KB; a font build too |
+| `build/p8vi-c128reu.prg` | `src/p8vi_c128reu.p8` | C128 with the text in an REU, or RAM bank 1 without one |
+| `build/p8vi-trs80.cmd` | `src/p8vi_trs80.p8` | TRS-80 Model III with LDOS (llvm16, the `z80-trs80-cmd` profile: needs llvm-z80 and z88dk), in progress |
+| `build/p8vi-trs80m4.cmd` | `src/p8vi_trs80m4.p8` | TRS-80 Model 4 with TRSDOS 6 or LS-DOS 6.3, 80 columns, in progress |
+| `build/p8vi-trs80m4x.cmd` | `src/p8vi_trs80m4x.p8` | TRS-80 Model 4 with 128 KB: the text in the second 64 KB (the page store) |
+| `build/p8vi-cpm.com` | `src/p8vi_cpm.p8` | CP/M 2.2 or later on a Z80, with an ANSI, VT52 or ADM-3A terminal (`-t`), in progress |
+| `build/p8vi-host` | `src/p8vi_host.p8` | This machine (macOS, Linux, Windows) in a terminal (llvm64): the wide core (32-bit positions, 16 MB of text), the screen the terminal window's size and following it (`make host`) |
 | `build/p8vi-amiga` | `src/p8vi_amiga.p8` | Amiga (amiga500: a 68000, Kickstart 1.3 or later) in a CLI window, an ANSI terminal: the wide core (32-bit positions), text in the largest free block of memory; `src/amiga` (console, diskio), `make amiga`, `make emu-amiga`, in progress |
 
 The editor itself is `src/editor.p8` (with `charset.p8`,
@@ -105,10 +113,16 @@ are the same as on the C64 font build, and MEGA with `:`, `.`, `;` and
   and most Linux distributions and Homebrew have a `64tass` package.
 - **git**, **make** and **Python 3**.
 - *Optional:* the [VICE emulator](https://vice-emu.sourceforge.io/) for
-  `make emu`.  Everything else uses the compiler's built-in virtual target
-  and needs no emulator.
+  `make emu` and the Commodore tests; x16emu, xmega65 (Xemu), trs80gp,
+  tnylpo and [Copperline](https://copperline.dev/) for the X16, MEGA65,
+  TRS-80, CP/M and Amiga versions' runs and tests.  `make test` uses the
+  compiler's built-in virtual target and needs no emulator.
 
-The `Makefile` and `setup.py` both expect `prog8c` in your `PATH`.  If you
+p8vi's `Makefile` runs `prog8c-llvm` (`PCC`): Prog8 with the llvm targets
+(llvm16 for the TRS-80 and CP/M, llvm64 for the host), which the
+Commodore, X16, MEGA65 and Amiga builds compile with too; `make
+PCC=prog8c` uses the upstream compiler for the targets it has.
+`setup.py` expects `prog8c` in your `PATH`.  If you
 downloaded the jar, a small wrapper script does the job.  On Linux or macOS
 save this as `prog8c` somewhere in your `PATH` and `chmod +x` it:
 ```
@@ -166,14 +180,18 @@ The useful `make` targets are:
 | `make test-mega65` | The VICE editor and redraw tests on a MEGA65 in xmega65, through `tools/m65harness.py` (`tests/mega65/edtest.py`, ~3 min) |
 | `make test-mega65dma` | The same on the MEGA65 page store build, with the big-text and font suites, in attic RAM and (as on a Nexys4 board) without it |
 | `make test-mega65-zp` | Which zero page bytes the MEGA65 ROM changes in KERNAL calls (`tests/mega65/zpwatch.p8`) |
-| `make test-amiga` | `tests/vice/edtest.py`'s file suites on an A500 in Copperline, Kickstart 1.3 or AROS (`tests/amiga/amigatest.py`, ~15 s) |
+| `make test-c128`, `test-c128x`, `test-c128reu` | The VICE editor and redraw tests on a C128 (`x128`), on both screens; the page store builds also with and without an REU, and recovery after a reset |
+| `make test-trs80`, `test-trs80m4`, `test-trs80m4x` | The file suites on a TRS-80 in trs80gp (`tests/trs80/trstest.py`), and recovery (`tests/trs80/rectest.py`) on the Model 4 with 128 KB |
+| `make test-cpm` | The file, screen, `:set number` and line range suites in tnylpo on its three terminals (`tests/cpm/cpmtest.py`), and on a TRS-80 Model 4's Montezuma CP/M in trs80gp (`tests/cpm/m4test.py`) |
+| `make test-host` | The same suites for the host version with the keys piped in, a 4.5 MB file, and the window resized in a pty (`cpmtest.py --host`) |
+| `make test-amiga` | `tests/vice/edtest.py`'s file suites on an A500 in Copperline, Kickstart 1.3 or AROS (`tests/amiga/amigatest.py`, ~15 s), and with 1.3 the window resized while p8vi runs |
 | `make emu-amiga` | Run the Amiga version in Copperline with `sample.txt` |
 | `make test-mega65-keymap` | Measure which MEGA65 keys give which PETSCII codes (the harness's key table) |
 | `make size` | Memory map and room left below memtop for each build (`tools/listsize.py`) |
 | `make disk` | `build/testgap.d81`: a 1581 disk with the C64 and VIC-20 programs, `oscii.fnt` and the sample files, for `make emu-c64`, `emu-c64reu`, `emu-c64font` and `emu-vic20` (drive 8 is a 1581) |
 | `make c64`   | Compile for the C64 and run it in VICE                    |
 | `make cx16`  | Compile for the Commander X16 and run it in x16emu        |
-| `make release` | Copy the four programs and `docs/QUICKSTART.md` to `release/` (after `make test`, `audit` and `size`): the last known good version |
+| `make release` | Copy the programs, `oscii.fnt` and `docs/QUICKSTART.md` to `release/` (after `make test`, `audit` and `size`): the last known good version |
 | `make clean` | Remove everything in `build/`                             |
 
 # How the AI context works

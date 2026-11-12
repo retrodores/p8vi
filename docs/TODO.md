@@ -98,7 +98,7 @@ aren't.
 - **Text in extended memory** (the cx16's banked RAM, a C64 REU): files
   up to 64 KB fit, with yank and undo as big, and `:recover` after a crash
   (done, `docs/XMEM-DESIGN.md`).
-- **The X16's main RAM is full** (110 bytes left; the key buffers
+- **The X16's main RAM is full** (104 bytes left; the key buffers
   are in golden RAM, after the page store's buffers): the page store's
   code is big.  Parts in assembler, or more feature switches
   (`src/p8vi_cx16.p8`), before adding much there.
@@ -110,7 +110,8 @@ aren't.
   `features.ISO`: `features.ASCII` off (nothing to translate), the cursor
   shown by swapping the colors (`platform.color_cursor`), `:@` commands'
   letters before the `:` in capitals (CMDR-DOS wants `S:`, not ISO's `s`),
-  PETSCII again at `:q`.  276 bytes free, against the PETSCII build's 104.
+  PETSCII again at `:q`.  86 bytes free, against the PETSCII build's 104
+  (`:d`/`:y` ranges are on in it, off in the PETSCII build).
   Tried in x16emu (ROM R49) on HostFS and on an SD card image:
   - `:e`, edits, `:w`, `:@s:name` and `:@$` all work;
   - CMDR-DOS stores names as typed, so the ISO build writes `new.txt` and
@@ -124,7 +125,7 @@ aren't.
 
   Done: the rows after the text show vi's `~` (platform.init sets
   EMPTY_ROW, 5 bytes); in `release/` since v0.4.
-- **32-bit text positions** (done for the host; later the Amiga):
+- **32-bit text positions** (done for the host and the Amiga):
   `src/postype.p8` holds what depends on the width (`pos.SIZE`, `pos.NONE`,
   `pos.DIGITS`, `pos.print`, `pos.text`, `pos.parse`, `pos.TEXT_MAX`).  `make host`
   compiles the core from copies with `uword` made `long`
@@ -132,9 +133,11 @@ aren't.
   of text.  It needs a compiler whose `sys.memcopy`/`memset` take a `long`
   count on llvm64.  Tried on a 4.5 MB, 120000-line file (edits on both sides
   of line 65535, undo, `:set number` past 99999, `:100000` and
-  `:99998,100002s`).  Still to do:
-  - the m68k `memset`/`memsetw` still take a `uword` count, for the Amiga
-    port;
+  `:99998,100002s`).  The Amiga's copies are made with `--bytewise` too (the 68000's longs
+  at even addresses only; see Amiga below).  Still to do:
+  - the m68k `memset`/`memsetw` still take a `uword` count: the Amiga
+    build fills in 32 KB pieces (`pos.memset`, from `--bytewise`), until
+    the compiler's take a `long`;
   - the 16-bit core is now tested on the CP/M build in tnylpo only (no
     16-bit host build).
 - **The start screen** is off on the VIC-20 (its room went to the safe
@@ -538,7 +541,8 @@ and editing then go about as with an REU.
 ## Tests
 
 - **A VIC-20 test runner** (with `xvic`).  `tests/vice/edtest.py` runs the
-  C64, the PET (`--machine pet`) and the Plus/4 (`--machine plus4`).
+  C64, the PET (`--machine pet`), the Plus/4 (`--machine plus4`) and the
+  C128 (`--machine c128`, `c128-80`).
 - **cx16 tests.**  x16emu can only type keys by pasting text with `-bas`,
   so tests there are done by hand so far.
 - **Intermittent failures with JiffyDOS** (`make test-jiffydos`): in 2
