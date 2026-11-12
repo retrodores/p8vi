@@ -405,9 +405,10 @@ and editing then go about as with an REU.
     terminal: 80 x 24; `-s COLSxROWS` gives a size instead.  Tested:
     cpmtest.py --host size (in a pty: the size at the start, made bigger
     and smaller, with no key after it, :set number, bigger than 250 x 200;
-    against -s runs of the same size).  Before (cac5e53) p8vi asked the
-    terminal with ESC [ 6 n; that worked on Windows too, in the console
-    and over ssh (the user, 2026-11-11).
+    against -s runs of the same size).  On Windows it follows the window
+    in Windows Terminal and over ssh to Windows' sshd (the user,
+    2026-11-11).  (before, cac5e53, p8vi asked the terminal with
+    ESC [ 6 n, and only Ctrl-L looked again)
   - Arrow keys: the runtime's getkey gives the arrows' codes itself
     (ESC [ A, ESC [ 1;2A, ESC O A: the same as the editor's); Home, Page
     Up/Down, unknown sequences and VT52 are txt.escape_key's.  Tested by
