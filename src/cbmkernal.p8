@@ -47,7 +47,8 @@ main {
         return txt.petscii2scr(char)
     }
 
-    ; the rows past the end of the text (vi uses ~, PETSCII hasn't one)
+    ; the rows past the end of the text (vi uses ~, PETSCII hasn't one; the
+    ; X16's ISO build sets ~ in platform.init)
     str EMPTY_ROW = "-"
 
     ; rename a file (the safe save: p8vi.tmp to the file's name)

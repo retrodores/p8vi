@@ -18,8 +18,10 @@ platform {
     pointer sparetop
 
     sub init() {
-       if features.ISO
+       if features.ISO {
            txt.iso()
+           main.EMPTY_ROW[0] = $7e     ; vi's ~ (ISO has it, PETSCII hasn't)
+       }
        textstart = sys.progend()
        texttop = $9f00
        ; spare memory for the key buffers: the end of golden RAM, after the
