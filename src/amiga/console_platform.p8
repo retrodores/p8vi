@@ -21,6 +21,11 @@
 ; console does), and the window's size is asked again (size()).  Other
 ; sequences are passed on as they came, a byte at a time.
 ;
+; Started from Workbench (no console: Input() is 0), or with its input
+; not a console (<NIL:), p8vi opens a window of its own, CON:, for keys and
+; screen, and closes it at the end; from a Shell it edits in the Shell's
+; window.
+;
 ; With the output redirected to a file (p8vi >log: the screen tests,
 ; tests/amiga/amigatest.py), the keys still come from the window, but the
 ; window isn't asked its size (80 x 24) nor for resize reports.
@@ -37,6 +42,10 @@ console {
     pointer in_fh           ; Input(), Output(): the window
     pointer out_fh
     bool out_window         ; Output() is the window (not redirected to a file: p8vi >log, the tests)
+    pointer own_window      ; the window p8vi opened (Workbench), 0 if none
+    ; its place, size and title (any Kickstart: 640 x 200 fits PAL and NTSC)
+    str OWN_WINDOW = "CON:0/0/640/200/p8vi"
+
     ubyte[1] in_byte        ; (static: dos.Read gets its address)
     ubyte[200] out_buf
     ubyte out_len
@@ -56,7 +65,15 @@ console {
     sub start() -> bool {
         in_fh = dos.Input()
         out_fh = dos.Output()
-        if in_fh == 0 or out_fh == 0 or dos.IsInteractive(in_fh) == 0
+        if in_fh == 0 or dos.IsInteractive(in_fh) == 0 {
+            ; (Workbench, or <NIL:) a window of p8vi's own
+            own_window = dos.Open(OWN_WINDOW, dos.MODE_NEWFILE)
+            if own_window == 0
+                return false
+            in_fh = own_window
+            out_fh = own_window
+        }
+        if out_fh == 0
             return false
         if not screen_mode(true)
             return false
@@ -86,6 +103,12 @@ console {
         flush()
         void screen_mode(false)
         stopped = true
+        if own_window != 0 {
+            ; (its window closed: what comes after goes nowhere)
+            void dos.Close(own_window)
+            own_window = 0
+            out_fh = 0
+        }
     }
 
     sub out(ubyte char) {
@@ -96,6 +119,8 @@ console {
     }
 
     sub flush() {
+        if out_fh == 0
+            out_len = 0
         if out_len != 0 {
             void dos.Write(out_fh, &out_buf, out_len)
             out_len = 0

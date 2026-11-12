@@ -43,6 +43,7 @@ platform {
 
     sub init() {
         options()
+        workbench_file()
         if not console.start() {
             txt.out_str("p8vi: runs in a CLI window\n")
             console.flush()
@@ -54,9 +55,12 @@ platform {
         if text_size >= 16 * 1024
             textstart = exec.AllocMem(text_size, exec.MEMF_PUBLIC)
         if textstart == 0 {
-            console.stop()
             txt.out_str("p8vi: not enough memory\n")
             console.flush()
+            ; (in its own window: time to read it before it closes)
+            if console.own_window != 0
+                dos.Delay(150)
+            stop()
             sys.exit(1)
         }
         texttop = textstart + text_size
@@ -157,6 +161,47 @@ platform {
         return a
     }
 
+    ; started from Workbench: the file given with p8vi (a project icon with
+    ; p8vi as its default tool, or shift-clicked with it) is opened, in its
+    ; drawer (the current directory, for :w's new files too); with none,
+    ; p8vi's own drawer.  The Workbench message (exec's, kept by Prog8's
+    ; start-up code) is a WBStartup: sm_NumArgs at 28, sm_ArgList at 36,
+    ; a list of WBArgs (a lock and a name, 8 bytes each) whose first is
+    ; p8vi itself.  The old current directory is put back in stop()
+    pointer old_dir
+    bool dir_changed
+
+    asmsub workbench_message() -> long @D0 {
+        %asm {{
+            move.l  p8_sys_startup.WBMsg,d0
+            rts
+        }}
+    }
+
+    sub workbench_file() {
+        long msg = workbench_message()
+        if msg == 0
+            return
+        long nargs = peekl(msg + 28)
+        long args = peekl(msg + 36)
+        if nargs == 0 or args == 0
+            return
+        long arg = args
+        if nargs >= 2
+            arg = args + 8
+        if peekl(arg) != 0 {
+            old_dir = dos.CurrentDir(peekl(arg) as pointer)
+            dir_changed = true
+        }
+        pointer name = peekl(arg + 4) as pointer
+        if nargs >= 2 and name != 0 and strings.length(name) < len(start_keys) - 5 {
+            ; the file: typed as :e name
+            void strings.copy(":e ", start_keys)
+            void strings.copy(name, &start_keys + 3)
+            start_keys[strings.length(start_keys)] = 13
+        }
+    }
+
     ; the file named on the command line, typed as :e name and Enter
     ubyte[84] start_keys
     ubyte start_pos
@@ -193,6 +238,10 @@ platform {
     sub stop() {
         txt.done()
         console.stop()
+        if dir_changed {
+            void dos.CurrentDir(old_dir)
+            dir_changed = false
+        }
         if textstart != 0 {
             exec.FreeMem(textstart, text_size)
             textstart = 0

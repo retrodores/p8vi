@@ -51,7 +51,7 @@ later.
 | `build/p8vi-trs80m4x.cmd` | `src/p8vi_trs80m4x.p8` | TRS-80 Model 4 with 128 KB: the text in the second 64 KB (the page store) |
 | `build/p8vi-cpm.com` | `src/p8vi_cpm.p8` | CP/M 2.2 or later on a Z80, with an ANSI, VT52 or ADM-3A terminal (`-t`), in progress |
 | `build/p8vi-host` | `src/p8vi_host.p8` | This machine (macOS, Linux, Windows) in a terminal (llvm64): the wide core (32-bit positions, 16 MB of text), the screen the terminal window's size and following it (`make host`) |
-| `build/p8vi-amiga` | `src/p8vi_amiga.p8` | Amiga (amiga500: a 68000, Kickstart 1.3 or later) in a CLI window, an ANSI terminal: the wide core (32-bit positions), text in the largest free block of memory; `src/amiga` (console, diskio), `make amiga`, `make emu-amiga`, in progress |
+| `build/p8vi-amiga` | `src/p8vi_amiga.p8` | Amiga (amiga500: a 68000, Kickstart 1.3 or later) in its Shell window, or a window of its own from Workbench: the console is an ANSI terminal, the screen follows the window's size; the wide core (32-bit positions), text in the largest free block of memory; `src/amiga` (console, diskio), `make amiga`, `make emu-amiga`, in progress |
 
 The editor itself is `src/editor.p8` (with `charset.p8`,
 `src/<target>/platform.p8` and a text store, `buffer.p8` plus

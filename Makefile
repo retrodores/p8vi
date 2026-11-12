@@ -377,6 +377,7 @@ test-amiga:	build/p8vi-amigatest
 	$(PYTHON) -B $(AMIGATEST)
 	$(PYTHON) -B $(AMIGATEST) screen
 	$(PYTHON) -B $(AMIGATEST) number
+	$(PYTHON) -B $(AMIGATEST) --own-window files delete-put undo marks
 	$(if $(AMIGA_ROM),$(PYTHON) -B $(AMIGATEST) --resize)
 
 # p8vi on an A500 in Copperline (Kickstart 1.3 if it's there, else AROS),

@@ -25,6 +25,9 @@ console.device draws it.
 The suites left out are CBM_ONLY's (PETSCII files, CBM DOS commands and
 drive prefixes, the C64's graphics keys).
 
+files --own-window: p8vi started with <NIL: as its input, so it opens a
+window of its own (CON:), as when it's started from Workbench.
+
 --resize: the window resized while p8vi runs (Kickstart 1.3's first CLI
 window, 20 rows): Copperline drags its size gadget with the mouse, then
 types L (the screen's last text line), x and :w.  Without the drag line
@@ -55,7 +58,10 @@ KEY_BUF_SIZE = 1024
 def copperline(work, *options):
     """run p8vi in work; its output (to out.log: the CLI's redirection), or
     None if it didn't end"""
-    cmd = ['copperline', '--model', 'A500', '--run', 'p8vi.com', '--run-args', '>out.log',
+    # (files --own-window: input from NIL:, so p8vi opens a window of its
+    # own, as when started from Workbench)
+    run_args = '<NIL:' if ARGS.own_window else '>out.log'
+    cmd = ['copperline', '--model', 'A500', '--run', 'p8vi.com', '--run-args', run_args,
            '--exit-on-return']
     if ARGS.rom:
         cmd.append(ARGS.rom)
@@ -65,6 +71,8 @@ def copperline(work, *options):
     except subprocess.TimeoutExpired:
         return None
     path = os.path.join(work, 'out.log')
+    if ARGS.own_window:
+        return b''
     if not os.path.exists(path):
         return None
     with open(path, 'rb') as f:
@@ -120,6 +128,8 @@ def main():
     ap.add_argument('-j', type=int, default=4)
     ap.add_argument('--skip', action='append', default=[], metavar='SUITE')
     ap.add_argument('--resize', action='store_true', help='the window resized while p8vi runs (Kickstart 1.3)')
+    ap.add_argument('--own-window', action='store_true',
+                    help='(files) input from NIL:: p8vi opens a window of its own, as from Workbench')
     args = ap.parse_args()
     if not shutil.which('copperline'):
         sys.exit('copperline not found in PATH')

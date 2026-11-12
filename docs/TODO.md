@@ -489,6 +489,17 @@ and editing then go about as with an REU.
   what p8vi sends, not how console.device draws it: for that, native
   screenshots read as text (Topaz 8 is a fixed 8 x 8 font on an 8 pixel
   grid: cells matched exactly against its glyphs), not done.
+  Started from Workbench (done, 2026-11-11): with no console (Input() 0,
+  or <NIL:) p8vi opens a window of its own (CON:0/0/640/200/p8vi), keys
+  and screen there, closed at :q; from a Shell it edits in the Shell's
+  window.  The file comes from the Workbench message Prog8's start-up
+  code keeps (p8_sys_startup.WBMsg: a WBStartup, sm_NumArgs at 28,
+  sm_ArgList at 36; WBArg 1 is the project or shift-clicked file), opened
+  in its drawer (CurrentDir, put back at the end); with none, p8vi's own
+  drawer.  Tested from the CLI with <NIL: (amigatest.py --own-window:
+  files in its own window, in make test-amiga); not from Workbench yet.
+  Still to do: an icon (p8vi.info, a tool icon; a project icon's default
+  tool), tried from Workbench 1.3 and 2.0+.
   Next: try a real A500.
 - **Color Computer 2 and 3** (not started; llvm16 `mc6809-coco`).  Both are
   blocked by the 6809's code size today.  The same program's code is 4.5
