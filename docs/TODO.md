@@ -407,8 +407,9 @@ and editing then go about as with an REU.
     keys, against -s runs of the same size), and in a pty, 2026-11-11.
     Still to do: following the window without Ctrl-L needs the runtime
     to report SIGWINCH (a flag or a key) or the size (TIOCGWINSZ,
-    GetConsoleScreenBufferInfo); on Windows the answer comes only if the
-    console passes it as input (not tried yet).
+    GetConsoleScreenBufferInfo).  Windows: the console passes the answer
+    as input; tall and short windows, and over ssh to Windows' sshd, got
+    their sizes (the user, 2026-11-11).
   - Arrow keys: the runtime's getkey gives the arrows' codes itself
     (ESC [ A, ESC [ 1;2A, ESC O A: the same as the editor's); Home, Page
     Up/Down, unknown sequences and VT52 are txt.escape_key's.  Tested by
