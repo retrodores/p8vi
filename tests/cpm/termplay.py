@@ -21,9 +21,8 @@ class BadCode(Exception):
 
 def play(data, term, w=W, h=H):
     """the screen's rows (trailing spaces off) and the cursor (row, col), on
-    a w x h screen.  (the host version's size question, ESC [ 6 n, is
-    passed over; a cursor address past the screen stops at its edge, as on
-    a terminal: the question's ESC [ 999 ; 999 H)"""
+    a w x h screen (a cursor address past it stops at its edge, as on a
+    terminal)"""
     W, H = w, h
     scr = [[' '] * W for _ in range(H)]
     r = c = 0
@@ -44,8 +43,6 @@ def play(data, term, w=W, h=H):
                     scr = [[' '] * W for _ in range(H)]
                 elif cmd == 'K':
                     scr[r][c:] = [' '] * (W - c)
-                elif cmd == 'n' and args == '6':
-                    pass
                 else:
                     raise BadCode(f'ESC [ {args} {cmd} at {i}')
                 continue

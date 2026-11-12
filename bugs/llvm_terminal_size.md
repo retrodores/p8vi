@@ -1,13 +1,15 @@
 # llvm32/llvm64: the terminal's size, and when it changes
 
-**Status:** being done in the compiler (2026-11-11): option 2 (b),
-`txt.size_changed()`, the quick one.  The reserved key code (c) and the
+**Status:** done in the compiler (2026-11-11): `txt.width()`,
+`txt.height()` and `txt.size()` give the window's size (syscall 219:
+TIOCGWINSZ on stdout, GetConsoleScreenBufferInfo; the default size when
+stdout isn't a terminal), and `txt.size_changed()` says whether it
+changed since it was last read (option 2 (b), by looking: no SIGWINCH,
+and waitkey doesn't wake up for it).  The reserved key code (c) and the
 rest wait for the Amiga port, whose textio is limited and has a TODO for
-this: no solving now what upstream might do differently.  Until a
-compiler with it is out, p8vi keeps its own question (see "What p8vi
-does now").  Nothing in the language changes: this is the llvm targets'
-runtime and library (textio), so it could go upstream as it is or not
-at all.
+this: no solving now what upstream might do differently.  p8vi uses it:
+see "Resolution".  Nothing in the language changes: this is the llvm
+targets' runtime and library (textio).
 
 ## What's missing
 
@@ -153,15 +155,20 @@ Ctrl-L.
 
 ## Resolution
 
-The compiler side chose `txt.size_changed() -> bool` (option 2 (b)) for
-now.  p8vi's side, once that compiler is out:
+The compiler side did part 1 and option 2 (b).  p8vi's host (its txt is
+src/cpm/textio.p8, not the library's) calls syscall 219 itself
+(src/host/console_platform.p8 `size()`):
 
-- in the main loop's idle path (`platform.switch_wanted()`, which runs
-  when no key is waiting) the host returns `txt.size_changed()`, and
-  `platform.switch_screen()` takes the new size; the editor already lays
-  the screen out again from there (the C128's 40/80 key path);
-- the size itself: `txt.width()`/`txt.height()` if they give the window's
-  size (part 1), else p8vi asks the terminal as it does now;
-- the host waits in `txt.waitkey()`, so a resize is seen at the next key
-  unless the wait wakes up for it (that is what (c) would add): to check
-  when it's in.
+- at the start the screen is the window's size; its own question
+  (ESC [ 6 n) is gone, and the tests need no `-s` (piped stdout isn't a
+  terminal: 80 x 24);
+- while it waits for a key on a terminal it polls for keys every 60th of
+  a second (sys.wait(1)) and looks at the size each time, since waitkey
+  doesn't wake up for a resize; a change returns no key, and the editor
+  lays the screen out again (the C128's 40/80 key path);
+- tested in a pty (cpmtest.py --host size): the size at the start, made
+  bigger and smaller (TIOCSWINSZ on the pty), with no key after it.
+
+A wakeup from waitkey on a resize (option (c), or the wait returning
+on SIGWINCH) would let the host drop its polling: for later, with the
+Amiga port.

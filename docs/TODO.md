@@ -396,20 +396,18 @@ and editing then go about as with an REU.
   screen.  Open:
   - The screen is the terminal window's size, up to 250 x 200
     (console.MAX_WIDTH/MAX_HEIGHT; the editor's rows and columns are
-    ubytes).  ANSI: platform.init asks it (the cursor to ESC [ 999 ; 999
-    H, then ESC [ 6 n; the answer ESC [ rows ; cols R comes in as keys),
-    and Ctrl-L asks again: a new size lays the screen out again
-    (platform.SWITCH, as the C128's 40/80 key).  A terminal that doesn't
-    answer in half a second is 80 x 24 and isn't asked again; VT52 and
-    ADM-3A are 80 x 24.  `-s COLSxROWS` gives the size (needed when stdin
-    isn't the terminal: the answer is read from it; the tests use -s
-    80x24).  Tested: cpmtest.py --host size (the answers in the piped
-    keys, against -s runs of the same size), and in a pty, 2026-11-11.
-    Still to do: following the window without Ctrl-L needs the runtime
-    to report SIGWINCH (a flag or a key) or the size (TIOCGWINSZ,
-    GetConsoleScreenBufferInfo).  Windows: the console passes the answer
-    as input; tall and short windows, and over ssh to Windows' sshd, got
-    their sizes (the user, 2026-11-11).
+    ubytes), and follows it: the runtime's size (syscall 219, the
+    library's txt.terminal_size(): TIOCGWINSZ, GetConsoleScreenBufferInfo;
+    bugs/llvm_terminal_size.md), looked at every 60th of a second while
+    p8vi waits for a key (console.wait: the runtime's waitkey doesn't wake
+    up for a resize; no CPU time to speak of).  A new size lays the screen
+    out again (platform.SWITCH, as the C128's 40/80 key).  stdout not a
+    terminal: 80 x 24; `-s COLSxROWS` gives a size instead.  Tested:
+    cpmtest.py --host size (in a pty: the size at the start, made bigger
+    and smaller, with no key after it, :set number, bigger than 250 x 200;
+    against -s runs of the same size).  Before (cac5e53) p8vi asked the
+    terminal with ESC [ 6 n; that worked on Windows too, in the console
+    and over ssh (the user, 2026-11-11).
   - Arrow keys: the runtime's getkey gives the arrows' codes itself
     (ESC [ A, ESC [ 1;2A, ESC O A: the same as the editor's); Home, Page
     Up/Down, unknown sequences and VT52 are txt.escape_key's.  Tested by

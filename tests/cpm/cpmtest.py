@@ -49,6 +49,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 sys.dont_write_bytecode = True
@@ -68,9 +69,6 @@ KEY_BUF_SIZE = 256
 # C64's graphics keys, CBM DOS commands and drive prefixes, a full disk
 CBM_ONLY = trstest.CBM_ONLY
 ARGS = None     # the command line (main)
-# (--host) the screen's size, given: the host version asks the terminal
-# otherwise, and would read the answer from the keys on its stdin
-HOST_SIZE = ['-s', '80x24']
 
 
 def text_file(text):
@@ -164,7 +162,7 @@ def tnylpo(work, *options):
             keys = f.read()
         os.remove(path)
         try:
-            r = subprocess.run([ARGS.prg] + HOST_SIZE + list(options), cwd=work, input=keys, stdout=subprocess.PIPE,
+            r = subprocess.run([ARGS.prg] + list(options), cwd=work, input=keys, stdout=subprocess.PIPE,
                                stderr=subprocess.DEVNULL, timeout=TIMEOUT)
         except subprocess.TimeoutExpired:
             return None
@@ -282,33 +280,34 @@ def run_lines(args, pair):
     return a, ok, lines
 
 
-# (size, --host) the screen the terminal's size: name, the input with the
-# terminal's answers to p8vi's size question (ESC [ rows ; cols R, at the
-# start and after a Ctrl-L), and what it must show the same as: the
-# reference's options and input (-s gives the size, nothing is asked), and
-# the screen's size.
+# (size, --host) the screen the terminal window's size, in a pty: name,
+# the window's size at the start, the steps (keys to type, or a new
+# window size), and the screen's size at the end; it must show the same
+# as a run with -s of that size and the same keys, the size changes left
+# out.  (pipe and clamp: not a pty)
 SIZE_TEXT = b'\n'.join(b'line %02d ' % i + b'abcdefghij' * (i % 15) for i in range(1, 61)) + b'\n'
 SIZE_CASES = [
-    # the answer at the start: 100 x 30
-    ('start', b'\x1b[30;100R:e t.txt\r10Gx', ['-s', '100x30'], b':e t.txt\r10Gx', (100, 30)),
-    # a bigger window: Ctrl-L asks again, the screen is laid out again
-    ('grow', b'\x1b[24;80R:e t.txt\r10G\x0c\x1b[40;120Rx', ['-s', '120x40'], b':e t.txt\r10Gx', (120, 40)),
-    # the same size: Ctrl-L only draws it all again
-    ('same', b'\x1b[24;80R:e t.txt\r5G\x0c\x1b[24;80Rx', ['-s', '80x24'], b':e t.txt\r5Gx', (80, 24)),
+    ('start', (100, 30), [b':e t.txt\r10Gx'], (100, 30)),
+    # bigger, then a key: the screen is laid out again
+    ('grow', (80, 24), [b':e t.txt\r10G', (120, 40), b'x'], (120, 40)),
+    # bigger with no key after it: laid out again while waiting
+    ('idle', (80, 24), [b':e t.txt\r10G', (120, 40)], (120, 40)),
     # smaller, with the cursor far down: the view scrolls to it
-    ('shrink', b'\x1b[24;80R:e t.txt\r20G\x0c\x1b[12;50Rx', ['-s', '50x12'], b':e t.txt\r20Gx', (50, 12)),
-    # in :set number, then wider
-    ('number', b'\x1b[24;80R:e t.txt\r:set nu\r3G\x0c\x1b[30;132Rx', ['-s', '132x30'],
-     b':e t.txt\r:set nu\r3Gx', (132, 30)),
-    # no answer (a key first): 80 x 24, and the key isn't lost
-    ('no-answer', b':e t.txt\r10Gx', ['-s', '80x24'], b':e t.txt\r10Gx', (80, 24)),
-    # -s is kept within 20 x 4 and the screen's 250 x 200
-    ('clamp', b':e t.txt\rx', ['-s', '1x1'], None, (20, 4)),
+    ('shrink', (80, 24), [b':e t.txt\r20G', (50, 12), b'x'], (50, 12)),
+    # in :set number
+    ('number', (80, 24), [b':e t.txt\r:set nu\r3G', (132, 30), b'x'], (132, 30)),
+    # bigger than the screen p8vi keeps: 250 x 200 of it
+    ('huge', (300, 250), [b':e t.txt\rx'], (250, 200)),
+    # stdout not a terminal: 80 x 24
+    ('pipe', None, [b':e t.txt\r10Gx'], (80, 24)),
+    # -s is kept within 20 x 4 and 250 x 200
+    ('clamp', None, [b':e t.txt\rx'], (20, 4)),
 ]
 
 
 def size_screen(args, name, options, keys, size):
-    """the screen p8vi shows before it quits, or a problem (a string)"""
+    """the screen p8vi shows before it quits, keys piped in, or a problem
+    (a string)"""
     work = tempfile.mkdtemp(prefix=f'cpmz-{name}-', dir=args.work)
     with open(os.path.join(work, 't.txt'), 'wb') as f:
         f.write(SIZE_TEXT)
@@ -317,27 +316,86 @@ def size_screen(args, name, options, keys, size):
                            stderr=subprocess.DEVNULL, timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
         return f'did not finish in {TIMEOUT} s (files in {work})'
+    return played(r.stdout, size, work)
+
+
+def played(out, size, work):
     try:
-        scr, _ = termplay.play(termplay.before_quit(r.stdout, 'ansi'), 'ansi', *size)
+        scr, _ = termplay.play(termplay.before_quit(out, 'ansi'), 'ansi', *size)
     except termplay.BadCode as e:
         return f'{e} (files in {work})'
     shutil.rmtree(work)
     return scr
 
 
+def set_window(fd, cols, rows):
+    import fcntl
+    import struct
+    import termios
+    fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack('HHHH', rows, cols, 0, 0))
+
+
+def pty_screen(args, name, window, steps, size):
+    """(size) the screen p8vi shows before it quits, run in a pty of the
+    window's size, or a problem"""
+    import pty
+    import select
+    work = tempfile.mkdtemp(prefix=f'cpmz-{name}-', dir=args.work)
+    with open(os.path.join(work, 't.txt'), 'wb') as f:
+        f.write(SIZE_TEXT)
+    pid, fd = pty.fork()
+    if pid == 0:
+        os.chdir(work)
+        set_window(0, *window)
+        os.execv(args.prg, [args.prg])
+    out = bytearray()
+
+    def settle(longest=5.0):
+        """read the output until it stops for a while"""
+        end = time.time() + longest
+        quiet = time.time() + 0.4
+        while time.time() < min(end, quiet):
+            ready, _, _ = select.select([fd], [], [], 0.05)
+            if ready:
+                try:
+                    data = os.read(fd, 65536)
+                except OSError:
+                    return
+                out.extend(data)
+                quiet = time.time() + 0.4
+
+    settle()
+    for step in steps + [b':q!\r']:
+        if isinstance(step, tuple):
+            set_window(fd, *step)
+        else:
+            os.write(fd, step)
+        settle()
+    try:
+        _, status = os.waitpid(pid, 0)
+    finally:
+        os.close(fd)
+    return played(bytes(out), size, work)
+
+
 def run_size(args, case):
-    name, keys, ref_options, ref_keys, (w, h) = case
+    name, window, steps, (w, h) = case
+    keys = b''.join(s for s in steps if isinstance(s, bytes))
     if name == 'clamp':
         # (played on 80 x 24: nothing past 20 columns and 4 rows)
-        got = size_screen(args, name, ref_options, keys, (80, 24))
+        got = size_screen(args, name, ['-s', '1x1'], keys, (80, 24))
         ok = isinstance(got, list) and got[0] and all(len(r) <= w for r in got) and not any(got[h:])
         return name, ok, [] if ok else [f'  {got!r}']
-    got = size_screen(args, name, [], keys, (w, h))
-    want = size_screen(args, name + '-ref', ref_options, ref_keys, (w, h))
+    if window is None:
+        got = size_screen(args, name, [], keys, (w, h))
+    else:
+        got = pty_screen(args, name, window, steps, (w, h))
+    want = size_screen(args, name + '-ref', ['-s', f'{w}x{h}'], keys, (w, h))
     for scr in (got, want):
         if isinstance(scr, str):
             return name, False, ['  ' + scr]
-    diff = [r for r in range(h) if got[r] != want[r]]
+    # (the status row: the pty's shows the keys' last command at times)
+    diff = [r for r in range(h - 1) if got[r] != want[r]]
     lines = [f'  differs in rows {diff[:8]}'] if diff else []
     for r in diff[:3]:
         lines += [f'    {r:2} want {want[r]!r}', f'    {r:2} got  {got[r]!r}']
@@ -355,7 +413,7 @@ def run_big(args, _):
     keys = (':e big.txt\r' 'G:w g1\r' '/line 100000\rdd:w g2\r' 'ggx:w g3\r' '5Gyy' 'Gp:w g4\r' 'u:w g5\r'
             ':100002\rdd:w g6\r' 'u:99998,100001s/line/LINE/\r:w g7\r' 'u:set number\r:99999\r' ':q!\r')
     try:
-        r = subprocess.run([args.prg] + HOST_SIZE, cwd=work, input=keys.encode(), stdout=subprocess.PIPE,
+        r = subprocess.run([args.prg], cwd=work, input=keys.encode(), stdout=subprocess.PIPE,
                            stderr=subprocess.DEVNULL, timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
         return 'big', False, [f'  did not finish in {TIMEOUT} s (files in {work})']

@@ -407,19 +407,6 @@ txt {
         return 0
     }
 
-    ; a key typed ahead (the queue's first), or the console's if it has one;
-    ; 0 for none (the host's size question: its answer may be queued
-    ; already)
-    sub poll_once() -> ubyte {
-        ubyte k
-        if key_head != key_tail {
-            k = keys[key_head]
-            key_head = (key_head + 1) & 15
-            return k
-        }
-        return console.poll()
-    }
-
     ; a key back in front of the queue
     sub unget(ubyte k) {
         if (key_head - 1) & 15 == key_tail
