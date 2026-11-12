@@ -36,8 +36,12 @@ pagemem {
     }
     ; the pages bank 1 holds (the page store's tables are this size)
     const ubyte MAX_PAGES = 60
-    ; SCRATCH_SIZE bytes for the page store's buffers (golden RAM, see init)
-    const uword SCRATCH_SIZE = 768
+    ; SCRATCH_SIZE bytes for the page store's buffers (golden RAM, see init):
+    ; 2 * BOUNCE_SIZE + MAX_PAGES + H_IDS + 32 + 2 * STREAM_PAGES (pagestore.p8),
+    ; 540 bytes, not the 768 of the 255-page stores: then a slot fits in golden
+    ; RAM after the key buffers (with 768 it was 8 bytes short, and the only
+    ; slot was the one in main RAM that :set number took)
+    const uword SCRATCH_SIZE = 2 * 128 + MAX_PAGES + 64 + 32 + 2 * 64
     uword scratch = $1300
     const ubyte SLOTS = 4
     const uword HEADER_SIZE = 1024
@@ -87,6 +91,13 @@ pagemem {
             slot_addr[nslots] = start
             start += size
             nslots++
+        }
+        ; with no slot the store hangs: say so when code growth has taken
+        ; the room (one slot is enough; docs/TODO.md, v0.4)
+        if nslots == 0 {
+            platform.stop()
+            txt.print("no room for the page slots\n")
+            sys.exit(1)
         }
         for i in 0 to SLOTS - 1 {
             slot_page[i] = NO_SLOT_PAGE

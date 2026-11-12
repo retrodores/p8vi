@@ -22,14 +22,15 @@ aren't.
   VIC-20 (and 22 columns), X16 (both builds) and p8vi-mega65dma (no room),
   and on the PET (it took 800 bytes of its 3.3 KB of text).  Off in the
   builds whose page slots are in main RAM after the program, found by the
-  v0.4 test run: p8vi-c128x (one slot left: `:e` hung; `:d`/`:y` alone
+  v0.4 test run: p8vi-c128x (no slot left: `:e` hung; `:d`/`:y` alone
   were still too much), p8vi-c64font (its REU slots no longer fit: the
   pages went to main RAM; also 50 bytes short with only `:d`/`:y`) and p8vi-c64reu (without an REU 1 KB of text
   was left, "too big, cut"; it has its own src/p8vi_c64reu.p8 for this),
   as on p8vi-c128reu.  The numbers are 5 digits and a space, so a
   40-column screen has 34 for text.  Still to do:
-  - with one slot the page store hangs instead of saying so: a check in
-    pagemem.init (or at start) would make the next such case plain;
+  - (done) with no slot the page store hung: the C128 page stores now
+    stop with "no room for the page slots" (about 68 bytes), and `make
+    quick` runs `pages` on each page-store build;
   - `:set relativenumber`: the same count without adding `cur_line`;
   - a width that grows with the line count, as vi's (4 to start);
   - rewriting `draw_row`'s number and `number_rows` in assembler, to
@@ -118,10 +119,11 @@ aren't.
   Still to do:
   - check the real keyboard's codes in ISO mode (the test typed raw bytes
     through `-bas`): the cursor keys, DEL, Esc, Ctrl;
-  - the rows after the text could show vi's `~` (EMPTY_ROW is `-`);
   - new texts still get CR endings, where LF may suit ISO better;
-  - PETSCII files show wrong, as there's no `:set ascii` the other way;
-  - put it in `release/`.
+  - PETSCII files show wrong, as there's no `:set ascii` the other way.
+
+  Done: the rows after the text show vi's `~` (platform.init sets
+  EMPTY_ROW, 5 bytes); in `release/` since v0.4.
 - **32-bit text positions** (done for the host; later the Amiga):
   `src/postype.p8` holds what depends on the width (`pos.SIZE`, `pos.NONE`,
   `pos.DIGITS`, `pos.print`, `pos.text`, `pos.parse`, `pos.TEXT_MAX`).  `make host`

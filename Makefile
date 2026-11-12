@@ -534,6 +534,13 @@ size:	$(PROGS) $(FONTPROG)
 	python3 tools/listsize.py build/p8vi-plus4.list --map --memtop 0xfc00
 	python3 tools/listsize.py build/p8vi-vic20.list --map --min-free $(VIC20_MIN_FREE)
 
+# the quick tier, for iterating: the virtual tests, the size checks, then one
+# or two suites per build side by side (tests/quick.py, a few minutes).  the
+# full suites (test-c64 ... test-trs80m4x) before a release.  only some
+# builds: make quick QUICK="c64 c128x" (tests/quick.py --list shows them)
+quick:	$(PROGS) $(FONTPROG) build/oscii.fnt build/p8vi-host build/p8vi-cpmtest.com build/p8vi-trs80test.cmd build/p8vi-trs80m4test.cmd build/p8vi-trs80m4xtest.cmd test size
+	python3 -B tests/quick.py $(QUICK)
+
 # editor tests on a C64 in VICE (x64sc and c1541 in the PATH)
 test-c64:	build/p8vi-c64.prg
 	python3 tests/vice/edtest.py files --prg build/p8vi-c64.prg

@@ -94,6 +94,13 @@ pagemem {
             start += size
             nslots++
         }
+        ; with no slot the store hangs: say so when code growth has taken
+        ; the room (one slot is enough; docs/TODO.md, v0.4)
+        if nslots == 0 {
+            platform.stop()
+            txt.print("no room for the page slots\n")
+            sys.exit(1)
+        }
         for i in 0 to SLOTS - 1 {
             slot_page[i] = NO_SLOT_PAGE
             slot_dirty[i] = false

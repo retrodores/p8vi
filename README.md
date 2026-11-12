@@ -147,6 +147,7 @@ The useful `make` targets are:
 | `make check` | Fast syntax check without compiling                       |
 | `make run`   | Compile for the virtual target and run it                 |
 | `make test` | The text store tests (the same as `make test-gap`) |
+| `make quick` | The quick tier for iterating: `make test`, `make size`, then one or two suites per build side by side (`tests/quick.py`, a few minutes; `make quick QUICK="c64 c128x"` for some builds) |
 | `make test-gap` | Text store tests (gap buffer and page store) on the virtual target |
 | `make test-c64` | Editor command tests on a C64 in VICE (`tests/vice/edtest.py`, ~10 s) |
 | `make test-c64reu` | The same on the C64 REU build (the page store), with and without an REU, and recovery after a reset (`tests/vice/rectest.py`) |
