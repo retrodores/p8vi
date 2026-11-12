@@ -16,6 +16,9 @@ console {
     ; (the editor's rows and columns are ubytes)
     const ubyte MAX_WIDTH = 250
     const ubyte MAX_HEIGHT = 200
+    ; the terminal keeps keys typed while the screen is sent: txt needn't
+    ; ask for them
+    const bool KEEPS_KEYS = true
 
     sub out(ubyte char) {
         %ir {{

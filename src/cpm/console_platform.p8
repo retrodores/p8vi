@@ -8,6 +8,9 @@ console {
     ; are 80 x 24
     const ubyte MAX_WIDTH = 80
     const ubyte MAX_HEIGHT = 24
+    ; (keys typed while the screen is sent: txt asks for them, as some
+    ; consoles lose them, Montezuma's on the TRS-80 Model 4)
+    const bool KEEPS_KEYS = false
 
     ; BDOS function 6: E is the character, or $FF to read a key without
     ; waiting (0 when there is none).  IX and IY are kept, for the

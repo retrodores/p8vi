@@ -33,6 +33,7 @@ TRSTEST = tests/trs80/trstest.py
 TRSRECTEST = tests/trs80/rectest.py
 REUTEST = tests/reu/reutest.py
 QUICKTEST = tests/quick.py
+AMIGATEST = tests/amiga/amigatest.py
 LISTSIZE = tools/listsize.py
 ASMAUDIT = tools/asmaudit.py
 MKFONT = tools/mkfont.py
@@ -347,6 +348,39 @@ emu-cpm:	build/p8vi-cpm.com
 	$(CP) samples/sampsmall.txt $(CPMDIR)/sampsmal.txt
 	$(CP) build/p8vi-cpm.com $(CPMDIR)/p8vi.com
 	cd $(CPMDIR) && tnylpo -s -w p8vi -t vt52
+# the Amiga version (src/p8vi_amiga.p8, src/amiga; amiga500: a 68000 and
+# Kickstart 1.3): the wide core as the host's, its undo records read a byte
+# at a time (--bytewise: a 68000 long must be at an even address), with
+# src/cpm's screen and src/trs80's charset, fastmem and store
+AMIGAWIDE=build/amigawide
+AMIGAWIDE_DIRS=src src/trs80
+PCCARGSAMIGA=-srcdirs "src/wide$(PS)$(AMIGAWIDE)/src$(PS)src/amiga$(PS)src/cpm$(PS)$(AMIGAWIDE)/trs80" -target amiga500 -out build
+amiga: build/p8vi-amiga
+build/p8vi-amiga: src/p8vi_amiga.p8 src/*.p8 src/wide/*.p8 src/amiga/*.p8 src/cpm/*.p8 src/trs80/*.p8 $(ENCODE_COPY)
+	$(PYTHON) $(ENCODE_COPY) --wide $(WIDEMODS) --bytewise $(AMIGAWIDE) $(AMIGAWIDE_DIRS)
+	$(PCC) $(PCCARGSAMIGA) $(AMIGAWIDE)/src/p8vi_amiga.p8
+	$(CP) build/p8vi_amiga $@
+	$(RM) build/p8vi_amiga
+# the test build: it plays the keys in keys.txt first (features.KEYFILE)
+amiga-test: build/p8vi-amigatest
+build/p8vi-amigatest: src/p8vi_amigatest.p8 src/*.p8 src/wide/*.p8 src/amiga/*.p8 src/cpm/*.p8 src/trs80/*.p8 $(ENCODE_COPY)
+	$(PYTHON) $(ENCODE_COPY) --wide $(WIDEMODS) --bytewise $(AMIGAWIDE) $(AMIGAWIDE_DIRS)
+	$(PCC) $(PCCARGSAMIGA) $(AMIGAWIDE)/src/p8vi_amigatest.p8
+	$(CP) build/p8vi_amigatest $@
+	$(RM) build/p8vi_amigatest
+# edtest's file suites on an A500 in Copperline (tests/amiga/amigatest.py:
+# Kickstart 1.3 if it's there, else AROS; about 15 s)
+test-amiga:	build/p8vi-amigatest
+	$(PYTHON) -B $(AMIGATEST)
+
+# p8vi on an A500 in Copperline (Kickstart 1.3 if it's there, else AROS),
+# with the samples in its directory
+emu-amiga:	build/p8vi-amiga
+	$(MD) build/amiga
+	$(CP) build/p8vi-amiga build/amiga/p8vi
+	$(CP) samples/*.txt build/amiga
+	cd build/amiga && copperline --model A500 --run p8vi --run-args sample.txt $(AMIGA_ROM)
+
 # the Amiga port, step 1: the console's keys in raw mode (tests/amiga/
 # keyecho.p8) on an A500 in Copperline, with Kickstart 1.3 if it's there
 # (else Copperline's AROS)
@@ -572,7 +606,7 @@ size:	$(PROGS) $(FONTPROG)
 # or two suites per build side by side (tests/quick.py, a few minutes).  the
 # full suites (test-c64 ... test-trs80m4x) before a release.  only some
 # builds: make quick QUICK="c64 c128x" (tests/quick.py --list shows them)
-quick:	$(PROGS) $(FONTPROG) build/oscii.fnt build/p8vi-host build/p8vi-cpmtest.com build/p8vi-trs80test.cmd build/p8vi-trs80m4test.cmd build/p8vi-trs80m4xtest.cmd test size
+quick:	$(PROGS) $(FONTPROG) build/oscii.fnt build/p8vi-host build/p8vi-cpmtest.com build/p8vi-trs80test.cmd build/p8vi-trs80m4test.cmd build/p8vi-trs80m4xtest.cmd build/p8vi-amigatest test size
 	$(PYTHON) -B $(QUICKTEST) $(QUICK)
 
 # editor tests on a C64 in VICE (x64sc and c1541 in the PATH)

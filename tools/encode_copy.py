@@ -2,7 +2,7 @@
 """Copy Prog8 source directories for a build that compiles them another way
 than they are written, without a preprocessor:
 
-    encode_copy.py [--encoding NAME] [--wide MODULE,...] OUT DIR...
+    encode_copy.py [--encoding NAME] [--wide MODULE,... [--bytewise]] OUT DIR...
 
 Each DIR's *.p8 files are copied to OUT/<the DIR's last name>/.
 
@@ -18,6 +18,12 @@ Each DIR's *.p8 files are copied to OUT/<the DIR's last name>/.
     positions (src/postype.p8; the wide build has its own postype.p8 in a
     source directory before these).  Line numbers stay the same.
 
+--bytewise (with --wide): peekw/pokew become pos.load/pos.store instead,
+    which read and write the 4 bytes one at a time: the 68000 (amiga500)
+    stops with an address error on a long at an odd address, and the gap
+    buffer's undo records put them anywhere (src/wide/postype.p8).  And
+    sys.memset becomes pos.memset (the m68k library's count is a uword).
+
 A copy that would be the same as the one already there is not written
 again, so make sees no change.  Copies whose original has gone are removed.
 
@@ -32,6 +38,8 @@ import re
 HAS_ENCODING = re.compile(r'^\s*%encoding\b', re.MULTILINE)
 WIDE = [(re.compile(r'\buword\b'), 'long'), (re.compile(r'\bpeekw\b'), 'peekl'),
         (re.compile(r'\bpokew\b'), 'pokel')]
+BYTEWISE = [(re.compile(r'\buword\b'), 'long'), (re.compile(r'\bpeekw\b'), 'pos.load'),
+            (re.compile(r'\bpokew\b'), 'pos.store'), (re.compile(r'\bsys\.memset\b'), 'pos.memset')]
 
 
 def convert(text, name, args):
@@ -40,7 +48,7 @@ def convert(text, name, args):
             text += '\n'
         text += f'%encoding {args.encoding}\n'
     if name[:-3] in args.wide:
-        for pattern, new in WIDE:
+        for pattern, new in (BYTEWISE if args.bytewise else WIDE):
             text = pattern.sub(new, text)
     return text
 
@@ -69,6 +77,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('--encoding')
     ap.add_argument('--wide', default='', type=lambda s: set(filter(None, s.split(','))))
+    ap.add_argument('--bytewise', action='store_true')
     ap.add_argument('out')
     ap.add_argument('dirs', nargs='+')
     args = ap.parse_args()

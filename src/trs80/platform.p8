@@ -199,6 +199,7 @@ main {
     const bool DRIVE_SUFFIX = true
     ; (features.PREFIX) what ends a drive or path prefix
     const ubyte PATH_SEP = ':'
+    const ubyte PATH_VOLUME = 0     ; (the Amiga's volume:, a second end of a path prefix)
     ; the drive the DOS opened the last file on (0-7, 255 if unknown)
     sub opened_drive() -> ubyte {
         return diskio.last_drive()

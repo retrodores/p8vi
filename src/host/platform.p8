@@ -244,6 +244,7 @@ main {
     const bool DRIVE_SUFFIX = false
     ; (features.PREFIX) what ends a drive or path prefix
     const ubyte PATH_SEP = '/'
+    const ubyte PATH_VOLUME = 0     ; (the Amiga's volume:, a second end of a path prefix)
     sub opened_drive() -> ubyte {
         return 255
     }

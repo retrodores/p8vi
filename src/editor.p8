@@ -2558,6 +2558,14 @@ main {
     sub prefix_len(str name) -> ubyte {
         ubyte i
         i, void = strings.rfind(name, PATH_SEP)
+        if PATH_VOLUME != 0 {
+            ; (the Amiga: df0:name, work:dir/name) the volume's ':' when
+            ; there's no '/' after it
+            ubyte v
+            v, void = strings.rfind(name, PATH_VOLUME)
+            if v != 255 and (i == 255 or v > i)
+                i = v
+        }
         return i + 1
     }
 

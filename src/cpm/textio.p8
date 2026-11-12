@@ -314,7 +314,7 @@ txt {
     ubyte key_tail
 
     sub poll_key() {
-        if (key_tail + 1) & 15 == key_head
+        if console.KEEPS_KEYS or (key_tail + 1) & 15 == key_head
             return
         ubyte k = console.poll()
         if k != 0 {
@@ -347,18 +347,30 @@ txt {
     ;   ESC [ A B C D      up, down, right, left
     ;   ESC [ H, ESC [ 1~ or 7~   Home (0)
     ;   ESC [ 5~, ESC [ 6~ Page Up, Page Down (Ctrl-B, Ctrl-F)
+    ;   ESC [ T, ESC [ S   (the Amiga's shift up and down) the same
+    ; A sequence is read up to its final byte ($40-$7e): parameter bytes
+    ; (digits ; ?) and intermediate ones (space ...) before it.  One with
+    ; an intermediate byte is dropped (the Amiga's shift left and right,
+    ; CSI SPACE A and @).  (the Amiga's CSI, $9B, is ESC [: get_key)
     sub escape_key() -> ubyte {
         ubyte k = next_key()
         if k == '[' {
             ubyte n = 0
+            bool plain = true
             repeat {
                 k = next_key()
                 if k >= '0' and k <= '9'
                     n = n * 10 + k - '0'
-                else if k != ';'
+                else if k >= $20 and k < $30
+                    plain = false
+                else if k < $20 or k > '?'
                     break
             }
+            if not plain
+                return 0
             when k {
+                'T' -> return main.KEY_CONTROL_B
+                'S' -> return main.KEY_CONTROL_F
                 'A' -> return main.KEY_UP
                 'B' -> return main.KEY_DOWN
                 'C' -> return main.KEY_RIGHT

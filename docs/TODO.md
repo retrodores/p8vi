@@ -437,9 +437,36 @@ and editing then go about as with an REU.
   - Copperline automates it: --run PROG, --type-after, --press-after
     (raw key codes: $4C up, $5F Help ...), --screenshot-after,
     --exit-on-return; a JSON-RPC control server (--control).
-  Next: src/amiga's console (raw mode, keys, out) and diskio (dos.Open
-  ...), the text from exec.AllocMem, `sys.arguments` for the file name,
-  paths with ':' for the safe save; the m68k memset count (above).
+  Step 2 done (2026-11-11): p8vi runs (build/p8vi-amiga, make amiga,
+  make emu-amiga), and edtest's 19 file suites pass on Kickstart 1.3 and
+  AROS (make test-amiga, tests/amiga/amigatest.py: the test build plays
+  keys.txt, Copperline's --run with --exit-on-return, about 15 s).
+  - src/amiga/console_platform.p8: raw mode, keys (WaitForChar, Read),
+    output kept in a buffer and written before waiting for a key, the
+    window's size asked at the start (CSI 0 SPACE q).  txt doesn't ask
+    for keys while it sends the screen when the console keeps them
+    (console.KEEPS_KEYS: each ask is a packet here).
+  - src/amiga/diskio.p8: the library's diskio calls p8vi uses, over
+    dos.library, in the llvm targets' style; src/amiga/strings_platform.p8
+    the m68k strings' missing rfind and append (merged into strings).
+    Both to drop when the compiler's library has them.
+  - The 68000 stops with an address error on a word or long at an odd
+    address: the wide core's undo records put positions anywhere, so
+    the Amiga's copies read and write them a byte at a time
+    (encode_copy.py --bytewise: pos.load, pos.store), and sys.memset
+    becomes pos.memset (the m68k count is a uword).  (msb() of a long
+    is its top byte: pos.store's first version got bits 8-15 wrong,
+    which the zview suite found)
+  - txt.escape_key reads a CSI sequence to its final byte (Help is
+    CSI ? ~, shift left CSI SPACE A); the Amiga's shift up and down
+    (CSI T, CSI S) page.  $9B is ESC [ (get_key).
+  - Paths: PATH_VOLUME ':' (df0:name) ends a prefix too, for the safe
+    save's p8vi.tmp.
+  - The text: the largest free block (exec.AvailMem MEMF_LARGEST) less
+    32 KB, freed at the end.  The file name and -s from sys.arguments.
+  Next: following the window's size (raw events, CSI 12 {, for resizes);
+  the screen suites (Copperline doesn't give the host the screen: the
+  serial port, or its control server's memory reads); try a real A500.
 - **Color Computer 2 and 3** (not started; llvm16 `mc6809-coco`).  Both are
   blocked by the 6809's code size today.  The same program's code is 4.5
   times the Z80's at -O2, mostly from inlining, so p8vi would be over

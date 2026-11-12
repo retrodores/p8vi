@@ -43,6 +43,7 @@ later.
 | `build/p8vi-pet32.prg` | `src/p8vi_pet32.p8` | PET 4032 (32 KB, BASIC 4), with the VIC-20's features and no ASCII or CR LF files: 3.3 KB of text, in progress |
 | `build/p8vi-vic20.prg` | `src/p8vi_vic20.p8` | VIC-20 with 24K or more |
 | `build/p8vi-c64font.prg` | `src/p8vi_c64font.p8` | An experiment: the C64 REU build with a font for ASCII text |
+| `build/p8vi-amiga` | `src/p8vi_amiga.p8` | Amiga (amiga500: a 68000, Kickstart 1.3 or later) in a CLI window, an ANSI terminal: the wide core (32-bit positions), text in the largest free block of memory; `src/amiga` (console, diskio), `make amiga`, `make emu-amiga`, in progress |
 
 The editor itself is `src/editor.p8` (with `charset.p8`,
 `src/<target>/platform.p8` and a text store, `buffer.p8` plus
@@ -165,6 +166,8 @@ The useful `make` targets are:
 | `make test-mega65` | The VICE editor and redraw tests on a MEGA65 in xmega65, through `tools/m65harness.py` (`tests/mega65/edtest.py`, ~3 min) |
 | `make test-mega65dma` | The same on the MEGA65 page store build, with the big-text and font suites, in attic RAM and (as on a Nexys4 board) without it |
 | `make test-mega65-zp` | Which zero page bytes the MEGA65 ROM changes in KERNAL calls (`tests/mega65/zpwatch.p8`) |
+| `make test-amiga` | `tests/vice/edtest.py`'s file suites on an A500 in Copperline, Kickstart 1.3 or AROS (`tests/amiga/amigatest.py`, ~15 s) |
+| `make emu-amiga` | Run the Amiga version in Copperline with `sample.txt` |
 | `make test-mega65-keymap` | Measure which MEGA65 keys give which PETSCII codes (the harness's key table) |
 | `make size` | Memory map and room left below memtop for each build (`tools/listsize.py`) |
 | `make disk` | `build/testgap.d81`: a 1581 disk with the C64 and VIC-20 programs, `oscii.fnt` and the sample files, for `make emu-c64`, `emu-c64reu`, `emu-c64font` and `emu-vic20` (drive 8 is a 1581) |
