@@ -504,7 +504,7 @@ def run_reu_check(args):
     listing = os.path.splitext(args.prg)[0] + '.list'
     try:
         with open(listing, encoding='latin-1') as f:
-            m = re.search(r'^[>.]([0-9a-f]{4})\s+p8v_in_reu\b', f.read(), re.M)
+            m = re.search(r'^[>.]([0-9a-f]{4})\s+(00\s+p8b_pagemem\.)?p8v_in_reu\b', f.read(), re.M)
     except OSError:
         m = None
     if not m:

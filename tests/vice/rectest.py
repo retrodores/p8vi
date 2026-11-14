@@ -42,7 +42,7 @@ def symbol(listing, name):
     for line in open(listing, errors='replace'):
         if re.match(r'^[.>]?[0-9a-f]*\s+p8b_' + block + r'\b', line) or 'p8b_' + block + '\t' in line:
             in_block = True
-        m = re.match(r'^>([0-9a-f]{4})\s+p8v_' + var + r'\s', line)
+        m = re.match(r'^>([0-9a-f]{4})\s+((00\s+)+)?(p8b_.*\.)?p8v_' + var + r'\s', line)
         if in_block and m:
             return int(m.group(1), 16)
         m = re.match(r'^=(\d+)\s+p8v_' + var + r'\s', line)
